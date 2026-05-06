@@ -7,7 +7,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
 import {uploadService, enqueueUpload, enqueueDemoUpload, type UploadFile} from '../services/uploadService';
 import {launchImageLibrary, type ImagePickerResponse} from 'react-native-image-picker';
-import DocumentPicker, {type DocumentPickerResponse} from 'react-native-document-picker';
+import DocumentPicker from 'react-native-document-picker';
 
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';

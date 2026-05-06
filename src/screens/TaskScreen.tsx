@@ -157,7 +157,6 @@ export function TaskScreen() {
         <Text style={styles.title}>任务</Text>
         <Text style={styles.sub}>全局任务流 · 实时状态</Text>
         <Text style={styles.syncText}>{refreshing ? '任务状态同步中…' : '对话指令、附件上传链路与任务看板已同步汇合'}</Text>
-        <Text style={styles.helperText}>对话提交生成的调度单、附件上传链路与原始任务现在会在同一看板里汇合显示。</Text>
       </View>
 
       <ScrollView

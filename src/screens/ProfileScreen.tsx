@@ -52,8 +52,6 @@ function MenuItem({emoji, title, subtitle, accent, onPress, badge}: MenuItemProp
   );
 }
 
-const buildNumber = '1'; // iOS CFBundleVersion — update via CI
-
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const stats = profileStatsMock;
@@ -183,8 +181,8 @@ export function ProfileScreen() {
               <Text style={styles.releaseIcon}>🚀</Text>
             </View>
             <View style={styles.releaseHeaderText}>
-              <Text style={styles.releaseTitle}>AIBrainIM Alpha</Text>
-              <Text style={styles.releaseVersion}>v0.1.0 · Build {buildNumber}</Text>
+              <Text style={styles.releaseTitle}>AIBrainIM</Text>
+              <Text style={styles.releaseVersion}>Alpha 可用版</Text>
             </View>
             <View style={styles.releaseBadge}>
               <Text style={styles.releaseBadgeText}>Alpha</Text>

@@ -76,7 +76,6 @@ export function DashboardScreen() {
 
   const latestDispatch = dispatches[0];
   const latestDispatchMeta = latestDispatch ? DISPATCH_STATUS_META[latestDispatch.status] : null;
-  const urgentConfirmation = confirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
   const latestRunningTask = tasks.find(task => task.state === 'running');
   const focusDescription = latestDispatch
     ? `最新一条 AI 调度当前为「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
@@ -156,9 +155,9 @@ export function DashboardScreen() {
         <View style={styles.heroGlass} />
         <View style={styles.heroBody}>
           <View style={styles.heroText}>
-            <Text style={styles.eyebrow}>AI 协作平台 · 智能体中枢</Text>
-            <Text style={styles.heroTitle}>AI 协作驾驶舱</Text>
-            <Text style={styles.heroSub}>对话 · 任务 · 记忆库 · 知识库 · 附件</Text>
+            <Text style={styles.eyebrow}>钨矿 AI 大脑 · 实时协同</Text>
+            <Text style={styles.heroTitle}>AI 大脑驾驶舱</Text>
+            <Text style={styles.heroSub}>总览 · 对话 · 智能体 · 任务 · 我的</Text>
           </View>
           <View style={styles.livePill}>
             <View style={[styles.liveDot, runtimeMode === 'fallback' && styles.liveDotFallback]} />

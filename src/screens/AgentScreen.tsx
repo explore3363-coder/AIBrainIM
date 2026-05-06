@@ -47,7 +47,7 @@ export function AgentScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>智能体</Text>
         <Text style={styles.sub}>{agents.length} 个 Agent · 实时状态</Text>
-        <Text style={styles.syncText}>{refreshing ? '正在拉取智能体状态…' : '已支持真实 Agent 状态接入，异常时自动回退本地编排视图'}</Text>
+        <Text style={styles.syncText}>{refreshing ? '正在拉取智能体状态…' : '智能体状态实时同步 · 后台任务自动可见'}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>

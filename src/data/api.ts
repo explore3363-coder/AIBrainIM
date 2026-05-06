@@ -12,7 +12,7 @@
  *   3. App polls sessions_list for subagent activity as "live feed"
  */
 
-import type {Agent, Task, ConfirmationItem, RuntimeMode, RuntimeSnapshot} from '../types';
+import type {Agent, Task, ConfirmationItem, RuntimeSnapshot} from '../types';
 import type {AgentStatus, TaskState} from '../types';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
