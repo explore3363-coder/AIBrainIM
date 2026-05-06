@@ -11,6 +11,10 @@ import type {Task, TaskState} from '../types';
 type RootStackParamList = {
   Tabs: undefined;
   Confirmations: undefined;
+  DispatchChain: undefined;
+  Upload: undefined;
+  MemoryStore: undefined;
+  KnowledgeBase: undefined;
 };
 
 const COLUMNS: {label: string; key: TaskState; color: string}[] = [
@@ -27,13 +31,24 @@ const TASK_STATE_LABEL: Record<TaskState, string> = {
   blocked: '待确认',
 };
 
-function TaskCard({task, onConfirmPress}: {task: Task; onConfirmPress?: () => void}) {
+const SOURCE_TYPE_LABEL: Record<string, string> = {
+  chat: '对话',
+  upload: '附件',
+  knowledge: '知识',
+  memory: '记忆',
+  confirmation: '确认',
+  cron: '定时',
+  subagent: '子Agent',
+  fallback: '回退',
+};
+
+function TaskCard({task, onPress}: {task: Task; onPress?: () => void}) {
   const isConfirmation = task.state === 'blocked';
   return (
     <TouchableOpacity
       style={[styles.taskCard, isConfirmation && styles.taskCardBlocked]}
-      activeOpacity={isConfirmation ? 0.7 : 1}
-      onPress={isConfirmation ? onConfirmPress : undefined}
+      activeOpacity={0.8}
+      onPress={onPress}
     >
       <View style={styles.taskTop}>
         <Text style={styles.taskTitle} numberOfLines={2}>{task.title}</Text>
@@ -46,19 +61,24 @@ function TaskCard({task, onConfirmPress}: {task: Task; onConfirmPress?: () => vo
         )}
       </View>
       <Text style={styles.taskId}>#{task.id}</Text>
-      {task.priority && (
-        <View style={[styles.priorityBadge, task.priority === 'P0' && styles.priorityP0]}>
-          <Text style={styles.priorityText}>{task.priority}</Text>
-        </View>
-      )}
+      <View style={styles.metaBadgeRow}>
+        {task.sourceType ? (
+          <View style={styles.sourceBadge}>
+            <Text style={styles.sourceBadgeText}>{SOURCE_TYPE_LABEL[task.sourceType] ?? task.sourceType}</Text>
+          </View>
+        ) : null}
+        {task.priority && (
+          <View style={[styles.priorityBadge, task.priority === 'P0' && styles.priorityP0]}>
+            <Text style={styles.priorityText}>{task.priority}</Text>
+          </View>
+        )}
+      </View>
       <Text style={styles.taskMeta}>👤 {task.owner}</Text>
       <Text style={styles.taskMeta}>⏱ {task.eta} · {TASK_STATE_LABEL[task.state]}</Text>
       {task.sessionKey ? <Text style={styles.taskMeta}>🧷 {task.sessionKey}</Text> : null}
       {task.traceSummary ? <Text style={styles.taskTrace}>{task.traceSummary}</Text> : null}
       <Text style={styles.taskNext}>→ {task.next}</Text>
-      {isConfirmation && (
-        <Text style={styles.tapHint}>👆 点击前往确认</Text>
-      )}
+      <Text style={styles.tapHint}>👆 {isConfirmation ? '点击前往确认' : '点击继续推进'}</Text>
     </TouchableOpacity>
   );
 }
@@ -85,10 +105,10 @@ function sortTasksByPriority(items: Task[]): Task[] {
 }
 
 function KanbanCol({
-  label, items, color, onConfirmPress,
+  label, items, color, onTaskPress,
 }: {
   label: string; items: Task[]; color: string;
-  onConfirmPress?: () => void;
+  onTaskPress: (task: Task) => void;
 }) {
   return (
     <View style={styles.col}>
@@ -99,7 +119,7 @@ function KanbanCol({
         </View>
       </View>
       {items.map(task => (
-        <TaskCard key={task.id} task={task} onConfirmPress={onConfirmPress} />
+        <TaskCard key={task.id} task={task} onPress={() => onTaskPress(task)} />
       ))}
     </View>
   );
@@ -110,6 +130,30 @@ export function TaskScreen() {
   const {tasks, refreshing, refresh} = useAppContext();
 
   const onRefresh = useCallback(() => { refresh(); }, [refresh]);
+
+  const handleTaskPress = useCallback((task: Task) => {
+    if (task.state === 'blocked' || task.sourceType === 'confirmation') {
+      navigation.navigate('Confirmations');
+      return;
+    }
+
+    if (task.sourceType === 'upload') {
+      navigation.navigate('Upload');
+      return;
+    }
+
+    if (task.sourceType === 'memory') {
+      navigation.navigate('MemoryStore');
+      return;
+    }
+
+    if (task.sourceType === 'knowledge') {
+      navigation.navigate('KnowledgeBase');
+      return;
+    }
+
+    navigation.navigate('DispatchChain');
+  }, [navigation]);
 
   const grouped = React.useMemo(() => {
     const g: Record<TaskState, Task[]> = {running: [], todo: [], done: [], blocked: []};
@@ -162,9 +206,9 @@ export function TaskScreen() {
             <Text style={styles.focusEyebrow}>TASK FOCUS</Text>
             <Text style={styles.focusTitle}>先处理最影响闭环的那一条</Text>
           </View>
-          {grouped.blocked.length > 0 ? (
-            <TouchableOpacity style={styles.focusActionBtn} activeOpacity={0.8} onPress={() => navigation.navigate('Confirmations')}>
-              <Text style={styles.focusActionBtnText}>去确认</Text>
+          {topPriorityTask ? (
+            <TouchableOpacity style={styles.focusActionBtn} activeOpacity={0.8} onPress={() => handleTaskPress(topPriorityTask)}>
+              <Text style={styles.focusActionBtnText}>{topPriorityTask.state === 'blocked' ? '去确认' : '继续推进'}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -203,7 +247,7 @@ export function TaskScreen() {
             label={col.label}
             items={grouped[col.key]}
             color={col.color}
-            onConfirmPress={col.key === 'blocked' ? () => navigation.navigate('Confirmations') : undefined}
+            onTaskPress={handleTaskPress}
           />
         ))}
       </ScrollView>
@@ -304,6 +348,15 @@ const styles = StyleSheet.create({
   priorityP0: {backgroundColor: 'rgba(248,113,113,0.15)', borderColor: '#f87171'},
   priorityText: {color: C.primary, fontSize: 10, fontWeight: '800'},
   taskId:    {color: C.primary, fontSize: 10, marginTop: 6, fontWeight: '700'},
+  metaBadgeRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center'},
+  sourceBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148,163,184,0.12)',
+    borderWidth: 1, borderColor: C.borderSubtle,
+  },
+  sourceBadgeText: {color: C.textBody, fontSize: 10, fontWeight: '800'},
   taskMeta:  {color: C.textMuted, fontSize: 11, marginTop: 5},
   taskTrace: {color: C.primary, fontSize: 11, lineHeight: 16, marginTop: 5, fontWeight: '700'},
   taskNext:  {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 5},
