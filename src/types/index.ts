@@ -54,6 +54,17 @@ export interface DispatchRecord {
   status: 'submitted' | 'dispatched' | 'processing' | 'completed' | 'failed';
 }
 
+export type RuntimeMode = 'live' | 'fallback';
+
+export interface RuntimeSnapshot {
+  agents: Agent[];
+  tasks: Task[];
+  runtimeMode: RuntimeMode;
+  runtimeError?: string;
+  lastSyncedAt: number;
+  sessionCount: number;
+}
+
 export interface AIFeedItem {
   id: string;
   agent: string;

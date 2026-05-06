@@ -11,11 +11,10 @@ import React, {
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
 
-import type {Agent, Task, ConfirmationItem, DispatchRecord} from '../types';
+import type {Agent, Task, ConfirmationItem, DispatchRecord, RuntimeMode} from '../types';
 import {agentsMock, tasksMock, confirmationMock} from '../data/mockData';
 import {
-  fetchAgents,
-  fetchTasks,
+  fetchRuntimeSnapshot,
   fetchConfirmations,
   resolveConfirmation,
 } from '../data/api';
@@ -30,6 +29,10 @@ interface AppContextValue {
   uploads: UploadFile[];
   refreshing: boolean;
   pendingConfirmations: number;
+  runtimeMode: RuntimeMode;
+  runtimeError?: string;
+  lastSyncedAt?: number;
+  sessionCount: number;
   refresh: () => void;
   confirmItem: (id: string) => void;
   deferItem: (id: string) => void;
@@ -72,6 +75,10 @@ const AppContext = createContext<AppContextValue>({
   uploads: [],
   refreshing: false,
   pendingConfirmations: confirmationMock.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length,
+  runtimeMode: 'fallback',
+  runtimeError: undefined,
+  lastSyncedAt: undefined,
+  sessionCount: 0,
   refresh: () => {},
   confirmItem: () => {},
   deferItem: () => {},
@@ -88,6 +95,10 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
   const [uploads, setUploads] = useState<UploadFile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('fallback');
+  const [runtimeError, setRuntimeError] = useState<string | undefined>();
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | undefined>();
+  const [sessionCount, setSessionCount] = useState(0);
 
   const pendingConfirmations = useMemo(
     () => confirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length,
@@ -97,13 +108,16 @@ export function AppProvider({children}: {children: ReactNode}) {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [a, t, c] = await Promise.all([
-        fetchAgents(),
-        fetchTasks(),
+      const [snapshot, c] = await Promise.all([
+        fetchRuntimeSnapshot(),
         fetchConfirmations(),
       ]);
-      setAgents(a);
-      setTasks(t);
+      setAgents(snapshot.agents);
+      setTasks(snapshot.tasks);
+      setRuntimeMode(snapshot.runtimeMode);
+      setRuntimeError(snapshot.runtimeError);
+      setLastSyncedAt(snapshot.lastSyncedAt);
+      setSessionCount(snapshot.sessionCount);
       setConfirmations(c);
       setUploads(uploadService.getQueue());
     } finally {
@@ -230,6 +244,10 @@ export function AppProvider({children}: {children: ReactNode}) {
         uploads,
         refreshing,
         pendingConfirmations,
+        runtimeMode,
+        runtimeError,
+        lastSyncedAt,
+        sessionCount,
         refresh,
         confirmItem,
         deferItem,

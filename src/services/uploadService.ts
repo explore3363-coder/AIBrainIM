@@ -2,9 +2,9 @@
  * uploadService.ts — 文件上传服务
  *
  * 设计原则（P1 可用版）：
- * - 前端不写死大小限制
- * - 小文件（< 10 MB）直传
- * - 大文件（≥ 10 MB）分片上传，每片 2 MB
+ * - 前端不写死大小限制；size=0 的文件走默认路径
+ * - 小文件（< 10 MB 且已知大小）直传
+ * - 大文件（≥ 10 MB 或 size=0/unknown）分片上传，每片 2 MB
  * - 断点续传：失败自动重试当前分片，指数退避 + jitter
  * - 重试上限 5 次，超过后标记失败可手动重试
  * - 后台处理队列：Promise 非阻塞，不卡 UI
@@ -230,6 +230,9 @@ async function processUpload(fileId: string): Promise<void> {
   try {
     if (fileEntry.size >= LARGE_FILE_THRESHOLD && fileEntry.size > 0) {
       await _chunkedUpload(state);
+    } else if (fileEntry.size === 0) {
+      // Unknown size: treat as large file to ensure chunking works
+      await _chunkedUpload(state);
     } else {
       await _directUpload(state);
     }
@@ -306,8 +309,9 @@ export function removeFile(id: string): void {
 }
 
 /**
- * Reset a failed upload and retry from the last successful chunk.
- * Implements true resume — only unacknowledged chunks re-upload.
+ * Reset a failed upload and retry.
+ * Clears chunk state so all chunks restart from scratch (simpler and more reliable
+ * for the P1 stage than partial resume).
  */
 export function retryUpload(id: string): void {
   const file = _queue.find(f => f.id === id);
@@ -315,7 +319,41 @@ export function retryUpload(id: string): void {
   file.status = 'queued';
   file.progress = 0;
   file.error = undefined;
+  // Wipe chunk state so nothing is incorrectly skipped on restart
+  _uploadState.delete(id);
   void processUpload(file.id);
+}
+
+// ─── Demo / Testing helpers ────────────────────────────────────────────────────
+
+const DEMO_FILES: Array<{name: string; mimeType: string; size: number; type: UploadType}> = [
+  {name: '矿区实拍照片.jpg',         mimeType: 'image/jpeg',         size: 4_200_000, type: 'image'},
+  {name: '选矿工艺流程图.pdf',        mimeType: 'application/pdf',    size: 1_800_000, type: 'document'},
+  {name: 'AIBrainIM演示视频.mp4',    mimeType: 'video/mp4',           size: 18_700_000, type: 'video'},
+  {name: '矿业政策汇编_2026.zip',    mimeType: 'application/zip',     size: 7_400_000, type: 'archive'},
+  {name: 'XRT传感器数据_长文本.csv',  mimeType: 'text/csv',            size: 0,         type: 'document'},
+];
+
+/**
+ * Add a demo file to the upload queue (for testing without picking real files).
+ * Returns the generated file entry.
+ */
+export function enqueueDemoUpload(index?: number): UploadFile {
+  const demo = DEMO_FILES[index ?? Math.floor(Math.random() * DEMO_FILES.length)];
+  const file: UploadFile = {
+    id: genId(),
+    name: demo.name,
+    uri: `demo://${demo.name}`,
+    type: demo.type,
+    mimeType: demo.mimeType,
+    size: demo.size,
+    status: 'queued',
+    progress: 0,
+    timestamp: new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}),
+  };
+  _queue.push(file);
+  void processUpload(file.id);
+  return file;
 }
 
 // ─── uploadService namespace (backwards-compatible object API) ─────────────────
@@ -326,6 +364,7 @@ export function retryUpload(id: string): void {
  */
 export const uploadService = {
   enqueueUpload,
+  enqueueDemoUpload,
   getQueue,
   getFile,
   clearQueue,

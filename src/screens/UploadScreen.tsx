@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
-import {uploadService, type UploadFile} from '../services/uploadService';
+import {uploadService, enqueueUpload, enqueueDemoUpload, type UploadFile} from '../services/uploadService';
+import {launchImageLibrary, type ImagePickerResponse} from 'react-native-image-picker';
+import DocumentPicker, {type DocumentPickerResponse} from 'react-native-document-picker';
 
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
@@ -58,6 +60,52 @@ export function UploadScreen() {
     setFiles([...uploadService.getQueue()]);
   };
 
+  const handleDemo = () => {
+    enqueueDemoUpload();
+    setFiles([...uploadService.getQueue()]);
+  };
+
+  const handleUpload = () => {
+    Alert.alert(
+      '📎 添加文件',
+      '选择文件来源',
+      [
+        {
+          text: '图片 / 视频',
+          onPress: () => {
+            launchImageLibrary({mediaType: 'mixed', selectionLimit: 0}, (res: ImagePickerResponse) => {
+              if (res.didCancel || res.errorCode) return;
+              (res.assets ?? []).forEach(asset => {
+                if (!asset.uri) return;
+                const name = asset.fileName ?? `file_${Date.now()}`;
+                enqueueUpload(name, asset.uri, asset.type ?? 'application/octet-stream', asset.fileSize ?? 0);
+              });
+              setFiles([...uploadService.getQueue()]);
+            });
+          },
+        },
+        {
+          text: '文档 / 其他',
+          onPress: () => {
+            DocumentPicker.pick({allowMultiSelection: true})
+              .then((results) => {
+                results.forEach(doc => {
+                  if (!doc.uri) return;
+                  enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0);
+                });
+                setFiles([...uploadService.getQueue()]);
+              })
+              .catch((err) => {
+                if (DocumentPicker.isCancel(err)) return;
+                Alert.alert('选择失败', String(err));
+              });
+          },
+        },
+        {text: '取消', style: 'cancel'},
+      ],
+    );
+  };
+
   const handleDelete = (fileId: string) => {
     Alert.alert('删除文件', '确定从上传队列中移除？', [
       {text: '取消', style: 'cancel'},
@@ -79,10 +127,22 @@ export function UploadScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>📤 上传管理</Text>
-        <Text style={styles.sub}>
-          {files.length} 个文件 · {active.length} 上传中 · {failed.length} 失败
-        </Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>📤 上传管理</Text>
+            <Text style={styles.sub}>
+              {files.length} 个文件 · {active.length} 上传中 · {failed.length} 失败
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.demoBtn} activeOpacity={0.8} onPress={handleDemo}>
+              <Text style={styles.demoBtnText}>🎲 Demo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.uploadBtn} activeOpacity={0.8} onPress={handleUpload}>
+              <Text style={styles.uploadBtnText}>+ 上传</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -207,6 +267,19 @@ export function UploadScreen() {
 const styles = StyleSheet.create({
   root:       {flex: 1, backgroundColor: C.bgRoot},
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
+  headerRow:  {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  headerActions:{flexDirection: 'row', gap: 8, alignItems: 'center'},
+  demoBtn:    {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: 'rgba(129,140,248,0.12)',
+    borderWidth: 1, borderColor: 'rgba(129,140,248,0.35)',
+  },
+  demoBtnText: {color: '#818cf8', fontWeight: '900', fontSize: 13},
+  uploadBtn:  {
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999,
+    backgroundColor: C.primary,
+  },
+  uploadBtnText:{color: C.bgRoot, fontWeight: '900', fontSize: 14},
   title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
   sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
   content:    {padding: 16, paddingBottom: 100},

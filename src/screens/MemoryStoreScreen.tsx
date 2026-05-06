@@ -1,9 +1,10 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
+import {useAppContext} from '../context/AppContext';
 
 // ─── Mock Memory Entries ─────────────────────────────────────────────────────
 interface MemoryEntry {
@@ -37,10 +38,63 @@ type FilterKey = typeof CATEGORY_FILTER[number];
 
 export function MemoryStoreScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('全部');
+  const {dispatches, tasks, uploads, confirmations} = useAppContext();
+
+  const dynamicEntries = useMemo<MemoryEntry[]>(() => {
+    const items: MemoryEntry[] = [];
+
+    const latestDispatch = dispatches[0];
+    if (latestDispatch) {
+      items.push({
+        id: `dispatch-${latestDispatch.id}`,
+        category: latestDispatch.status === 'failed' ? 'rule' : 'decision',
+        content: `最新调度单状态为「${latestDispatch.status}」：${latestDispatch.userText}`,
+        agent: '助理',
+        timestamp: new Date(latestDispatch.createdAt).toLocaleDateString('zh-CN'),
+      });
+    }
+
+    const runningTask = tasks.find(task => task.state === 'running');
+    if (runningTask) {
+      items.push({
+        id: `task-${runningTask.id}`,
+        category: 'fact',
+        content: `当前最活跃任务是「${runningTask.title}」，下一步：${runningTask.next}`,
+        agent: runningTask.owner,
+        timestamp: new Date().toLocaleDateString('zh-CN'),
+      });
+    }
+
+    const activeUpload = uploads.find(file => file.status === 'uploading' || file.status === 'processing' || file.status === 'dispatched');
+    if (activeUpload) {
+      items.push({
+        id: `upload-${activeUpload.id}`,
+        category: 'decision',
+        content: `附件链路已激活：${activeUpload.name} 当前处于「${activeUpload.status}」状态，前端上传闭环有效。`,
+        agent: activeUpload.agent ?? '附件队列',
+        timestamp: new Date().toLocaleDateString('zh-CN'),
+      });
+    }
+
+    const pendingConfirmation = confirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
+    if (pendingConfirmation) {
+      items.push({
+        id: `confirmation-${pendingConfirmation.id}`,
+        category: 'rule',
+        content: `仍有需确认项待处理：${pendingConfirmation.title}。产品层保留“需确认项”作为闭环中的人工决策入口。`,
+        agent: pendingConfirmation.agent,
+        timestamp: new Date().toLocaleDateString('zh-CN'),
+      });
+    }
+
+    return items;
+  }, [confirmations, dispatches, tasks, uploads]);
+
+  const mergedEntries = useMemo(() => [...dynamicEntries, ...MEMORY_ENTRIES], [dynamicEntries]);
 
   const filtered = activeFilter === '全部'
-    ? MEMORY_ENTRIES
-    : MEMORY_ENTRIES.filter(e => {
+    ? mergedEntries
+    : mergedEntries.filter(e => {
         const map: Record<string, MemoryEntry['category']> = {
           '偏好': 'preference', '决策': 'decision', '事实': 'fact', '规则': 'rule',
         };
@@ -51,7 +105,8 @@ export function MemoryStoreScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>🧠 记忆库</Text>
-        <Text style={styles.sub}>长期 + 短期记忆 · {MEMORY_ENTRIES.length} 条</Text>
+        <Text style={styles.sub}>长期 + 短期记忆 · {mergedEntries.length} 条</Text>
+        <Text style={styles.helper}>已接入实时上下文：最新调度、活跃任务、附件链路、待确认决策会自动汇入这里。</Text>
       </View>
 
       {/* Filter chips */}
@@ -99,6 +154,7 @@ const styles = StyleSheet.create({
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
   title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
   sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
+  helper:     {color: C.primary, fontSize: 11, marginTop: 8, lineHeight: 16},
   filterRow:  {paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row'},
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,

@@ -12,7 +12,7 @@
  *   3. App polls sessions_list for subagent activity as "live feed"
  */
 
-import type {Agent, Task, ConfirmationItem} from '../types';
+import type {Agent, Task, ConfirmationItem, RuntimeMode, RuntimeSnapshot} from '../types';
 import type {AgentStatus, TaskState} from '../types';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -213,28 +213,43 @@ const FALLBACK_TASKS: Task[] = [
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-export async function fetchAgents(): Promise<Agent[]> {
+export async function fetchRuntimeSnapshot(): Promise<RuntimeSnapshot> {
   try {
     const result = await gatewayInvoke('sessions_list', 'json', {});
     const sessions = parseSessionsList(result);
     const agents = sessionsToAgents(sessions);
-    return agents.length > 0 ? agents : FALLBACK_AGENTS;
+    const tasks = sessionsToTasks(sessions);
+
+    return {
+      agents: agents.length > 0 ? agents : FALLBACK_AGENTS,
+      tasks: tasks.length > 0 ? tasks : FALLBACK_TASKS,
+      runtimeMode: 'live',
+      runtimeError: undefined,
+      lastSyncedAt: Date.now(),
+      sessionCount: sessions.length,
+    };
   } catch (e) {
-    console.warn('[api] fetchAgents failed, fallback:', e);
-    return FALLBACK_AGENTS;
+    const message = e instanceof Error ? e.message : String(e);
+    console.warn('[api] fetchRuntimeSnapshot failed, fallback:', e);
+    return {
+      agents: FALLBACK_AGENTS,
+      tasks: FALLBACK_TASKS,
+      runtimeMode: 'fallback',
+      runtimeError: message,
+      lastSyncedAt: Date.now(),
+      sessionCount: 0,
+    };
   }
 }
 
+export async function fetchAgents(): Promise<Agent[]> {
+  const snapshot = await fetchRuntimeSnapshot();
+  return snapshot.agents;
+}
+
 export async function fetchTasks(): Promise<Task[]> {
-  try {
-    const result = await gatewayInvoke('sessions_list', 'json', {});
-    const sessions = parseSessionsList(result);
-    const tasks = sessionsToTasks(sessions);
-    return tasks.length > 0 ? tasks : FALLBACK_TASKS;
-  } catch (e) {
-    console.warn('[api] fetchTasks failed, fallback:', e);
-    return FALLBACK_TASKS;
-  }
+  const snapshot = await fetchRuntimeSnapshot();
+  return snapshot.tasks;
 }
 
 export async function fetchConfirmations(): Promise<ConfirmationItem[]> {

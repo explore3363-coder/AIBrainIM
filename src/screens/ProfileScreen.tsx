@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {
   ScrollView,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Linking,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -55,23 +54,16 @@ function MenuItem({emoji, title, subtitle, accent, onPress, badge}: MenuItemProp
 
 const buildNumber = '1'; // iOS CFBundleVersion — update via CI
 
-function AppVersionTag({version, build}: {version: string; build: string}) {
-  return (
-    <View style={styles.versionTag}>
-      <Text style={styles.versionText}>{version}</Text>
-      <View style={styles.versionSep} />
-      <Text style={styles.buildText}>Build {build}</Text>
-    </View>
-  );
-}
-
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const stats = profileStatsMock;
-  const {uploads} = useAppContext();
+  const {uploads, runtimeMode, runtimeError, lastSyncedAt, sessionCount, pendingConfirmations} = useAppContext();
   const activeUploads = uploads.filter(
     f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
   ).length;
+  const runtimeSummary = runtimeMode === 'live'
+    ? `已连接 OpenClaw Gateway · ${sessionCount} 个会话 · 最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
+    : `当前处于本地回退模式${runtimeError ? ` · ${runtimeError}` : ''}`;
 
   const handleJoinTestFlight = () => {
     // Replace with actual TestFlight public link from App Store Connect
@@ -254,7 +246,7 @@ export function ProfileScreen() {
             subtitle="待你决策的任务与问题"
             accent="#f87171"
             onPress={() => navigation.navigate('Confirmations')}
-            badge="3"
+            badge={pendingConfirmations > 0 ? String(pendingConfirmations) : undefined}
           />
           <MenuItem
             emoji="📤"
@@ -274,9 +266,10 @@ export function ProfileScreen() {
           <MenuItem
             emoji="🌐"
             title="OpenClaw 状态"
-            subtitle="AI Gateway 在线 · 调度链活跃 · 等待指令"
-            accent={C.primary}
+            subtitle={runtimeSummary}
+            accent={runtimeMode === 'live' ? C.primary : '#f97316'}
             onPress={() => {}}
+            badge={runtimeMode === 'live' ? 'LIVE' : 'FALLBACK'}
           />
           <MenuItem
             emoji="📊"

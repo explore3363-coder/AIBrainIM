@@ -54,7 +54,20 @@ const DISPATCH_STATUS_META = {
 
 export function DashboardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {agents, tasks, confirmations, dispatches, uploads, pendingConfirmations, refreshing, refresh} = useAppContext();
+  const {
+    agents,
+    tasks,
+    confirmations,
+    dispatches,
+    uploads,
+    pendingConfirmations,
+    refreshing,
+    refresh,
+    runtimeMode,
+    runtimeError,
+    lastSyncedAt,
+    sessionCount,
+  } = useAppContext();
 
   const activeCount  = useMemo(() => agents.filter(a => a.status === 'online' || a.status === 'working').length, [agents]);
   const runningCount = useMemo(() => tasks.filter(t => t.state === 'running').length, [tasks]);
@@ -70,6 +83,12 @@ export function DashboardScreen() {
     : latestRunningTask
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
       : '当前没有新的调度单压进来，可以优先处理需确认项并继续补齐真实接口闭环。';
+  const runtimeSourceText = runtimeMode === 'live' ? `已连接 OpenClaw · ${sessionCount} 个会话` : '本地回退数据';
+  const runtimeStatusText = runtimeMode === 'live'
+    ? `最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
+    : runtimeError
+      ? `回退原因：${runtimeError}`
+      : '网关不可用时自动回退';
 
   const liveFeed = useMemo<AIFeedItem[]>(() => {
     const dispatchFeed = dispatches.slice(0, 4).map((item, index) => ({
@@ -142,8 +161,10 @@ export function DashboardScreen() {
             <Text style={styles.heroSub}>对话 · 任务 · 记忆库 · 知识库 · 附件</Text>
           </View>
           <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>在线</Text>
+            <View style={[styles.liveDot, runtimeMode === 'fallback' && styles.liveDotFallback]} />
+            <Text style={[styles.liveText, runtimeMode === 'fallback' && styles.liveTextFallback]}>
+              {runtimeMode === 'live' ? '真实在线' : '回退模式'}
+            </Text>
           </View>
         </View>
         <View style={styles.cornerAccent} />
@@ -186,12 +207,17 @@ export function DashboardScreen() {
       <View style={styles.liveStatusBar}>
         <View style={styles.liveStatusItem}>
           <Text style={styles.liveStatusLabel}>数据源</Text>
-          <Text style={styles.liveStatusValue}>{refreshing ? '同步中' : '实时运行中'}</Text>
+          <Text style={styles.liveStatusValue}>{refreshing ? '同步中' : runtimeSourceText}</Text>
         </View>
         <View style={styles.liveStatusDivider} />
         <View style={styles.liveStatusItem}>
           <Text style={styles.liveStatusLabel}>当前闭环</Text>
           <Text style={styles.liveStatusValue}>{latestDispatchMeta ? `总览 / 对话 / 智能体 / 任务 / 确认流 · ${latestDispatchMeta.label}` : '总览 / 对话 / 智能体 / 任务 / 确认流'}</Text>
+        </View>
+        <View style={styles.liveStatusDivider} />
+        <View style={styles.liveStatusItem}>
+          <Text style={styles.liveStatusLabel}>运行状态</Text>
+          <Text style={styles.liveStatusValue}>{runtimeStatusText}</Text>
         </View>
       </View>
       <View style={styles.feedList}>
@@ -315,7 +341,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.accent,
   },
   liveDot: {width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent, marginRight: 6},
+  liveDotFallback: {backgroundColor: '#f97316'},
   liveText: {color: C.accent, fontSize: 11, fontWeight: '800'},
+  liveTextFallback: {color: '#f97316'},
   cornerAccent: {
     position: 'absolute', bottom: -1, right: -1,
     width: 48, height: 48, borderTopLeftRadius: BR,

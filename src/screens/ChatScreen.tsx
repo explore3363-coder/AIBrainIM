@@ -59,7 +59,7 @@ const AGENT_NAMES: Record<string, string> = {
 
 export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {dispatches, registerDispatch, markLatestDispatchActive, finalizeLatestDispatch} = useAppContext();
+  const {dispatches, registerDispatch, markLatestDispatchActive, finalizeLatestDispatch, runtimeMode, runtimeError} = useAppContext();
   const [draft, setDraft]   = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -309,6 +309,13 @@ export function ChatScreen() {
             <Text style={styles.entryChipText}>调度链</Text>
           </TouchableOpacity>
         </View>
+        {runtimeMode === 'fallback' && (
+          <View style={styles.gatewayBanner}>
+            <Text style={styles.gatewayBannerText}>
+              ⚠️ Gateway 不可用 · 消息暂存本地 · {runtimeError ? `原因：${runtimeError}` : '检查网络后自动重连'}
+            </Text>
+          </View>
+        )}
       </View>
 
       <KeyboardAvoidingView
@@ -452,6 +459,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.borderActive,
   },
   entryChipText: {color: C.primary, fontSize: 12, fontWeight: '800'},
+  gatewayBanner: {
+    marginTop: 10,
+    paddingHorizontal: 10, paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: 'rgba(248,113,113,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.3)',
+  },
+  gatewayBannerText: {color: '#f87171', fontSize: 11, fontWeight: '700'},
   chatContent:  {padding: 16, paddingBottom: 16},
 
   msgIn: {

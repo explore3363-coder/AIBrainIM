@@ -1,9 +1,10 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
+import {useAppContext} from '../context/AppContext';
 
 // ─── Mock Knowledge Docs ──────────────────────────────────────────────────────
 interface KBDoc {
@@ -37,10 +38,61 @@ type FilterCat = typeof FILTER_CATS[number];
 
 export function KnowledgeBaseScreen() {
   const [activeCat, setActiveCat] = useState<FilterCat>('全部');
+  const {agents, tasks, uploads, dispatches} = useAppContext();
+
+  const runtimeDocs = useMemo<KBDoc[]>(() => {
+    const docs: KBDoc[] = [];
+
+    const activeAgentCount = agents.filter(agent => agent.status === 'online' || agent.status === 'working').length;
+    docs.push({
+      id: 'runtime-agents',
+      category: 'technical',
+      title: '当前 Agent Runtime 在线态势',
+      summary: `${activeAgentCount}/${agents.length} 个 Agent 当前在线或工作中，移动端已经能消费实时智能体状态。`,
+      updatedAt: new Date().toLocaleDateString('zh-CN'),
+    });
+
+    const currentTask = tasks.find(task => task.state === 'running' || task.state === 'todo');
+    if (currentTask) {
+      docs.push({
+        id: `runtime-task-${currentTask.id}`,
+        category: currentTask.owner.includes('黑金') || currentTask.owner.includes('开发') ? 'engineering' : 'technical',
+        title: `当前任务链路：${currentTask.title}`,
+        summary: `负责人：${currentTask.owner}；下一步：${currentTask.next}；状态：${currentTask.state}`,
+        updatedAt: new Date().toLocaleDateString('zh-CN'),
+      });
+    }
+
+    const uploadDoc = uploads.find(file => file.status === 'processing' || file.status === 'dispatched' || file.status === 'done');
+    if (uploadDoc) {
+      docs.push({
+        id: `runtime-upload-${uploadDoc.id}`,
+        category: 'engineering',
+        title: '附件处理闭环样本',
+        summary: `附件「${uploadDoc.name}」已走到「${uploadDoc.status}」阶段，说明上传 → 处理 → 分派链路已经接通。`,
+        updatedAt: new Date().toLocaleDateString('zh-CN'),
+      });
+    }
+
+    const latestDispatch = dispatches[0];
+    if (latestDispatch) {
+      docs.push({
+        id: `runtime-dispatch-${latestDispatch.id}`,
+        category: 'technical',
+        title: '调度链最新样本',
+        summary: `taskId=${latestDispatch.taskId ?? '未生成'}，dispatchId=${latestDispatch.dispatchId ?? '未生成'}，状态=${latestDispatch.status}。`,
+        updatedAt: new Date().toLocaleDateString('zh-CN'),
+      });
+    }
+
+    return docs;
+  }, [agents, dispatches, tasks, uploads]);
+
+  const mergedDocs = useMemo(() => [...runtimeDocs, ...KB_DOCS], [runtimeDocs]);
 
   const filtered = activeCat === '全部'
-    ? KB_DOCS
-    : KB_DOCS.filter(d => {
+    ? mergedDocs
+    : mergedDocs.filter(d => {
         const map: Record<string, KBDoc['category']> = {
           '矿业':'mining', '工程':'engineering', '技术':'technical', '政策':'policy',
         };
@@ -51,7 +103,8 @@ export function KnowledgeBaseScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>📖 知识库</Text>
-        <Text style={styles.sub}>{KB_DOCS.length} 篇文档 · 向量检索可用</Text>
+        <Text style={styles.sub}>{mergedDocs.length} 篇文档 · 全文入口已贯通</Text>
+        <Text style={styles.helper}>运行态知识已汇入这里：实时 Agent 状态、任务链路、附件闭环与最新调度单会自动生成样本。</Text>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -101,6 +154,7 @@ const styles = StyleSheet.create({
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
   title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
   sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
+  helper:     {color: C.primary, fontSize: 11, marginTop: 8, lineHeight: 16},
   filterRow:  {paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row'},
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
