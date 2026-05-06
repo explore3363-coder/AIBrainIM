@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**判定：可提测（代码侧）**（2026-05-07 本轮更新）
+**判定：可提测（代码侧）**（2026-05-07 更新：App Icon 已到位）
 
 代码侧 P1 可用版已基本收口：
 - ✅ ChatScreen typing indicator bug（handleSend 异常时状态卡住）已修复
@@ -35,7 +35,7 @@
 | ⏳ | 至少完成一轮 LIVE 网关闭环验证 | Gateway 连通性待真实环境验证 |
 | ⏳ | 需确认项清零或压到可解释范围 | 3 条 pending，需人工拍板 |
 | 🔲 | Apple Developer 账号 + App Store Connect 配置 | 待开始 |
-| 🔲 | App Icon（1024×1024）+ 截图（6.7"/6.5"/5.5"） | 待准备 |
+| 🔲 | 截图（6.7\"/6.5\"/5.5"） | 待准备 |
 | 🔲 | 第一个 TestFlight Build 上传 | 待触发 |
 
 ---
@@ -51,7 +51,7 @@
 1. 登录 [App Store Connect](https://appstoreconnect.apple.com)
 2. **我的 App → + 新建 App**
    - 平台：iOS
-   - 名称：**钨矿AI大脑**（或 AIBrainIM）
+   - 名称：**AI协作平台**
    - 主要语言：**简体中文**
    - 套装 ID（Bundle ID）：`com.openclaw.aibrainim`
    - SKU：`AIBrainIM-Alpha`
@@ -63,7 +63,7 @@
 
 | 物料 | 规格 | 状态 |
 |------|------|------|
-| App Icon | 1024×1024 PNG（App Store 用） | 🔲 待准备 |
+| App Icon | 1024×1024 PNG（App Store 用） | ✅ 已备好 |
 | iPhone 截图 6.7" | 1290×2796 px | 🔲 待准备 |
 | iPhone 截图 6.5" | 1284×2778 px | 🔲 待准备 |
 | iPhone 截图 5.5" | 1242×2208 px | 🔲 待准备 |

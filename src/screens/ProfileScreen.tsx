@@ -157,7 +157,7 @@ export function ProfileScreen() {
     return [
       {done: false, label: 'Apple Developer 账号与 Team ID'},
       {done: false, label: 'App Store Connect App 记录'},
-      {done: false, label: '1024×1024 App Icon'},
+      {done: true,  label: '1024×1024 App Icon'},
       {done: false, label: 'iPhone 6.7" / 6.5" / 5.5" 截图'},
       {done: false, label: '隐私信息 / 年龄分级 / 支持链接'},
       {done: false, label: '第一个 TestFlight Build 上传'},
