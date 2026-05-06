@@ -22,7 +22,7 @@ import DocumentPicker, {
   type DocumentPickerResponse,
 } from 'react-native-document-picker';
 import {C} from '../data/mockData';
-import {sendMessage, pollForActivity} from '../data/api';
+import {sendMessage} from '../data/api';
 import {enqueueUpload, uploadService} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
@@ -52,14 +52,9 @@ type RootStackParamList = {
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
 
-const AGENT_NAMES: Record<string, string> = {
-  zhuli:'助理', renzhi:'认知中枢', xunlong:'寻龙', wuyin:'无垠',
-  tansuo:'探索', zhilian:'智联', heijin:'黑金', kaifa:'开发',
-};
-
 export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {dispatches, registerDispatch, markLatestDispatchActive, finalizeLatestDispatch, runtimeMode, runtimeError} = useAppContext();
+  const {dispatches, registerDispatch, runtimeMode, runtimeError} = useAppContext();
   const [draft, setDraft]   = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -67,65 +62,40 @@ export function ChatScreen() {
   ]);
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
   const scrollRef   = useRef<ScrollView>(null);
-  const pollRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSentRef = useRef<number>(0);
+  const lastDispatchIdRef = useRef<string | undefined>(undefined);
 
-
-  // Cleanup polling on unmount
   useEffect(() => {
-    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
-  }, []);
+    const latest = dispatches[0];
+    if (!latest || latest.id === lastDispatchIdRef.current) {
+      return;
+    }
 
-  // Start polling for AI activity after message is sent
-  const startPolling = useCallback((sentAt: number) => {
-    let attempts = 0;
-    const MAX = 60; // 3 min at 3 s intervals
-    let hasAnnouncedActive = false;
+    lastDispatchIdRef.current = latest.id;
 
-    const tick = async () => {
-      if (attempts >= MAX) {
-        finalizeLatestDispatch({
-          status: 'completed',
-          reply: '⏱ 当前未继续收到新的执行心跳，先按已提交完成收口，你也可以去「调度链」继续查看。',
-          eta: '等待回看',
-          next: '如有后续结果，会继续同步到调度链与任务流',
-        });
-        return;
+    const statusText =
+      latest.status === 'completed' ? '已完成'
+      : latest.status === 'failed' ? '执行失败'
+      : latest.status === 'dispatched' ? '执行中'
+      : latest.status === 'processing' ? '处理中'
+      : '已提交';
+
+    const detail = latest.taskId
+      ? `taskId=${latest.taskId}${latest.dispatchId ? ` · dispatchId=${latest.dispatchId}` : ''}`
+      : latest.dispatchId
+        ? `dispatchId=${latest.dispatchId}`
+        : '等待后端继续回填';
+
+    setMessages(messagesNow => {
+      const text = `🛰 调度状态更新：${statusText} · ${detail}`;
+      const alreadyExists = messagesNow.some(msg => msg.role === 'in' && msg.text === text);
+      if (alreadyExists) {
+        return messagesNow;
       }
-      attempts++;
-      const res = await pollForActivity(sentAt);
-      if (res.active) {
-        const name = AGENT_NAMES[res.agentId ?? ''] ?? res.agentId ?? 'AI';
-        const label = res.label ? ` [${res.label}]` : '';
+      return [...messagesNow, {role: 'in', name: '助理', text}];
+    });
 
-        if (!hasAnnouncedActive) {
-          hasAnnouncedActive = true;
-          setMessages(m => [
-            ...m,
-            {role: 'in', name: '助理', text: `✓ 检测到${name}开始处理任务${label}，详见「智能体」页。`},
-          ]);
-          markLatestDispatchActive(res.label, res.agentId, res.sessionKey);
-          setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
-        }
-
-        if (res.status === 'done') {
-          const doneText = `✓ ${name}${label} 已完成本轮执行，任务状态已自动回填。`;
-          setMessages(m => [...m, {role: 'in', name: '助理', text: doneText}]);
-          finalizeLatestDispatch({
-            status: 'completed',
-            reply: doneText,
-            eta: '已完成',
-            next: '结果已回流到任务流与调度链',
-          });
-          setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
-          return;
-        }
-      }
-      pollRef.current = setTimeout(tick, 3000);
-    };
-
-    pollRef.current = setTimeout(tick, 3000);
-  }, [finalizeLatestDispatch, markLatestDispatchActive]);
+    setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
+  }, [dispatches]);
 
   // Sync attachment previews from upload queue
   const syncAttachments = useCallback(() => {
@@ -262,13 +232,9 @@ export function ChatScreen() {
   const handleSend = useCallback(async () => {
     if (!draft.trim() || sending) return;
     const userText = draft.trim();
-    const sentAt   = Date.now();
-    lastSentRef.current = sentAt;
-
     setMessages(m => [...m, {role: 'out', text: userText}]);
     setDraft('');
     setSending(true);
-    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
 
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
 
@@ -287,8 +253,7 @@ export function ChatScreen() {
     setSending(false);
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
 
-    if (sent) startPolling(sentAt);
-  }, [draft, sending, startPolling]);
+  }, [draft, sending, registerDispatch]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>

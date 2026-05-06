@@ -17,6 +17,7 @@ import {
   fetchRuntimeSnapshot,
   fetchConfirmations,
   resolveConfirmation,
+  pollForActivity,
 } from '../data/api';
 import {uploadService, type UploadFile} from '../services/uploadService';
 
@@ -99,6 +100,8 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [runtimeError, setRuntimeError] = useState<string | undefined>();
   const [lastSyncedAt, setLastSyncedAt] = useState<number | undefined>();
   const [sessionCount, setSessionCount] = useState(0);
+
+  const latestDispatch = dispatches[0];
 
   const pendingConfirmations = useMemo(
     () => confirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length,
@@ -233,6 +236,51 @@ export function AppProvider({children}: {children: ReactNode}) {
     }, 1200);
     return () => clearInterval(poll);
   }, []);
+
+  useEffect(() => {
+    if (IS_TEST_ENV) {
+      return;
+    }
+
+    if (!latestDispatch || latestDispatch.status === 'completed' || latestDispatch.status === 'failed') {
+      return;
+    }
+
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const activity = await pollForActivity(latestDispatch.createdAt);
+        if (cancelled || !activity.active) {
+          return;
+        }
+
+        if (activity.status === 'done') {
+          finalizeLatestDispatch({
+            status: 'completed',
+            reply: `✓ ${(activity.agentId ?? 'AI')} ${activity.label ? `[${activity.label}] ` : ''}已完成本轮执行，结果已自动回填。`,
+            eta: '已完成',
+            next: '结果已同步到任务流、调度链与首页 AI 产出流',
+          });
+          return;
+        }
+
+        markLatestDispatchActive(activity.label, activity.agentId, activity.sessionKey);
+      } catch {
+        // Ignore transient polling errors; keep local loop alive.
+      }
+    };
+
+    void tick();
+    const poll = setInterval(() => {
+      void tick();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
+  }, [latestDispatch, finalizeLatestDispatch, markLatestDispatchActive]);
 
   return (
     <AppContext.Provider

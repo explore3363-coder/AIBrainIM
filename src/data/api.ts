@@ -36,7 +36,7 @@ interface GatewayResponse {
   error?: {type: string; message: string};
 }
 
-async function gatewayInvoke(
+export async function gatewayInvoke(
   tool: string, action: string, args: Record<string, unknown> = {},
 ): Promise<unknown> {
   const ctrl = new AbortController();

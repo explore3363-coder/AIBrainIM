@@ -89,6 +89,27 @@ function uploadToTask(upload: UploadFile): Task {
   };
 }
 
+function sortTasksByPriority(items: Task[]): Task[] {
+  const priorityRank: Record<string, number> = {P0: 0, P1: 1, P2: 2};
+  const stateRank: Record<TaskState, number> = {running: 0, todo: 1, blocked: 2, done: 3};
+
+  return [...items].sort((a, b) => {
+    const pa = priorityRank[a.priority ?? 'P2'] ?? 9;
+    const pb = priorityRank[b.priority ?? 'P2'] ?? 9;
+    if (pa !== pb) {
+      return pa - pb;
+    }
+
+    const sa = stateRank[a.state] ?? 9;
+    const sb = stateRank[b.state] ?? 9;
+    if (sa !== sb) {
+      return sa - sb;
+    }
+
+    return a.title.localeCompare(b.title, 'zh-CN');
+  });
+}
+
 function KanbanCol({
   label, items, color, onConfirmPress,
 }: {
@@ -122,7 +143,12 @@ export function TaskScreen() {
   const grouped = useMemo(() => {
     const g: Record<TaskState, Task[]> = {running: [], todo: [], done: [], blocked: []};
     mergedTasks.forEach(t => g[t.state].push(t));
-    return g;
+    return {
+      running: sortTasksByPriority(g.running),
+      todo: sortTasksByPriority(g.todo),
+      done: sortTasksByPriority(g.done),
+      blocked: sortTasksByPriority(g.blocked),
+    };
   }, [mergedTasks]);
 
   return (

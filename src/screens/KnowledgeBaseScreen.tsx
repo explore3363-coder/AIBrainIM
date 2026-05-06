@@ -1,6 +1,7 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useState, useCallback} from 'react';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
@@ -36,8 +37,20 @@ const CAT_META: Record<KBDoc['category'], {emoji: string; label: string; color: 
 const FILTER_CATS = ['全部', '矿业', '工程', '技术', '政策'] as const;
 type FilterCat = typeof FILTER_CATS[number];
 
+function localDocSearch(query: string, docs: KBDoc[]): KBDoc[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return docs;
+  return docs.filter(d =>
+    d.title.toLowerCase().includes(q) ||
+    d.summary.toLowerCase().includes(q) ||
+    d.category.toLowerCase().includes(q),
+  );
+}
+
 export function KnowledgeBaseScreen() {
   const [activeCat, setActiveCat] = useState<FilterCat>('全部');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<KBDoc[] | null>(null);
   const {agents, tasks, uploads, dispatches} = useAppContext();
 
   const runtimeDocs = useMemo<KBDoc[]>(() => {
@@ -90,21 +103,52 @@ export function KnowledgeBaseScreen() {
 
   const mergedDocs = useMemo(() => [...runtimeDocs, ...KB_DOCS], [runtimeDocs]);
 
-  const filtered = activeCat === '全部'
-    ? mergedDocs
-    : mergedDocs.filter(d => {
-        const map: Record<string, KBDoc['category']> = {
-          '矿业':'mining', '工程':'engineering', '技术':'technical', '政策':'policy',
-        };
-        return d.category === map[activeCat];
-      });
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    if (!q.trim()) { setSearchResults(null); return; }
+    setSearchResults(localDocSearch(q, mergedDocs));
+  }, [mergedDocs]);
+
+  const filtered = useMemo(() => {
+    const source = searchResults !== null ? searchResults : mergedDocs;
+    if (activeCat === '全部') return source;
+    const map: Record<string, KBDoc['category']> = {
+      '矿业':'mining', '工程':'engineering', '技术':'technical', '政策':'policy',
+    };
+    return source.filter(d => d.category === map[activeCat]);
+  }, [activeCat, mergedDocs, searchResults]);
+
+  const displayCount = searchResults !== null ? filtered.length : mergedDocs.length;
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
         <Text style={styles.title}>📖 知识库</Text>
-        <Text style={styles.sub}>{mergedDocs.length} 篇文档 · 全文入口已贯通</Text>
+        <Text style={styles.sub}>{displayCount} 篇文档 · {searchResults ? '搜索结果' : '矿业 + 工程 + 技术 + 政策'}</Text>
         <Text style={styles.helper}>运行态知识已汇入这里：实时 Agent 状态、任务链路、附件闭环与最新调度单会自动生成样本。</Text>
+
+        {/* Search bar */}
+        <View style={styles.searchRow}>
+          <TextInput
+            value={searchQuery}
+            onChangeText={handleSearch}
+            onSubmitEditing={e => handleSearch(e.nativeEvent.text)}
+            placeholder="搜索知识库…"
+            placeholderTextColor={C.textMuted}
+            style={styles.searchInput}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults(null); }}>
+              <Text style={styles.clearBtn}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {searchResults !== null && (
+          <Text style={styles.searchHint}>{filtered.length} 条匹配结果</Text>
+        )}
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -145,16 +189,32 @@ export function KnowledgeBaseScreen() {
         })}
         <View style={styles.footer} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root:       {flex: 1, backgroundColor: C.bgRoot},
+  flex:       {flex: 1},
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
   title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
   sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
   helper:     {color: C.primary, fontSize: 11, marginTop: 8, lineHeight: 16},
+  searchRow:  {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12},
+  searchInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    color: C.textTitle,
+    backgroundColor: 'rgba(5,13,26,0.9)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    fontSize: 14,
+  },
+  clearBtn:   {color: C.textMuted, fontSize: 16, fontWeight: '700', paddingHorizontal: 8},
+  searchHint: {color: C.textMuted, fontSize: 11, marginTop: 6},
   filterRow:  {paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row'},
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,

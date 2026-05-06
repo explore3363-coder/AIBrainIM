@@ -76,16 +76,25 @@ export function DispatchChainScreen() {
           ))}
         </View>
 
-        {dispatches.length > 1 ? (
+        {dispatches.length > 0 ? (
           <View style={styles.historySection}>
             <Text style={styles.historyTitle}>最近调度记录</Text>
-            {dispatches.slice(0, 6).map(item => (
-              <View key={item.id} style={styles.historyCard}>
-                <Text style={styles.historyText} numberOfLines={2}>{item.userText}</Text>
-                <Text style={styles.historyMeta}>taskId={item.taskId ?? '—'} · dispatchId={item.dispatchId ?? '—'}</Text>
-                <Text style={styles.historyMeta}>status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}</Text>
-              </View>
-            ))}
+            {dispatches.slice(0, 6).map(item => {
+              const meta = STATUS_META[item.status];
+              return (
+                <View key={item.id} style={styles.historyCard}>
+                  <View style={styles.historyTop}>
+                    <Text style={styles.historyText} numberOfLines={2}>{item.userText}</Text>
+                    <View style={[styles.historyBadge, {borderColor: meta.accent, backgroundColor: `${meta.accent}22`}]}>
+                      <Text style={[styles.historyBadgeText, {color: meta.accent}]}>{meta.label}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.historyMeta}>taskId={item.taskId ?? '—'} · dispatchId={item.dispatchId ?? '—'}</Text>
+                  <Text style={styles.historyMeta}>status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}</Text>
+                  <Text style={styles.historyReply} numberOfLines={3}>{item.reply}</Text>
+                </View>
+              );
+            })}
           </View>
         ) : null}
       </ScrollView>
@@ -144,6 +153,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  historyText: {color: C.textTitle, fontSize: 13, fontWeight: '800'},
+  historyTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  historyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  historyBadgeText: {fontSize: 10, fontWeight: '900'},
+  historyText: {flex: 1, color: C.textTitle, fontSize: 13, fontWeight: '800'},
   historyMeta: {color: C.textMuted, fontSize: 11, marginTop: 4, lineHeight: 16},
+  historyReply: {color: C.textBody, fontSize: 12, marginTop: 6, lineHeight: 18},
 });
