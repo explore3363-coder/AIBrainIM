@@ -13,6 +13,10 @@ export interface Agent {
   focus: string;
   accent: string;
   current: string;
+  sessionKey?: string;
+  runtimeMs?: number;
+  lastActiveAt?: number;
+  sourceMode?: 'live' | 'fallback';
 }
 
 export interface Task {
@@ -23,6 +27,11 @@ export interface Task {
   eta: string;
   next: string;
   priority?: 'P0' | 'P1' | 'P2';
+  agentId?: string;
+  sessionKey?: string;
+  updatedAt?: number;
+  sourceType?: 'subagent' | 'cron' | 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'fallback';
+  traceSummary?: string;
 }
 
 export interface BrainStore {
@@ -51,7 +60,13 @@ export interface DispatchRecord {
   dispatchId?: string;
   sessionKey?: string;
   createdAt: number;
+  updatedAt?: number;
   status: 'submitted' | 'dispatched' | 'processing' | 'completed' | 'failed';
+  source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system';
+  agentId?: string;
+  label?: string;
+  stageText?: string;
+  error?: string;
 }
 
 export type RuntimeMode = 'live' | 'fallback';
@@ -63,6 +78,22 @@ export interface RuntimeSnapshot {
   runtimeError?: string;
   lastSyncedAt: number;
   sessionCount: number;
+}
+
+export interface GatewaySessionSummary {
+  key?: string;
+  label?: string;
+  status?: string;
+  runtimeMs?: number;
+  startedAt?: number;
+  updatedAt?: number;
+}
+
+export interface GatewayMessageResult {
+  messageId?: string;
+  chatId?: string;
+  threadId?: string;
+  sessionKey?: string;
 }
 
 export interface AIFeedItem {

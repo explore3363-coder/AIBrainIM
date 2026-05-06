@@ -18,6 +18,8 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 
 **待完成（P1 之后）：** 真实 API 接入（Agent/Task/Chat/Upload 四链路替换 mock）
 
+**上线准备参考：** [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)
+
 ---
 
 ## 快速开始
@@ -45,10 +47,13 @@ main push        → GitHub Actions: TypeScript + iOS Simulator Build
 v*.*.* tag push  → GitHub Actions: TestFlight Archive + Upload → App Store Connect
 ```
 
-详见 [DEPLOY.md](./DEPLOY.md)
+详见 [DEPLOY.md](./DEPLOY.md) 与 [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)
 
 ## App Store / TestFlight
 
 Bundle ID: `com.openclaw.aibrainim`
+
+当前产品对外命名：`AI协作平台`
+代码仓与 iOS Target 保持：`AIBrainIM`
 
 详见 [DEPLOY.md](./DEPLOY.md) → Section: iOS · TestFlight / App Store

@@ -1,23 +1,30 @@
 import React, {useMemo, useState, useCallback} from 'react';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform,
+  TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
+import {gatewayInvoke} from '../data/api';
 
-// ─── Mock Knowledge Docs ──────────────────────────────────────────────────────
+// ─── Feishu Wiki / Doc integration for "查看全文" ─────────────────────────────
+// P1 now goes through gatewayInvoke directly instead of relying on a global tool bridge.
+
 interface KBDoc {
   id: string;
   category: 'mining' | 'engineering' | 'technical' | 'policy';
   title: string;
   summary: string;
   updatedAt: string;
+  /** Optional Feishu wiki search query — enables real "查看全文" for P1 */
+  wikiQuery?: string;
 }
 
+// ─── Mock Knowledge Docs ──────────────────────────────────────────────────────
+
 const KB_DOCS: KBDoc[] = [
-  {id:'k1', category:'technical', title:'OpenClaw Agent Runtime 架构', summary:'Gateway · Node · Skill 调度 · Memory API · 任务状态流', updatedAt:'2026-05-06'},
+  {id:'k1', category:'technical', title:'OpenClaw Agent Runtime 架构', summary:'Gateway · Node · Skill 调度 · Memory API · 任务状态流', updatedAt:'2026-05-06', wikiQuery:'OpenClaw Agent Runtime'},
   {id:'k2', category:'mining',    title:'中国钨矿资源分布与全球供应链', summary:'储量 · 品位 · 六大矿区 · 进出口政策 · 价格驱动因素', updatedAt:'2026-05-05'},
   {id:'k3', category:'engineering', title:'智慧矿山数字孪生技术路线', summary:'三维建模 · 实时传感器 · 采掘优化 · 无人化趋势', updatedAt:'2026-05-05'},
   {id:'k4', category:'policy',    title:'矿业开发审批流程与合规要点', summary:'采矿许可证 · 环评 · 安全生产 · 近年政策变化', updatedAt:'2026-05-04'},
@@ -47,11 +54,25 @@ function localDocSearch(query: string, docs: KBDoc[]): KBDoc[] {
   );
 }
 
+function categoryToMemoryCategory(category: KBDoc['category']): 'fact' | 'decision' | 'rule' {
+  switch (category) {
+    case 'policy':
+      return 'rule';
+    case 'engineering':
+      return 'decision';
+    default:
+      return 'fact';
+  }
+}
+
 export function KnowledgeBaseScreen() {
   const [activeCat, setActiveCat] = useState<FilterCat>('全部');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<KBDoc[] | null>(null);
-  const {agents, tasks, uploads, dispatches} = useAppContext();
+  // Per-doc loading: which doc ID is currently being read (null = none)
+  const [readingDocId, setReadingDocId] = useState<string | null>(null);
+  const [savingDocId, setSavingDocId] = useState<string | null>(null);
+  const {agents, tasks, uploads, dispatches, registerKnowledgeCapture} = useAppContext();
 
   const runtimeDocs = useMemo<KBDoc[]>(() => {
     const docs: KBDoc[] = [];
@@ -109,6 +130,106 @@ export function KnowledgeBaseScreen() {
     setSearchResults(localDocSearch(q, mergedDocs));
   }, [mergedDocs]);
 
+  /**
+   * "查看全文" handler — P1 实现：
+   * 1. 如果 doc 有 wikiQuery，尝试用 feishu_wiki 搜索真实文档
+   * 2. 取第一个结果，用 feishu_doc 读取正文内容并弹 Alert 显示
+   * 3. 如果任何一步失败，降级为 Alert 显示文档摘要（本地 mock 也有内容可看）
+   */
+  const handleReadDoc = useCallback(async (doc: KBDoc) => {
+    if (readingDocId !== null) return; // prevent double-open
+    setReadingDocId(doc.id);
+    let resolved = false;
+
+    try {
+      if (doc.wikiQuery) {
+        let wikiToken = '';
+        try {
+          const results = await gatewayInvoke('feishu_wiki', 'search', {
+            query: doc.wikiQuery,
+          }) as {nodes?: Array<{node_token?: string}>};
+          if (results?.nodes?.[0]?.node_token) {
+            wikiToken = results.nodes[0].node_token;
+          }
+        } catch {
+          // 搜索失败，走降级路径
+        }
+
+        if (wikiToken) {
+          try {
+            const content = await gatewayInvoke('feishu_doc', 'read', {
+              doc_token: wikiToken,
+            });
+            if (content) {
+              resolved = true;
+              Alert.alert(doc.title, String(content).slice(0, 2000));
+            }
+          } catch {
+            // 读取失败，走降级路径
+          }
+        }
+      }
+    } finally {
+      setReadingDocId(null);
+    }
+
+    if (resolved) {
+      return;
+    }
+
+    // 降级：始终显示摘要作为「全文」
+    const meta = CAT_META[doc.category];
+    Alert.alert(
+      `${meta.emoji} ${doc.title}`,
+      [
+        `分类：${meta.label}　更新时间：${doc.updatedAt}`,
+        '',
+        doc.summary,
+        '',
+        '—— 完整知识库接入生产向量检索后，将在此处显示正文内容。',
+      ].join('\n'),
+      [{text: '知道了'}],
+    );
+  }, [readingDocId]);
+
+  const handleSaveToMemory = useCallback(async (doc: KBDoc) => {
+    if (savingDocId !== null) {
+      return;
+    }
+
+    setSavingDocId(doc.id);
+    const memoryCategory = categoryToMemoryCategory(doc.category);
+    try {
+      await gatewayInvoke('memory_store', 'remember', {
+        text: `${doc.title}\n\n${doc.summary}`,
+        category: memoryCategory,
+        importance: doc.category === 'policy' ? 0.82 : 0.72,
+      });
+      registerKnowledgeCapture({
+        title: doc.title,
+        summary: doc.summary,
+        category: memoryCategory,
+        source: '知识库',
+        savedRemotely: true,
+      });
+      Alert.alert('已收录', `「${doc.title}」已写入 OpenClaw 记忆层，并回流到任务/调度链。`);
+    } catch (error) {
+      registerKnowledgeCapture({
+        title: doc.title,
+        summary: doc.summary,
+        category: memoryCategory,
+        source: '知识库',
+        savedRemotely: false,
+      });
+      Alert.alert(
+        '已先保留到闭环',
+        `远程记忆层暂时不可用，这条知识已经先回流到任务/调度链，后续可补写。\n\n${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setSavingDocId(null);
+    }
+  }, [registerKnowledgeCapture, savingDocId]);
+
   const filtered = useMemo(() => {
     const source = searchResults !== null ? searchResults : mergedDocs;
     if (activeCat === '全部') return source;
@@ -126,7 +247,7 @@ export function KnowledgeBaseScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>📖 知识库</Text>
         <Text style={styles.sub}>{displayCount} 篇文档 · {searchResults ? '搜索结果' : '矿业 + 工程 + 技术 + 政策'}</Text>
-        <Text style={styles.helper}>运行态知识已汇入这里：实时 Agent 状态、任务链路、附件闭环与最新调度单会自动生成样本。</Text>
+        <Text style={styles.helper}>运行态知识已汇入这里：实时 Agent 状态、任务链路、附件闭环与最新调度单会自动生成样本。现在收录知识后，也会同步回流到任务页和调度链。</Text>
 
         {/* Search bar */}
         <View style={styles.searchRow}>
@@ -181,9 +302,28 @@ export function KnowledgeBaseScreen() {
               </View>
               <Text style={styles.docTitle}>{doc.title}</Text>
               <Text style={styles.docSummary}>{doc.summary}</Text>
-              <TouchableOpacity style={styles.readBtn} activeOpacity={0.75}>
-                <Text style={styles.readBtnText}>查看全文</Text>
-              </TouchableOpacity>
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.readBtn, readingDocId === doc.id && styles.readBtnDisabled]}
+                  activeOpacity={0.75}
+                  onPress={() => handleReadDoc(doc)}
+                  disabled={readingDocId !== null || savingDocId !== null}
+                >
+                  <Text style={styles.readBtnText}>
+                    {readingDocId === doc.id ? '⏳ 加载中…' : '查看全文'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveMemoryBtn, savingDocId === doc.id && styles.readBtnDisabled]}
+                  activeOpacity={0.75}
+                  onPress={() => handleSaveToMemory(doc)}
+                  disabled={readingDocId !== null || savingDocId !== null}
+                >
+                  <Text style={styles.saveMemoryBtnText}>
+                    {savingDocId === doc.id ? '⏳ 收录中…' : '收录到记忆'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -245,12 +385,28 @@ const styles = StyleSheet.create({
   updatedAt: {color: C.textMuted, fontSize: 11},
   docTitle:   {color: C.textTitle, fontSize: 15, fontWeight: '900', marginBottom: 6},
   docSummary: {color: C.textBody, fontSize: 13, lineHeight: 19},
+  actionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
   readBtn: {
-    alignSelf: 'flex-start', marginTop: 10,
+    alignSelf: 'flex-start',
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
     backgroundColor: 'rgba(56,100,200,0.12)',
     borderWidth: 1, borderColor: C.borderActive,
   },
+  saveMemoryBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: 'rgba(52,211,153,0.12)',
+    borderWidth: 1, borderColor: '#34d399',
+  },
+  readBtnDisabled: {
+    opacity: 0.5,
+  },
   readBtnText:{color: C.primary, fontSize: 12, fontWeight: '800'},
+  saveMemoryBtnText:{color: '#34d399', fontSize: 12, fontWeight: '800'},
   footer:     {height: 24},
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {
   ScrollView,
   Text,
@@ -55,7 +55,16 @@ function MenuItem({emoji, title, subtitle, accent, onPress, badge}: MenuItemProp
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const stats = profileStatsMock;
-  const {uploads, runtimeMode, runtimeError, lastSyncedAt, sessionCount, pendingConfirmations} = useAppContext();
+  const {
+    uploads,
+    runtimeMode,
+    runtimeError,
+    lastSyncedAt,
+    sessionCount,
+    pendingConfirmations,
+    tasks,
+    dispatches,
+  } = useAppContext();
   const activeUploads = uploads.filter(
     f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
   ).length;
@@ -63,11 +72,93 @@ export function ProfileScreen() {
     ? `已连接 OpenClaw Gateway · ${sessionCount} 个会话 · 最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
     : `当前处于本地回退模式${runtimeError ? ` · ${runtimeError}` : ''}`;
 
+  const runningTasks = tasks.filter(task => task.state === 'running').length;
+  const blockedTasks = tasks.filter(task => task.state === 'blocked').length;
+  const doneTasks = tasks.filter(task => task.state === 'done').length;
+  const dispatchInFlight = dispatches.filter(item => item.status !== 'completed' && item.status !== 'failed').length;
+
+  const releaseSignals = useMemo(() => {
+    const blockers: string[] = [];
+    const nextActions: string[] = [];
+
+    if (runtimeMode !== 'live') {
+      blockers.push('当前仍在本地回退模式，TestFlight 前需至少验证一轮 LIVE 闭环。');
+      nextActions.push('优先恢复 Gateway 连通性并验证真实调度链。');
+    }
+
+    if (pendingConfirmations > 0) {
+      blockers.push(`还有 ${pendingConfirmations} 条需确认项未拍板，会上线体验里留下“待人工决策”缺口。`);
+      nextActions.push('先清掉需确认项，确保闭环不是卡在人工拍板。');
+    }
+
+    if (blockedTasks > 0) {
+      blockers.push(`当前有 ${blockedTasks} 条阻塞任务，提测前应至少收口到可解释状态。`);
+      nextActions.push('进入任务页处理阻塞项，避免 TestFlight 首屏出现未解释异常。');
+    }
+
+    if (activeUploads > 0) {
+      nextActions.push(`当前有 ${activeUploads} 条附件链路在跑，建议补看上传管理页确认回流正常。`);
+    }
+
+    if (dispatchInFlight > 0) {
+      nextActions.push(`当前有 ${dispatchInFlight} 条调度仍在推进，建议补看调度链确认状态回流。`);
+    }
+
+    if (!nextActions.length) {
+      nextActions.push('P1 闭环状态稳定，可转入图标、截图、TestFlight 提交流程。');
+    }
+
+    const readiness = blockers.length === 0
+      ? '可提测'
+      : blockers.length <= 2
+        ? '待收口'
+        : '未就绪';
+
+    return {
+      blockers,
+      nextActions,
+      readiness,
+      readinessAccent: readiness === '可提测' ? '#34d399' : readiness === '待收口' ? '#fbbf24' : '#f97316',
+      readinessDesc: readiness === '可提测'
+        ? '五主功能已形成可演示闭环，剩余工作主要是提测物料与 Apple 链路。'
+        : readiness === '待收口'
+          ? '主功能已基本贯通，但还有少量运行态缺口要先补齐。'
+          : '当前仍存在明显运行态缺口，先别急着做上架物料。',
+    };
+  }, [activeUploads, blockedTasks, dispatchInFlight, pendingConfirmations, runtimeMode]);
+
+  const readinessChecklist = useMemo(() => {
+    return [
+      {done: true, text: 'React Native 主工程 + iOS 构建'},
+      {done: true, text: '五主功能（总览 / 对话 / 智能体 / 任务 / 我的）'},
+      {done: true, text: '记忆库 / 知识库 / 附件入口 / 调度链已接入前台'},
+      {done: true, text: 'GitHub Actions + Fastlane TestFlight 链路已预置'},
+      {done: runtimeMode === 'live', text: '至少完成一轮 LIVE 网关闭环验证'},
+      {done: pendingConfirmations === 0, text: '需确认项清零或压到可解释范围'},
+      {done: blockedTasks === 0, text: '阻塞任务收口到可提测状态'},
+      {done: false, text: 'Apple Developer / App Store Connect / 截图 / 图标'},
+    ];
+  }, [blockedTasks, pendingConfirmations, runtimeMode]);
+
+  const appleMaterials = useMemo(() => {
+    return [
+      {done: false, label: 'Apple Developer 账号与 Team ID'},
+      {done: false, label: 'App Store Connect App 记录'},
+      {done: false, label: '1024×1024 App Icon'},
+      {done: false, label: 'iPhone 6.7" / 6.5" / 5.5" 截图'},
+      {done: false, label: '隐私信息 / 年龄分级 / 支持链接'},
+      {done: false, label: '第一个 TestFlight Build 上传'},
+    ];
+  }, []);
+
+  const readinessDoneCount = readinessChecklist.filter(item => item.done).length;
+  const readinessTotalCount = readinessChecklist.length;
+
   const handleJoinTestFlight = () => {
     // Replace with actual TestFlight public link from App Store Connect
     Alert.alert(
       '加入 TestFlight',
-      '需要先在 App Store Connect 创建 App 记录并上传第一个 Build 后，才能获取 TestFlight 公开链接。\n\n下一步：配置 Apple Developer 账号并触发 TestFlight CI。',
+      '需要先在 App Store Connect 创建 App 记录并上传第一个 Build 后,才能获取 TestFlight 公开链接。\n\n下一步:配置 Apple Developer 账号并触发 TestFlight CI。',
       [
         {text: '查看上线准备', onPress: handleShowAppStoreGuide},
         {text: '好的'},
@@ -79,11 +170,15 @@ export function ProfileScreen() {
     Alert.alert(
       '📋 App Store 上线清单',
       [
-        '✅ GitHub Actions CI/CD 已配置',
-        '✅ GitHub Actions TestFlight Upload 已配置',
-        '✅ Fastlane lanes（sim/tf/appstore）已配置',
+        `当前判定：${releaseSignals.readiness} · ${readinessDoneCount}/${readinessTotalCount}`,
+        releaseSignals.readinessDesc,
         '',
-        '📝 待完成：',
+        '运行态收口：',
+        ...releaseSignals.blockers.length
+          ? releaseSignals.blockers.map((item, index) => `${index + 1}. ${item}`)
+          : ['1. 运行态主闭环已收口，可转入 Apple 物料准备'],
+        '',
+        'Apple 链路：',
         '1. Apple Developer 账号（$99/年）',
         '2. App Store Connect → 创建 App（Bundle ID: com.openclaw.aibrainim）',
         '3. 配置 App Icon（1024×1024）',
@@ -92,14 +187,13 @@ export function ProfileScreen() {
         '6. 运行: git tag v0.1.0 && git push --tags',
         '7. GitHub Actions 自动构建并上传 TestFlight',
         '8. App Store Connect → TestFlight → 添加测试人员',
-        '9. 提交审核（~24-48h）',
       ].join('\n'),
       [{text: '知道了'}],
     );
   };
 
   const handleLogout = () => {
-    Alert.alert('退出登录', '确定要退出当前账号吗？', [
+    Alert.alert('退出登录', '确定要退出当前账号吗?', [
       {text: '取消', style: 'cancel'},
       {text: '退出', style: 'destructive', onPress: () => {}},
     ]);
@@ -181,33 +275,42 @@ export function ProfileScreen() {
               <Text style={styles.releaseIcon}>🚀</Text>
             </View>
             <View style={styles.releaseHeaderText}>
-              <Text style={styles.releaseTitle}>AIBrainIM</Text>
-              <Text style={styles.releaseVersion}>Alpha 可用版</Text>
+              <Text style={styles.releaseTitle}>AI协作平台</Text>
+              <View style={styles.versionTag}>
+                <Text style={styles.releaseVersion}>v0.1.0 · build 1</Text>
+                <View style={styles.versionSep} />
+                <Text style={styles.buildText}>AIBrainIM / Alpha</Text>
+              </View>
+              <Text style={styles.releaseProgressText}>提测收口进度 {readinessDoneCount}/{readinessTotalCount}</Text>
             </View>
-            <View style={styles.releaseBadge}>
-              <Text style={styles.releaseBadgeText}>Alpha</Text>
+            <View style={[styles.releaseBadge, {backgroundColor: releaseSignals.readinessAccent + '22', borderColor: releaseSignals.readinessAccent + '55'}]}>
+              <Text style={[styles.releaseBadgeText, {color: releaseSignals.readinessAccent}]}>{releaseSignals.readiness}</Text>
             </View>
           </View>
 
           <Text style={styles.releaseDesc}>
-            已完成 P1 可用闭环：总览驾驶舱 / AI 对话 / 智能体状态 / 任务看板 / 我的页。五主功能固定，附件上传已通，记忆库·知识库·调度链入口已串。
+            {releaseSignals.readinessDesc}
           </Text>
 
+          <View style={styles.releaseSnapshotRow}>
+            <View style={styles.releaseSnapshotCard}>
+              <Text style={styles.releaseSnapshotValue}>{runningTasks}</Text>
+              <Text style={styles.releaseSnapshotLabel}>执行中任务</Text>
+            </View>
+            <View style={styles.releaseSnapshotCard}>
+              <Text style={styles.releaseSnapshotValue}>{doneTasks}</Text>
+              <Text style={styles.releaseSnapshotLabel}>已收口任务</Text>
+            </View>
+            <View style={styles.releaseSnapshotCard}>
+              <Text style={styles.releaseSnapshotValue}>{dispatchInFlight}</Text>
+              <Text style={styles.releaseSnapshotLabel}>推进中调度</Text>
+            </View>
+          </View>
+
           <View style={styles.releaseChecklist}>
-            {[
-              {done: true,  text: 'React Native 主工程 + iOS 构建'},      
-              {done: true,  text: '五主功能（总览/对话/智能体/任务/我的）'}, 
-              {done: true,  text: '附件上传（分片/断点续传/后台队列）'},    
-              {done: true,  text: '记忆库 + 知识库 + 调度链入口'},         
-              {done: true,  text: 'GitHub Actions CI（Simulator Build）'}, 
-              {done: true,  text: 'GitHub Actions TestFlight Upload'},     
-              {done: false, text: 'Apple Developer 账号配置（team ID / API Key）'}, 
-              {done: false, text: 'App Store Connect App 记录创建'},       
-              {done: false, text: 'App Icon（1024×1024）+ 截图'},          
-              {done: false, text: 'TestFlight External Testing 发布'},     
-            ].map((item, i) => (
+            {readinessChecklist.map((item, i) => (
               <View key={i} style={styles.checkItem}>
-                <Text style={[styles.checkIcon, {color: item.done ? '#34d399' : C.textMuted}]}>
+                <Text style={[styles.checkIcon, {color: item.done ? '#34d399' : C.textMuted}]}> 
                   {item.done ? '✅' : '⬜'}
                 </Text>
                 <Text style={[styles.checkText, !item.done && styles.checkTextPending]}>
@@ -217,20 +320,65 @@ export function ProfileScreen() {
             ))}
           </View>
 
+          <View style={styles.releaseFocusBox}>
+            <Text style={styles.releaseFocusTitle}>当前最该补的</Text>
+            {releaseSignals.blockers.length > 0 ? releaseSignals.blockers.map((item, index) => (
+              <Text key={index} style={styles.releaseFocusText}>• {item}</Text>
+            )) : (
+              <Text style={styles.releaseFocusText}>• 运行态已基本收口，下一步优先准备 App Icon、截图与 TestFlight 提测物料。</Text>
+            )}
+          </View>
+
+          <View style={styles.releaseFocusBox}>
+            <Text style={styles.releaseFocusTitle}>下一步动作</Text>
+            {releaseSignals.nextActions.slice(0, 3).map((item, index) => (
+              <Text key={index} style={styles.releaseFocusText}>• {item}</Text>
+            ))}
+          </View>
+
+          <View style={styles.releaseFocusBox}>
+            <Text style={styles.releaseFocusTitle}>Apple 物料缺口</Text>
+            {appleMaterials.map((item, index) => (
+              <View key={index} style={styles.materialItem}>
+                <Text style={[styles.materialDot, {color: item.done ? '#34d399' : '#f97316'}]}>
+                  {item.done ? '●' : '○'}
+                </Text>
+                <Text style={[styles.materialText, !item.done && styles.materialTextPending]}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+
           <View style={styles.releaseActions}>
             <TouchableOpacity
               style={styles.releaseBtnPrimary}
               activeOpacity={0.8}
-              onPress={handleJoinTestFlight}
+              onPress={() => navigation.navigate('Confirmations')}
             >
-              <Text style={styles.releaseBtnPrimaryText}>📱 加入 TestFlight</Text>
+              <Text style={styles.releaseBtnPrimaryText}>✅ 先清需确认项</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.releaseBtnSecondary}
               activeOpacity={0.8}
+              onPress={() => navigation.navigate('DispatchChain')}
+            >
+              <Text style={styles.releaseBtnSecondaryText}>🔗 看调度链状态</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.releaseActions}>
+            <TouchableOpacity
+              style={styles.releaseBtnGhost}
+              activeOpacity={0.8}
+              onPress={handleJoinTestFlight}
+            >
+              <Text style={styles.releaseBtnGhostText}>📱 加入 TestFlight</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.releaseBtnGhost}
+              activeOpacity={0.8}
               onPress={handleShowAppStoreGuide}
             >
-              <Text style={styles.releaseBtnSecondaryText}>📋 App Store 准备清单</Text>
+              <Text style={styles.releaseBtnGhostText}>📋 App Store 准备清单</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -436,6 +584,23 @@ const styles = StyleSheet.create({
     color: C.textBody, fontSize: 12, lineHeight: 18,
     padding: 14, paddingBottom: 0,
   },
+  releaseSnapshotRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+  },
+  releaseSnapshotCard: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(56,100,200,0.08)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  releaseSnapshotValue: {color: C.textTitle, fontSize: 18, fontWeight: '900'},
+  releaseSnapshotLabel: {color: C.textMuted, fontSize: 11, marginTop: 4},
   releaseChecklist: {
     padding: 14,
     gap: 7,
@@ -444,12 +609,23 @@ const styles = StyleSheet.create({
   checkIcon: {fontSize: 13, width: 18},
   checkText: {color: C.textBody, fontSize: 12, flex: 1},
   checkTextPending: {color: C.textMuted},
+  releaseFocusBox: {
+    marginHorizontal: 14,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(8,15,30,0.6)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    gap: 6,
+  },
+  releaseFocusTitle: {color: C.textTitle, fontSize: 13, fontWeight: '900'},
+  releaseFocusText: {color: C.textBody, fontSize: 12, lineHeight: 18},
   releaseActions: {
     flexDirection: 'row',
     gap: 10,
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: C.borderSubtle,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
   releaseBtnPrimary: {
     flex: 1,
@@ -469,6 +645,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   releaseBtnSecondaryText: {color: C.primary, fontWeight: '700', fontSize: 13},
+  releaseBtnGhost: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    alignItems: 'center',
+  },
+  releaseBtnGhostText: {color: C.textBody, fontWeight: '700', fontSize: 13},
   versionTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -478,6 +664,11 @@ const styles = StyleSheet.create({
   versionText: {color: C.textMuted, fontSize: 11},
   versionSep: {width: 1, height: 10, backgroundColor: C.borderSubtle},
   buildText: {color: C.textMuted, fontSize: 11},
+  releaseProgressText: {color: C.textMuted, fontSize: 11, marginTop: 6},
+  materialItem: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  materialDot: {fontSize: 12, width: 14},
+  materialText: {color: C.textBody, fontSize: 12, flex: 1},
+  materialTextPending: {color: C.textMuted},
 
   // Logout
   logoutBtn: {

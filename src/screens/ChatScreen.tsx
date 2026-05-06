@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useRef, useEffect} from 'react';
+import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
 import {
   ScrollView,
   Text,
@@ -23,7 +23,7 @@ import DocumentPicker, {
 } from 'react-native-document-picker';
 import {C} from '../data/mockData';
 import {sendMessage} from '../data/api';
-import {enqueueUpload, uploadService} from '../services/uploadService';
+import {enqueueUpload, uploadService, retryUpload as retryUploadFn} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
 interface Message {
@@ -49,6 +49,14 @@ type RootStackParamList = {
   DispatchChain: undefined;
 };
 
+const DISPATCH_STATUS_LABEL = {
+  submitted: '已提交',
+  dispatched: '执行中',
+  processing: '处理中',
+  completed: '已完成',
+  failed: '执行失败',
+} as const;
+
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
 
@@ -61,6 +69,7 @@ export function ChatScreen() {
     {role: 'in', name: '助理', text: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。'},
   ]);
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
+  const [queuedAttachmentIds, setQueuedAttachmentIds] = useState<string[]>([]);
   const scrollRef   = useRef<ScrollView>(null);
   const lastDispatchIdRef = useRef<string | undefined>(undefined);
 
@@ -111,6 +120,19 @@ export function ChatScreen() {
     setAttachments(preview);
   }, []);
 
+  const queuedAttachmentSummaries = useMemo(
+    () => attachments.filter(att => queuedAttachmentIds.includes(att.id)),
+    [attachments, queuedAttachmentIds],
+  );
+
+  const clearQueuedAttachment = useCallback((id: string) => {
+    setQueuedAttachmentIds(ids => ids.filter(item => item !== id));
+  }, []);
+
+  const trackAttachment = useCallback((fileId: string) => {
+    setQueuedAttachmentIds(ids => Array.from(new Set([...ids, fileId])));
+  }, []);
+
   // ── File picking handlers ───────────────────────────────────────────────
 
   const handlePickImage = useCallback(() => {
@@ -125,6 +147,7 @@ export function ChatScreen() {
           const mime = asset.type ?? 'image/jpeg';
           void enqueueUpload(name, asset.uri, mime, size).then(_f => {
             const fileId = _f.id;
+            trackAttachment(fileId);
             syncAttachments();
             setMessages(m => [
               ...m,
@@ -179,6 +202,7 @@ export function ChatScreen() {
           const size = asset.fileSize ?? 0;
           const mime = asset.type ?? 'image/jpeg';
           void enqueueUpload(name, asset.uri, mime, size).then(_f => {
+            trackAttachment(_f.id);
             syncAttachments();
             setMessages(m => [
               ...m,
@@ -200,6 +224,7 @@ export function ChatScreen() {
         results.forEach(doc => {
           if (!doc.uri) return;
           void enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0).then(_f => {
+            trackAttachment(_f.id);
             syncAttachments();
             setMessages(m => [
               ...m,
@@ -218,6 +243,19 @@ export function ChatScreen() {
       });
   }, [syncAttachments]);
 
+  const handleRetryAttachment = useCallback((id: string) => {
+    retryUploadFn(id);
+    syncAttachments();
+    setMessages(m => [
+      ...m,
+      {
+        role: 'in',
+        name: '助理',
+        text: '↻ 正在重试上传，请稍候…',
+      },
+    ]);
+  }, [syncAttachments]);
+
   const TYPE_CHIP_HANDLERS: Record<string, () => void> = {
     '图片':      handlePickImage,
     '视频':      handlePickImage,   // image picker 也支持视频
@@ -229,31 +267,69 @@ export function ChatScreen() {
 
   const latestDispatch = dispatches[0];
 
+  useEffect(() => {
+    if (!queuedAttachmentIds.length) {
+      return;
+    }
+
+    const activeIds = new Set(attachments.map(item => item.id));
+    const doneIds = queuedAttachmentIds.filter(id => !activeIds.has(id));
+    if (doneIds.length > 0) {
+      setQueuedAttachmentIds(ids => ids.filter(id => !doneIds.includes(id)));
+    }
+  }, [attachments, queuedAttachmentIds]);
+
   const handleSend = useCallback(async () => {
     if (!draft.trim() || sending) return;
     const userText = draft.trim();
+    const attachmentContext = queuedAttachmentSummaries.length > 0
+      ? `\n\n[附件上下文]\n${queuedAttachmentSummaries.map(att => `- ${att.name} · ${att.sizeLabel} · ${att.status}`).join('\n')}`
+      : '';
+    const outboundText = `${userText}${attachmentContext}`;
+
     setMessages(m => [...m, {role: 'out', text: userText}]);
     setDraft('');
     setSending(true);
 
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
 
-    const {reply, sent, taskId, dispatchId, sessionKey} = await sendMessage(userText);
+    const {reply, sent, taskId, dispatchId, sessionKey} = await sendMessage(outboundText);
 
     registerDispatch({
-      userText,
+      userText: queuedAttachmentSummaries.length > 0
+        ? `${userText}（携带 ${queuedAttachmentSummaries.length} 个附件）`
+        : userText,
       reply,
       taskId,
       dispatchId,
       sessionKey,
       sent,
+      source: 'chat',
     });
+
+    if (sent && queuedAttachmentSummaries.length > 0) {
+      setMessages(m => [
+        ...m,
+        {
+          role: 'in',
+          name: '助理',
+          text: `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。`,
+        },
+      ]);
+      queuedAttachmentSummaries.forEach(att => clearQueuedAttachment(att.id));
+    }
 
     setMessages(m => [...m, {role: 'in', name: '助理', text: reply}]);
     setSending(false);
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
 
-  }, [draft, sending, registerDispatch]);
+  }, [
+    clearQueuedAttachment,
+    draft,
+    queuedAttachmentSummaries,
+    registerDispatch,
+    sending,
+  ]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -303,11 +379,16 @@ export function ChatScreen() {
             </View>
             <Text style={styles.dispatchStatusSummary}>
               {sending
-                ? '这条指令正在提交到 OpenClaw 调度链，马上会生成 taskId 和 dispatchId。'
+                ? '指令提交中…'
                 : latestDispatch
-                  ? `最近一条调度状态：${latestDispatch.status} · ${latestDispatch.taskId ?? '未生成 taskId'}`
-                  : '还没有新的调度单，发一条消息后这里会实时回填状态。'}
+                  ? `调度状态：${DISPATCH_STATUS_LABEL[latestDispatch.status]} · ${latestDispatch.taskId ?? 'taskId 回填中'}`
+                  : '暂无调度记录'}
             </Text>
+            {queuedAttachmentSummaries.length > 0 ? (
+              <Text style={styles.dispatchAttachmentHint}>
+                当前待随消息一并进入调度链的附件：{queuedAttachmentSummaries.length} 个
+              </Text>
+            ) : null}
             {latestDispatch ? (
               <Text style={styles.dispatchStatusMeta}>
                 dispatchId: {latestDispatch.dispatchId ?? '未生成'}{latestDispatch.sessionKey ? ` · session: ${latestDispatch.sessionKey}` : ''}
@@ -353,6 +434,11 @@ export function ChatScreen() {
             {attachments.length > 0 && (
               <View style={styles.attachmentList}>
                 <Text style={styles.attachmentListTitle}>上传队列</Text>
+                {queuedAttachmentSummaries.length > 0 ? (
+                  <Text style={styles.attachmentQueueHint}>
+                    已选 {queuedAttachmentSummaries.length} 个附件，将在下一条消息发送时一并携带上下文
+                  </Text>
+                ) : null}
                 {attachments.map(att => {
                   const statusColor =
                     att.status === 'done' || att.status === 'dispatched' ? '#34d399'
@@ -369,9 +455,17 @@ export function ChatScreen() {
                         <View style={styles.progressBar}>
                           <View style={[styles.progressFill, {width: `${att.progress}%`}]} />
                         </View>
+                      ) : att.status === 'error' ? (
+                        <TouchableOpacity
+                          style={styles.retryBtn}
+                          activeOpacity={0.75}
+                          onPress={() => handleRetryAttachment(att.id)}
+                        >
+                          <Text style={styles.retryBtnText}>重试</Text>
+                        </TouchableOpacity>
                       ) : (
                         <Text style={[styles.attachmentStatus, {color: statusColor}]}>
-                          {att.status === 'dispatched' ? '✓' : att.status === 'error' ? '✗' : att.status === 'queued' ? '⏳' : '✓'}
+                          {att.status === 'dispatched' ? '✓' : att.status === 'queued' ? '⏳' : '✓'}
                         </Text>
                       )}
                     </View>
@@ -468,6 +562,7 @@ const styles = StyleSheet.create({
   dispatchStatusLink: {color: C.primary, fontSize: 12, fontWeight: '800'},
   dispatchStatusSummary: {color: C.textBody, fontSize: 13, lineHeight: 19, marginTop: 8},
   dispatchStatusMeta: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6},
+  dispatchAttachmentHint: {color: C.primary, fontSize: 11, lineHeight: 16, marginTop: 6, fontWeight: '700'},
 
   uploadPanel: {
     padding: 13, borderRadius: 18,
@@ -526,6 +621,7 @@ const styles = StyleSheet.create({
 
   attachmentList: {marginTop: 12, gap: 8},
   attachmentListTitle: {color: C.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 4},
+  attachmentQueueHint: {color: C.primary, fontSize: 11, lineHeight: 16, marginBottom: 6},
   attachmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -546,5 +642,18 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%', borderRadius: 2,
     backgroundColor: C.primary,
+  },
+  retryBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(248,113,113,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.4)',
+  },
+  retryBtnText: {
+    color: '#f87171',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });

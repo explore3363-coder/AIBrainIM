@@ -1,6 +1,7 @@
 import React, {useMemo} from 'react';
 import {Text, View, StyleSheet, ScrollView, TouchableOpacity, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
 import {C} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
 
@@ -24,6 +25,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export function ConfirmationsScreen() {
+  const navigation = useNavigation();
   const {confirmations, pendingConfirmations, confirmItem, deferItem} = useAppContext();
 
   const sortedItems = useMemo(() => {
@@ -38,14 +40,20 @@ export function ConfirmationsScreen() {
   const handleConfirm = (id: string, title: string) => {
     Alert.alert('确认操作', `确定「${title}」？`, [
       {text: '取消', style: 'cancel'},
-      {text: '确认', onPress: () => confirmItem(id)},
+      {text: '确认', onPress: () => {
+        confirmItem(id);
+        navigation.goBack();
+      }},
     ]);
   };
 
   const handleDefer = (id: string, title: string) => {
     Alert.alert('延后处理', `将「${title}」标记为稍后处理？`, [
       {text: '取消', style: 'cancel'},
-      {text: '稍后', onPress: () => deferItem(id)},
+      {text: '稍后', onPress: () => {
+        deferItem(id);
+        navigation.goBack();
+      }},
     ]);
   };
 

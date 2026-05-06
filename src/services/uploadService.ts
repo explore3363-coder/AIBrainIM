@@ -253,11 +253,10 @@ async function processUpload(fileId: string): Promise<void> {
     await delay(600);
     _updateFile(fileId, {status: 'done', progress: 100});
 
+    _uploadState.delete(fileId); // clean up after successful completion only
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     _updateFile(fileId, {status: 'error', error: msg});
-  } finally {
-    _uploadState.delete(fileId); // clean up chunk state
   }
 }
 
@@ -309,18 +308,40 @@ export function removeFile(id: string): void {
 }
 
 /**
- * Reset a failed upload and retry.
- * Clears chunk state so all chunks restart from scratch (simpler and more reliable
- * for the P1 stage than partial resume).
+ * Retry a failed upload.
+ *
+ * For chunked uploads we now keep acknowledged chunk state in `_uploadState`,
+ * so retry resumes from the first unfinished chunk instead of restarting the
+ * whole file. Small direct uploads simply restart from the beginning.
  */
 export function retryUpload(id: string): void {
   const file = _queue.find(f => f.id === id);
   if (!file) return;
+
   file.status = 'queued';
-  file.progress = 0;
   file.error = undefined;
-  // Wipe chunk state so nothing is incorrectly skipped on restart
-  _uploadState.delete(id);
+
+  const existingState = _uploadState.get(id);
+  if (existingState) {
+    const uploadedChunks = existingState.chunks.filter(chunk => chunk.uploaded).length;
+    const resumedProgress = existingState.totalChunks > 0
+      ? Math.round((uploadedChunks / existingState.totalChunks) * 90)
+      : 0;
+
+    existingState.currentChunk = existingState.chunks.findIndex(chunk => !chunk.uploaded);
+    if (existingState.currentChunk === -1) {
+      existingState.currentChunk = existingState.totalChunks;
+    }
+    existingState.chunks.forEach(chunk => {
+      if (!chunk.uploaded) {
+        chunk.retries = 0;
+      }
+    });
+    file.progress = resumedProgress;
+  } else {
+    file.progress = 0;
+  }
+
   void processUpload(file.id);
 }
 

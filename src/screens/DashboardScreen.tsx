@@ -71,12 +71,17 @@ export function DashboardScreen() {
 
   const activeCount  = useMemo(() => agents.filter(a => a.status === 'online' || a.status === 'working').length, [agents]);
   const runningCount = useMemo(() => tasks.filter(t => t.state === 'running').length, [tasks]);
+  const doneCount = useMemo(() => tasks.filter(t => t.state === 'done').length, [tasks]);
   const blockedCount = useMemo(() => tasks.filter(t => t.state === 'blocked').length, [tasks]);
   const uploadingCount = useMemo(() => uploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [uploads]);
+  const dispatchActiveCount = useMemo(() => dispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length, [dispatches]);
+  const uploadDoneCount = useMemo(() => uploads.filter(u => u.status === 'done' || u.status === 'dispatched').length, [uploads]);
 
   const latestDispatch = dispatches[0];
   const latestDispatchMeta = latestDispatch ? DISPATCH_STATUS_META[latestDispatch.status] : null;
   const latestRunningTask = tasks.find(task => task.state === 'running');
+  const latestBlockedConfirmation = confirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
+  const hottestUpload = uploads.find(item => item.status === 'uploading' || item.status === 'processing' || item.status === 'dispatched');
   const focusDescription = latestDispatch
     ? `最新一条 AI 调度当前为「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
     : latestRunningTask
@@ -132,6 +137,135 @@ export function DashboardScreen() {
       {stage:'deliver', title:'结果交付', actor:'APP', detail: latest.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链和 AI 产出流。' : latest.status === 'failed' ? '该调度单执行异常，已保留记录，建议查看调度链并重试。' : '该调度单已同步到任务流、调度链和 AI 产出流。'},
     ];
   }, [dispatches]);
+
+  const actionQueue = useMemo(() => {
+    const queue: Array<{
+      id: string;
+      tag: string;
+      title: string;
+      detail: string;
+      accent: string;
+      onPress: () => void;
+    }> = [];
+
+    if (latestDispatch && latestDispatchMeta) {
+      queue.push({
+        id: `dispatch-${latestDispatch.id}`,
+        tag: 'AI 产出流',
+        title: `先盯这条调度：${latestDispatchMeta.label}`,
+        detail: latestDispatch.reply,
+        accent: latestDispatchMeta.accent,
+        onPress: () => navigation.navigate('DispatchChain'),
+      });
+    }
+
+    if (latestBlockedConfirmation) {
+      queue.push({
+        id: `confirm-${latestBlockedConfirmation.id}`,
+        tag: '需确认项',
+        title: latestBlockedConfirmation.title,
+        detail: latestBlockedConfirmation.description,
+        accent: URGENCY_COLOR[latestBlockedConfirmation.urgency],
+        onPress: () => navigation.navigate('Confirmations'),
+      });
+    }
+
+    if (latestRunningTask) {
+      queue.push({
+        id: `task-${latestRunningTask.id}`,
+        tag: '任务推进',
+        title: latestRunningTask.title,
+        detail: latestRunningTask.next,
+        accent: C.working,
+        onPress: () => navigation.navigate('DispatchChain'),
+      });
+    }
+
+    if (hottestUpload) {
+      queue.push({
+        id: `upload-${hottestUpload.id}`,
+        tag: '附件链路',
+        title: `附件：${hottestUpload.name}`,
+        detail: hottestUpload.status === 'processing'
+          ? '后台正在处理这份附件，结果会继续回流到 AI 产出流。'
+          : hottestUpload.status === 'dispatched'
+            ? `已经分派给 ${hottestUpload.agent ?? '对应智能体'}，现在要盯执行结果。`
+            : `当前进度 ${hottestUpload.progress}% ，前端上传链路保持在线。`,
+        accent: '#34d399',
+        onPress: () => navigation.navigate('Upload'),
+      });
+    }
+
+    // If no dispatch/task/action items, surface pending confirmations as top priority
+    if (!queue.length) {
+      const unconfirmed = confirmations
+        .filter(item => item.status !== 'confirmed' && item.status !== 'deferred')
+        .slice(0, 2);
+      if (unconfirmed.length > 0) {
+        unconfirmed.forEach(item => {
+          queue.push({
+            id: `confirm-fallback-${item.id}`,
+            tag: '需确认项',
+            title: item.title,
+            detail: item.description,
+            accent: URGENCY_COLOR[item.urgency],
+            onPress: () => navigation.navigate('Confirmations'),
+          });
+        });
+      } else {
+        queue.push({
+          id: 'idle-default',
+          tag: '下一步',
+          title: '当前没有新的高优先动作',
+          detail: '优先检查需确认项，然后继续把真实 API 字段和上传闭环往生产态收口。',
+          accent: C.primary,
+          onPress: () => navigation.navigate('Confirmations'),
+        });
+      }
+    }
+
+    return queue.slice(0, 3);
+  }, [confirmations, hottestUpload, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, latestRunningTask, navigation]);
+
+  const summaryCards = useMemo(() => {
+    const summary: Array<{
+      id: string;
+      label: string;
+      value: string;
+      detail: string;
+      accent: string;
+    }> = [
+      {
+        id: 'dispatch',
+        label: '调度闭环',
+        value: dispatchActiveCount > 0 ? `${dispatchActiveCount} 条推进中` : '当前无堆积',
+        detail: latestDispatchMeta
+          ? `最新状态是「${latestDispatchMeta.label}」，移动端已经能持续回看调度链。`
+          : '没有新的调度单压住首页，说明当前前台节奏是干净的。',
+        accent: latestDispatchMeta?.accent ?? C.primary,
+      },
+      {
+        id: 'task',
+        label: '任务收口',
+        value: runningCount > 0 ? `${runningCount} 条执行中 / ${doneCount} 条已完成` : `${doneCount} 条已完成`,
+        detail: blockedCount > 0
+          ? `还有 ${blockedCount} 条任务被确认链卡住，需要人工拍板后继续推进。`
+          : '任务流已经能把执行中、完成态和人工阻塞态清楚分开。',
+        accent: blockedCount > 0 ? C.highUrgency : C.working,
+      },
+      {
+        id: 'upload',
+        label: '附件链路',
+        value: uploadingCount > 0 ? `${uploadingCount} 条处理中` : `${uploadDoneCount} 条已打通`,
+        detail: uploadingCount > 0
+          ? '前端上传、后台处理、智能体分派三段链路都在跑。'
+          : '上传入口已经不只是按钮，处理结果会继续回流到 AI 产出流。',
+        accent: '#34d399',
+      },
+    ];
+
+    return summary;
+  }, [blockedCount, dispatchActiveCount, doneCount, latestDispatchMeta, runningCount, uploadDoneCount, uploadingCount]);
 
   const handleStorePress = (store: BrainStore) => {
     const screen = NAV_MAP[store.id];
@@ -200,6 +334,37 @@ export function DashboardScreen() {
             <Text style={styles.quickActionText}>看上传队列</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      <SectionTitle title="闭环摘要" hint="先判断现在是在产出、卡点，还是等待确认" />
+      <View style={styles.summaryGrid}>
+        {summaryCards.map(card => (
+          <View key={card.id} style={styles.summaryCard}>
+            <Text style={[styles.summaryLabel, {color: card.accent}]}>{card.label}</Text>
+            <Text style={styles.summaryValue}>{card.value}</Text>
+            <Text style={styles.summaryDetail}>{card.detail}</Text>
+          </View>
+        ))}
+      </View>
+
+      <SectionTitle title="现在要处理什么" hint="把 AI 产出流、调度状态、需确认项顶到最前" />
+      <View style={styles.actionQueueList}>
+        {actionQueue.map(item => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.actionQueueCard}
+            activeOpacity={0.85}
+            onPress={item.onPress}
+          >
+            <View style={[styles.actionQueueAccent, {backgroundColor: item.accent}]} />
+            <View style={styles.actionQueueBody}>
+              <Text style={[styles.actionQueueTag, {color: item.accent}]}>{item.tag}</Text>
+              <Text style={styles.actionQueueTitle}>{item.title}</Text>
+              <Text style={styles.actionQueueDetail} numberOfLines={3}>{item.detail}</Text>
+            </View>
+            <Text style={styles.actionQueueArrow}>›</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <SectionTitle title="AI 产出流" hint="实时 AI 输出与系统事件" />
@@ -282,25 +447,6 @@ export function DashboardScreen() {
         ))}
       </View>
 
-      <SectionTitle title="总览" hint="核心状态一览" />
-      <View style={styles.overviewGrid}>
-        <OverviewCard
-          title="AI 产出" value={`${liveFeed.length} 条最新产出`}
-          detail="AI 回复、附件处理结果、任务状态更新实时汇入"
-          accent={C.accent}
-        />
-        <OverviewCard
-          title="附件处理" value={`${uploads.length} 条记录`}
-          detail="支持大文件分片上传，后台自动处理，智能体分派"
-          accent="#34d399"
-        />
-        <OverviewCard
-          title="需确认项" value={`${pendingConfirmations} 项待处理`}
-          detail="AI 调度决策需您确认后可继续推进，请及时处理"
-          accent="#f97316"
-        />
-      </View>
-
       <View style={styles.footer} />
     </ScrollView>
   );
@@ -352,6 +498,34 @@ const styles = StyleSheet.create({
   },
 
   metricsGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14},
+  summaryGrid: {gap: 10, marginBottom: 2},
+  summaryCard: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8,18,36,0.62)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  summaryLabel: {fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
+  summaryValue: {color: C.textTitle, fontSize: 17, fontWeight: '900', marginTop: 6},
+  summaryDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
+  actionQueueList: {gap: 10, marginBottom: 2},
+  actionQueueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8,18,36,0.62)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  actionQueueAccent: {width: 4, alignSelf: 'stretch', borderRadius: 999},
+  actionQueueBody: {flex: 1},
+  actionQueueTag: {fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
+  actionQueueTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900', marginTop: 4},
+  actionQueueDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
+  actionQueueArrow: {color: C.textMuted, fontSize: 24, fontWeight: '300'},
   feedList: {gap: 9},
   liveStatusBar: {
     flexDirection: 'row',

@@ -12,7 +12,15 @@
  *   3. App polls sessions_list for subagent activity as "live feed"
  */
 
-import type {Agent, Task, ConfirmationItem, RuntimeSnapshot} from '../types';
+import type {
+  Agent,
+  Task,
+  ConfirmationItem,
+  RuntimeSnapshot,
+  GatewayMessageResult,
+  GatewaySessionSummary,
+  DispatchRecord,
+} from '../types';
 import type {AgentStatus, TaskState} from '../types';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -66,14 +74,42 @@ export async function gatewayInvoke(
 }
 
 /** sessions_list returns {result: {content: [{type:'text', text:'{"sessions":[...]}'}]}} */
-function parseSessionsList(result: unknown): Record<string, unknown>[] {
+function parseSessionsList(result: unknown): GatewaySessionSummary[] {
   try {
     const r = result as Record<string, unknown>;
+
+    if (Array.isArray(r?.sessions)) {
+      return r.sessions as GatewaySessionSummary[];
+    }
+
     const content = (r?.content as Array<{type: string; text: string}>) ?? [];
     if (!content.length) return [];
     const inner = JSON.parse(content[0]?.text ?? '{}');
-    return (inner?.sessions as Record<string, unknown>[]) ?? [];
-  } catch { return []; }
+    return (inner?.sessions as GatewaySessionSummary[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function extractMessageResult(result: unknown): GatewayMessageResult {
+  const payload = (result ?? {}) as Record<string, unknown>;
+  const nested = (payload.result ?? {}) as Record<string, unknown>;
+  const candidate = Object.keys(nested).length > 0 ? nested : payload;
+
+  const messageId = candidate.messageId
+    ?? candidate.message_id
+    ?? candidate.msgId
+    ?? candidate.msg_id;
+  const chatId = candidate.chatId ?? candidate.chat_id;
+  const threadId = candidate.threadId ?? candidate.thread_id;
+  const sessionKey = candidate.sessionKey ?? candidate.session_key;
+
+  return {
+    messageId: typeof messageId === 'string' ? messageId : undefined,
+    chatId: typeof chatId === 'string' ? chatId : undefined,
+    threadId: typeof threadId === 'string' ? threadId : undefined,
+    sessionKey: typeof sessionKey === 'string' ? sessionKey : undefined,
+  };
 }
 
 // ─── Agent / Task mappers ───────────────────────────────────────────────────
@@ -88,10 +124,11 @@ const AGENT_META: Record<string, {name: string; role: string; focus: string; acc
   kaifa:   {name:'开发',    role:'Codex 开发 Bot',     focus:'代码、构建、Bug 修复',           accent:'#4ade80'},
 };
 
-function sessionsToAgents(sessions: Record<string, unknown>[]): Agent[] {
+function sessionsToAgents(sessions: GatewaySessionSummary[]): Agent[] {
   const map = new Map<string, {
     id: string; name: string; role: string; status: AgentStatus;
     focus: string; accent: string; current: string; updatedAt: number;
+    sessionKey?: string; runtimeMs?: number; sourceMode: 'live';
   }>();
 
   for (const s of sessions) {
@@ -124,7 +161,7 @@ function sessionsToAgents(sessions: Record<string, unknown>[]): Agent[] {
         id: agentId, name: AGENT_META[agentId].name,
         role: AGENT_META[agentId].role, status: resolvedStatus,
         focus: AGENT_META[agentId].focus, accent: AGENT_META[agentId].accent,
-        current, updatedAt,
+        current, updatedAt, sessionKey: key, runtimeMs, sourceMode: 'live',
       });
     }
   }
@@ -132,17 +169,26 @@ function sessionsToAgents(sessions: Record<string, unknown>[]): Agent[] {
   for (const [id, m] of Object.entries(AGENT_META)) {
     if (!map.has(id)) {
       map.set(id, {id, name: m.name, role: m.role, status: 'idle',
-        focus: m.focus, accent: m.accent, current: '待命', updatedAt: 0});
+        focus: m.focus, accent: m.accent, current: '待命', updatedAt: 0, sourceMode: 'live'});
     }
   }
 
   return Array.from(map.values()).map(a => ({
-    id: a.id, name: a.name, role: a.role,
-    status: a.status, focus: a.focus, accent: a.accent, current: a.current,
+    id: a.id,
+    name: a.name,
+    role: a.role,
+    status: a.status,
+    focus: a.focus,
+    accent: a.accent,
+    current: a.current,
+    sessionKey: a.sessionKey,
+    runtimeMs: a.runtimeMs,
+    lastActiveAt: a.updatedAt,
+    sourceMode: a.sourceMode,
   }));
 }
 
-function sessionsToTasks(sessions: Record<string, unknown>[]): Task[] {
+function sessionsToTasks(sessions: GatewaySessionSummary[]): Task[] {
   const tasks: Task[] = [];
   const now = Date.now();
   const seen = new Set<string>();
@@ -152,63 +198,81 @@ function sessionsToTasks(sessions: Record<string, unknown>[]): Task[] {
   };
 
   for (const s of sessions) {
-    const key     = (s['key'] as string) || '';
-    if (!key.includes(':subagent:')) continue;
-    if (key.includes(':cron:')) continue;
+    const key = (s['key'] as string) || '';
+    const isSubagent = key.includes(':subagent:');
+    const isCron = key.includes(':cron:');
+    if (!isSubagent && !isCron) continue;
 
-    const updatedAt  = (s['updatedAt'] as number) || 0;
-    const ageMs      = now - updatedAt;
+    const updatedAt = (s['updatedAt'] as number) || 0;
+    const ageMs = now - updatedAt;
     if (ageMs > 48 * 60 * 60 * 1000) continue;
 
-    const parts     = key.split(':');
-    const agentId   = parts[1] || 'kaifa';
-    const label     = ((s['label'] as string) || '未命名任务')
-                        .replace(/^Cron: /, '').trim();
-    const status    = (s['status'] as string) || 'done';
+    const parts = key.split(':');
+    const agentId = parts[1] || 'kaifa';
+    const rawLabel = ((s['label'] as string) || '未命名任务').trim();
+    const label = rawLabel.replace(/^Cron: /, '').trim();
+    const status = (s['status'] as string) || 'done';
     const runtimeMs = (s['runtimeMs'] as number) || 0;
 
     const state: TaskState =
-      status === 'running'                                   ? 'running'
-    : ageMs < 2 * 60 * 60 * 1000 && status !== 'done'     ? 'todo'
-    : 'done';
+      status === 'running' ? 'running'
+      : status === 'done' ? 'done'
+      : ageMs < 2 * 60 * 60 * 1000 ? 'todo'
+      : 'done';
 
-    const title = label.length > 45 ? label.slice(0, 45) + '…' : label;
-    if (seen.has(title)) continue;
-    seen.add(title);
+    const title = label.length > 45 ? `${label.slice(0, 45)}…` : label;
+    const dedupeKey = `${key}:${title}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    const traceSummary = isCron
+      ? `定时链路 · ${rawLabel || 'Cron 任务'}`
+      : `子 Agent 链路 · ${rawLabel || '未命名任务'}`;
 
     tasks.push({
       id: `task-${parts[2] ?? String(updatedAt)}`,
       title,
-      owner: agentNames[agentId] ?? agentId,
+      owner: isCron ? `${agentNames[agentId] ?? agentId} / 定时链路` : (agentNames[agentId] ?? agentId),
       state,
-      eta:    runtimeMs > 0 ? `${Math.round(runtimeMs/1000)}s` : '已完成',
-      next:   state === 'done' ? '已完成' : state === 'running' ? '执行中…' : '待执行',
+      eta: runtimeMs > 0 ? `${Math.round(runtimeMs / 1000)}s` : (state === 'done' ? '已完成' : '待执行'),
+      next: state === 'done'
+        ? '结果已落回任务流'
+        : state === 'running'
+          ? '执行中，等待状态继续回流'
+          : '等待进入下一步执行',
       priority: label.includes('P0') ? 'P0' : label.includes('P1') ? 'P1' : 'P2',
+      agentId,
+      sessionKey: key,
+      updatedAt,
+      sourceType: isCron ? 'cron' : 'subagent',
+      traceSummary,
     });
   }
 
-  return tasks.slice(0, 12);
+  return tasks
+    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    .slice(0, 12);
 }
 
 // ─── Fallback data ───────────────────────────────────────────────────────────
 const FALLBACK_AGENTS: Agent[] = [
-  {id:'zhuli',   name:'助理',    role:'AI 总指挥',        status:'online',  accent:'#22d3ee', focus:'接收指令、拆任务、调度、总结',      current:'汇总移动端 P0 体验需求'},
-  {id:'renzhi',  name:'认知中枢', role:'后台认知层',        status:'watching',accent:'#a78bfa', focus:'长上下文、冲突消歧、夜训门控',      current:'维护深层判断框架'},
-  {id:'xunlong', name:'寻龙',    role:'矿业研究员',        status:'idle',    accent:'#fbbf24', focus:'钨价、政策、全球矿业信源',          current:'等待矿业研究调度'},
-  {id:'wuyin',   name:'无垠',    role:'矿山项目工程',       status:'working', accent:'#34d399', focus:'智慧矿山与三维数字孪生',           current:'聚源三维项目链路维护'},
-  {id:'tansuo',  name:'探索',    role:'采选矿专家',         status:'online',  accent:'#fb7185', focus:'XRT、磨浮、回收率、药剂',           current:'采选矿判断待命'},
-  {id:'zhilian', name:'智联',    role:'知识库管理员',        status:'online',  accent:'#38bdf8', focus:'归档、记忆、NAS、资料治理',         current:'知识库与记忆库状态巡检'},
-  {id:'heijin',  name:'黑金',    role:'AI 项目工程师',      status:'working', accent:'#f97316', focus:'AI协作平台与 Agent Runtime',      current:'移动端 Alpha 迭代'},
-  {id:'kaifa',   name:'开发',    role:'Codex 开发 Bot',    status:'idle',    accent:'#4ade80', focus:'代码、构建、Bug 修复',             current:'等待构建/接口任务'},
+  {id:'zhuli',   name:'助理',    role:'AI 总指挥',        status:'online',  accent:'#22d3ee', focus:'接收指令、拆任务、调度、总结',      current:'接收移动端分派，等待下一条指令', sourceMode:'fallback'},
+  {id:'renzhi',  name:'认知中枢', role:'后台认知层',        status:'watching',accent:'#a78bfa', focus:'长上下文、冲突消歧、夜训门控',      current:'后台认知链路监测中', sourceMode:'fallback'},
+  {id:'xunlong', name:'寻龙',    role:'矿业研究员',        status:'idle',    accent:'#fbbf24', focus:'钨价、政策、全球矿业信源',          current:'待命', sourceMode:'fallback'},
+  {id:'wuyin',   name:'无垠',    role:'矿山项目工程',       status:'working', accent:'#34d399', focus:'智慧矿山与三维数字孪生',           current:'处理工程分析任务', sourceMode:'fallback'},
+  {id:'tansuo',  name:'探索',    role:'采选矿专家',         status:'online',  accent:'#fb7185', focus:'XRT、磨浮、回收率、药剂',           current:'待命', sourceMode:'fallback'},
+  {id:'zhilian', name:'智联',    role:'知识库管理员',        status:'online',  accent:'#38bdf8', focus:'归档、记忆、NAS、资料治理',         current:'知识库与记忆库待命中', sourceMode:'fallback'},
+  {id:'heijin',  name:'黑金',    role:'AI 项目工程师',      status:'working', accent:'#f97316', focus:'AI协作平台与 Agent Runtime',      current:'处理平台构建任务', sourceMode:'fallback'},
+  {id:'kaifa',   name:'开发',    role:'Codex 开发 Bot',    status:'idle',    accent:'#4ade80', focus:'代码、构建、Bug 修复',             current:'待命', sourceMode:'fallback'},
 ];
 
 const FALLBACK_TASKS: Task[] = [
-  {id:'t1', title:'移动端 P0：AI 大脑总览',       owner:'助理/黑金', state:'running', eta:'今晚',    next:'补齐总览、记忆库、调度链 UI',  priority:'P0'},
-  {id:'t2', title:'OpenClaw Bridge 接口骨架',    owner:'开发',        state:'todo',    eta:'明天',    next:'接真实 Agent/任务/消息 API', priority:'P0'},
-  {id:'t3', title:'附件上传入口',                owner:'黑金',        state:'running', eta:'Alpha 0.2', next:'图片/视频/文件统一进 AI 指令流', priority:'P1'},
-  {id:'t4', title:'APP 上架 Skill',             owner:'助理',        state:'done',    eta:'已完成',  next:'后续补 TestFlight 自动化',   priority:'P1'},
-  {id:'t5', title:'Brave 搜索链路补丁验证',      owner:'助理',        state:'blocked', eta:'待二轮验证', next:'搜索链只作研究辅助，不阻塞移动端', priority:'P2'},
-  {id:'t6', title:'记忆库接口接入',             owner:'智联',        state:'todo',    eta:'本周',    next:'接 OpenClaw 记忆 API',      priority:'P1'},
+  {id:'t1', title:'iOS Archive + TestFlight 上架验证', owner:'助理/黑金', state:'running', eta:'待 Apple 配置', next:'确认 teamId / API Key 后触发 GitHub Actions 上传', priority:'P0', sourceType:'fallback', traceSummary:'iOS 分发链路验证'},
+  {id:'t2', title:'OpenClaw 协议字段对齐 — Agent/Task/Chat', owner:'开发', state:'todo', eta:'本周', next:'完成真实 session → task 映射层，替换 fallback', priority:'P0', sourceType:'fallback', traceSummary:'协议层对齐'},
+  {id:'t3', title:'附件处理链路 — 分片断点 + 远端分派回调', owner:'黑金', state:'running', eta:'Alpha 0.2', next:'接飞书文件回调，联通 uploadId → dispatchId 回流', priority:'P1', sourceType:'fallback', traceSummary:'附件全链路闭环'},
+  {id:'t4', title:'App Store 元数据完善 — 截图 + Icon', owner:'助理', state:'todo', eta:'上架前', next:'补充 6.7"/6.5"/5.5" 截图与 1024 Icon', priority:'P1', sourceType:'fallback', traceSummary:'App Store 物料准备'},
+  {id:'t5', title:'记忆库 — 向量检索 + 远程写入结果回读', owner:'智联', state:'todo', eta:'本周', next:'接 memory_recall 语义检索，结果可编辑可回写', priority:'P1', sourceType:'fallback', traceSummary:'记忆层语义闭环'},
+  {id:'t6', title:'知识库 — 飞书 Wiki/Doc 全文写入', owner:'智联', state:'todo', eta:'本周', next:'接 feishu_wiki + feishu_doc 写入 API，形成收录→沉淀链路', priority:'P1', sourceType:'fallback', traceSummary:'知识层写入闭环'},
 ];
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -284,17 +348,17 @@ export async function sendMessage(text: string): Promise<SendMessageResult> {
       channel: 'feishu',
       target:  'ou_9782bd16e99998d38b13d05ff5cb648c',
       message: text,
-    }) as Record<string, unknown>;
-    const msgId = (result?.messageId ?? result?.chatId ?? 'ok') as string;
-    const shortId = typeof msgId === 'string' && msgId.length > 12
-      ? msgId.slice(0, 12) : String(msgId);
+    });
+    const messageResult = extractMessageResult(result);
+    const traceId = messageResult.messageId ?? messageResult.threadId ?? messageResult.chatId ?? 'ok';
+    const shortId = traceId.length > 12 ? traceId.slice(0, 12) : traceId;
     const taskId = buildLocalTaskId('task');
     const dispatchId = buildLocalTaskId('dispatch');
     return {
       sent: true,
       taskId,
       dispatchId,
-      sessionKey: typeof msgId === 'string' ? msgId : String(msgId),
+      sessionKey: messageResult.sessionKey ?? messageResult.threadId ?? messageResult.chatId ?? messageResult.messageId,
       reply: `✓ 消息已送达至助理（${shortId}）。已生成调度单：${taskId} / ${dispatchId}，可在「任务」和「调度链」继续追踪。`,
     };
   } catch (e) {
@@ -311,7 +375,7 @@ export async function sendMessage(text: string): Promise<SendMessageResult> {
 /** Poll for new AI subagent activity since sentAt */
 export async function pollForActivity(sinceMs: number): Promise<{
   active: boolean; label?: string; agentId?: string; sessionKey?: string;
-  status?: 'running' | 'done';
+  status?: 'running' | 'done'; runtimeMs?: number; updatedAt?: number;
 }> {
   try {
     const result = await gatewayInvoke('sessions_list', 'json', {});
@@ -343,6 +407,8 @@ export async function pollForActivity(sinceMs: number): Promise<{
         agentId: newest.agentId,
         sessionKey: newest.key,
         status: rawStatus === 'done' ? 'done' : 'running',
+        runtimeMs: (matched?.['runtimeMs'] as number) || 0,
+        updatedAt: newest.updatedAt,
       };
     }
     return {active: false};
@@ -362,4 +428,30 @@ export async function uploadFile(
     if (res.ok) return await res.json();
   } catch { /* fall through */ }
   return {success: true, fileId: `mock-${Date.now()}`};
+}
+
+export function buildDispatchRecordUpdate(activity: {
+  label?: string;
+  agentId?: string;
+  sessionKey?: string;
+  status?: 'running' | 'done';
+  runtimeMs?: number;
+  updatedAt?: number;
+}): Pick<DispatchRecord, 'status' | 'label' | 'agentId' | 'sessionKey' | 'stageText' | 'updatedAt'> {
+  const status = activity.status === 'done' ? 'completed' : 'dispatched';
+  const runtimeText = activity.runtimeMs && activity.runtimeMs > 0
+    ? ` · ${Math.round(activity.runtimeMs / 1000)}s`
+    : '';
+  const stageText = activity.label
+    ? `${activity.agentId ?? 'AI'} · ${activity.label}${runtimeText}`
+    : `${activity.agentId ?? 'AI'}${runtimeText}`;
+
+  return {
+    status,
+    label: activity.label,
+    agentId: activity.agentId,
+    sessionKey: activity.sessionKey,
+    stageText,
+    updatedAt: activity.updatedAt ?? Date.now(),
+  };
 }

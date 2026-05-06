@@ -35,6 +35,9 @@ bundle exec fastlane appstore   # App Store submission
 
 ## iOS · TestFlight / App Store
 
+> 运行态收口与提测判断，请同时参考 [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)。
+
+
 ### Prerequisites
 
 1. **Apple Developer Account** with paid membership (≈ $99/year)
@@ -47,7 +50,7 @@ bundle exec fastlane appstore   # App Store submission
 1. Go to [App Store Connect](https://appstoreconnect.apple.com) → My Apps → **+** → New App
 2. Fill in:
    - Platform: iOS
-   - Name: AIBrainIM
+   - Name: AI协作平台（代码仓 / Target 名仍为 AIBrainIM）
    - Primary Language: Chinese (Simplified, zh-Hans)
    - Bundle ID: `com.openclaw.aibrainim`
    - SKU: `aibrainim-001`
@@ -119,7 +122,9 @@ TBD — not yet in scope.
 
 ## Notes
 
+- Product Name: `AI协作平台`（代码仓 / Target 名：`AIBrainIM`）
 - Bundle ID: `com.openclaw.aibrainim`
+- Marketing Version: `0.1.0`
 - Min iOS: **15.1** (iPhone 6s+)
 - Architecture: arm64 (device) + x86_64 (simulator)
 - React Native New Architecture: **enabled** (`RCTNewArchEnabled=true`)

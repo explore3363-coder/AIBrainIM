@@ -53,6 +53,8 @@ export function DispatchChainScreen() {
             </View>
             <Text style={styles.summaryText}>dispatchId: {latestDispatch.dispatchId ?? '未生成'}</Text>
             <Text style={styles.summaryText}>status: {latestDispatch.status}</Text>
+            {latestDispatch.agentId ? <Text style={styles.summaryText}>agent: {latestDispatch.agentId}</Text> : null}
+            {latestDispatch.stageText ? <Text style={styles.summaryText}>stage: {latestDispatch.stageText}</Text> : null}
             <Text style={styles.summaryHint}>{latestMeta?.summary}</Text>
             {latestDispatch.sessionKey ? (
               <Text style={styles.summaryText}>session: {latestDispatch.sessionKey}</Text>
@@ -90,7 +92,8 @@ export function DispatchChainScreen() {
                     </View>
                   </View>
                   <Text style={styles.historyMeta}>taskId={item.taskId ?? '—'} · dispatchId={item.dispatchId ?? '—'}</Text>
-                  <Text style={styles.historyMeta}>status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}</Text>
+                  <Text style={styles.historyMeta}>status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}{item.agentId ? ` · agent=${item.agentId}` : ''}</Text>
+                  {item.stageText ? <Text style={styles.historyMeta}>stage={item.stageText}</Text> : null}
                   <Text style={styles.historyReply} numberOfLines={3}>{item.reply}</Text>
                 </View>
               );
