@@ -65,6 +65,7 @@ export function ChatScreen() {
   const {dispatches, registerDispatch, runtimeMode, runtimeError} = useAppContext();
   const [draft, setDraft]   = useState('');
   const [sending, setSending] = useState(false);
+  const [typing, setTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {role: 'in', name: '助理', text: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。'},
   ]);
@@ -290,6 +291,7 @@ export function ChatScreen() {
     setMessages(m => [...m, {role: 'out', text: userText}]);
     setDraft('');
     setSending(true);
+    setTyping(true);
 
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
 
@@ -321,6 +323,7 @@ export function ChatScreen() {
 
     setMessages(m => [...m, {role: 'in', name: '助理', text: reply}]);
     setSending(false);
+    setTyping(false);
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
 
   }, [
@@ -406,6 +409,18 @@ export function ChatScreen() {
                 <Text style={styles.msgText}>{msg.text}</Text>
               </View>
             )
+          )}
+
+          {/* Typing indicator */}
+          {typing && (
+            <View style={styles.msgIn}>
+              <Text style={styles.msgName}>助理</Text>
+              <View style={{flexDirection:'row', alignItems:'center', paddingTop:2}}>
+                <Text style={styles.typingDot}>●</Text>
+                <Text style={styles.typingDot}>●</Text>
+                <Text style={styles.typingDot}>●</Text>
+              </View>
+            </View>
           )}
 
           {/* Upload panel */}
@@ -542,6 +557,7 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)',
   },
   msgName: {color: C.primary, fontSize: 11, fontWeight: '800', marginBottom: 4},
+  typingDot: {color: C.primary, fontSize: 18, marginRight: 4, lineHeight: 22},
   msgText: {color: C.textBody, fontSize: 14, lineHeight: 20},
 
   dispatchStatusCard: {
