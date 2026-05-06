@@ -28,9 +28,17 @@ export function DispatchChainScreen() {
       {stage:'receive', title:'接收指令', actor:'你 → 助理', detail: latest.userText},
       {stage:'dispatch', title:'生成调度单', actor:'助理 / Gateway', detail: `taskId=${latest.taskId ?? '未生成'} · dispatchId=${latest.dispatchId ?? '未生成'}`},
       {stage:'feedback', title:'状态回流', actor:'移动端', detail: latest.reply},
-      {stage:'synthesis', title:'当前状态', actor:'调度链', detail: `${statusLabel}${latest.sessionKey ? ` · session=${latest.sessionKey}` : ''}`},
+      {stage:'synthesis', title:'当前状态', actor:'调度链', detail: `${statusLabel}${latest.sessionKey ? ` · session=${latest.sessionKey}` : ''}${latest.agentId ? ` · agent=${latest.agentId}` : ''}`},
       {stage:'deliver', title:'结果交付', actor:'APP', detail: latest.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链与首页 AI 产出流。' : latest.status === 'failed' ? '该调度单执行失败，已保留现场记录，建议查看链路后重试。' : '该调度单已同步到任务流、调度链与首页 AI 产出流，可继续追踪后续状态。'},
     ];
+  }, [dispatches]);
+
+  const stats = useMemo(() => {
+    const total = dispatches.length;
+    const completed = dispatches.filter(item => item.status === 'completed').length;
+    const failed = dispatches.filter(item => item.status === 'failed').length;
+    const active = dispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length;
+    return {total, completed, failed, active};
   }, [dispatches]);
 
   return (
@@ -40,6 +48,25 @@ export function DispatchChainScreen() {
         <Text style={styles.sub}>指令从接收到交付的完整流转</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.overviewRow}>
+          <View style={styles.overviewCard}>
+            <Text style={styles.overviewLabel}>总调度</Text>
+            <Text style={styles.overviewValue}>{stats.total}</Text>
+          </View>
+          <View style={styles.overviewCard}>
+            <Text style={styles.overviewLabel}>执行中</Text>
+            <Text style={styles.overviewValue}>{stats.active}</Text>
+          </View>
+          <View style={styles.overviewCard}>
+            <Text style={styles.overviewLabel}>已完成</Text>
+            <Text style={styles.overviewValue}>{stats.completed}</Text>
+          </View>
+          <View style={styles.overviewCard}>
+            <Text style={styles.overviewLabel}>失败</Text>
+            <Text style={styles.overviewValue}>{stats.failed}</Text>
+          </View>
+        </View>
+
         {latestDispatch ? (
           <View style={styles.summaryCard}>
             <Text style={styles.summaryEyebrow}>最新调度单</Text>
@@ -111,6 +138,22 @@ const styles = StyleSheet.create({
   title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
   sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
   content:    {padding: 16, paddingBottom: 100},
+  overviewRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  overviewCard: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(8,18,36,0.62)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  overviewLabel: {color: C.textMuted, fontSize: 10, fontWeight: '700'},
+  overviewValue: {color: C.textTitle, fontSize: 18, fontWeight: '900', marginTop: 4},
   summaryCard: {
     marginBottom: 12,
     padding: 14,

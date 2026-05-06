@@ -11,7 +11,7 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 | 入口 | 状态 | 说明 |
 |------|------|------|
 | 总览 | ✅ | AI 驾驶舱：AI 产出流 / 调度状态 / 需确认项 / 记忆库入口 |
-| 对话 | ✅ | AI 对话 + 附件上传（分片/断点续传/后台队列）|
+| 对话 | ✅ | AI 对话（会话历史持久化）+ 附件上传（分片/断点续传/后台队列）|
 | 智能体 | ✅ | Agent 状态总览 + 详情页 |
 | 任务 | ✅ | 全局 Kanban：对话指令 + 附件上传链路合并显示 |
 | 我的 | ✅ | 信息层入口 + TestFlight/App Store 准备入口 |
@@ -38,7 +38,7 @@ npm test           # Jest
 - React Navigation **7**（Bottom Tabs + Native Stack）
 - TypeScript
 - iOS 15.1+
-- `@react-native/new-app-screen` · `react-native-image-picker` · `react-native-document-picker`
+- `@react-native/new-app-screen` · `react-native-image-picker` · `react-native-document-picker` · `@react-native-async-storage/async-storage`
 
 ## CI/CD
 

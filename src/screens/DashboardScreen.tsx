@@ -14,7 +14,6 @@ import {C, brainStoresMock, commandTraceMock, aiFeedMock} from '../data/mockData
 import {useAppContext} from '../context/AppContext';
 import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';
-import {OverviewCard} from '../components/OverviewCard';
 import {StoreCard} from '../components/StoreCard';
 import {FeedItem} from '../components/FeedItem';
 import type {BrainStore, AIFeedItem, CommandTrace} from '../types';

@@ -282,7 +282,7 @@ export function MemoryStoreScreen() {
       ? '✓ 已写入 OpenClaw 记忆层，并同步保留在移动端列表中。'
       : '⚠️ 远程写入暂未成功，已先保存在本地当前会话里。');
     resetComposer();
-  }, [draftCategory, draftContent, editingEntryId, resetComposer, saving]);
+  }, [draftCategory, draftContent, editingEntryId, registerMemoryCapture, resetComposer, saving]);
 
   const handleReplayToComposer = useCallback((entry: MemoryEntry) => {
     setDraftCategory(entry.category);
