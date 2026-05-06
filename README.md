@@ -1,97 +1,54 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# AIBrainIM
 
-# Getting Started
+AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+---
 
-## Step 1: Start Metro
+## 状态
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+**P1 可用版** — 已贯通以下五个核心功能：
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+| 入口 | 状态 | 说明 |
+|------|------|------|
+| 总览 | ✅ | AI 驾驶舱：AI 产出流 / 调度状态 / 需确认项 / 记忆库入口 |
+| 对话 | ✅ | AI 对话 + 附件上传（分片/断点续传/后台队列）|
+| 智能体 | ✅ | Agent 状态总览 + 详情页 |
+| 任务 | ✅ | 全局 Kanban：对话指令 + 附件上传链路合并显示 |
+| 我的 | ✅ | 信息层入口 + TestFlight/App Store 准备入口 |
 
-```sh
-# Using npm
-npm start
+**待完成（P1 之后）：** 真实 API 接入（Agent/Task/Chat/Upload 四链路替换 mock）
 
-# OR using Yarn
-yarn start
+---
+
+## 快速开始
+
+```bash
+npm install
+cd ios && pod install && cd ..
+npm run ios        # 启动 Metro + 打开 iOS Simulator
+npm run typecheck  # TypeScript 检查
+npm test           # Jest
 ```
 
-## Step 2: Build and run your app
+## 技术栈
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+- React Native **0.85.2**（New Architecture enabled）
+- React Navigation **7**（Bottom Tabs + Native Stack）
+- TypeScript
+- iOS 15.1+
+- `@react-native/new-app-screen` · `react-native-image-picker` · `react-native-document-picker`
 
-### Android
+## CI/CD
 
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```
+main push        → GitHub Actions: TypeScript + iOS Simulator Build
+v*.*.* tag push  → GitHub Actions: TestFlight Archive + Upload → App Store Connect
 ```
 
-### iOS
+详见 [DEPLOY.md](./DEPLOY.md)
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## App Store / TestFlight
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+Bundle ID: `com.openclaw.aibrainim`
 
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+详见 [DEPLOY.md](./DEPLOY.md) → Section: iOS · TestFlight / App Store

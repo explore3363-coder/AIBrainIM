@@ -1,0 +1,146 @@
+# frozen_string_literal: true
+
+# Fastfile — AIBrainIM iOS build & release lanes
+# Usage:
+#   cd ios/fastlane && bundle install
+#   bundle exec fastlane sim           # Simulator build
+#   bundle exec fastlane tf            # TestFlight build + upload
+#   bundle exec fastlane appstore      # App Store submission
+#   bundle exec fastlane test          # Run tests
+
+require_relative "../AIBrainIM/Info.plist" # loads APP_VERSION, BUNDLE_VERSION
+
+OUTPUT_DIR = "../build".freeze
+ARCHIVE_PATH = "#{OUTPUT_DIR}/AIBrainIM.xcarchive".freeze
+EXPORT_PATH = "#{OUTPUT_DIR}".freeze
+
+# ─── Lane: sim ─────────────────────────────────────────────────────────────────
+desc("Build iOS Simulator (no signing, for local dev)")
+lane :sim do
+  ensure_gem_dependencies_installed!
+
+  # Clean + build
+  xcodebuild(
+    workspace: "../AIBrainIM.xcworkspace",
+    scheme: "AIBrainIM",
+    configuration: "Debug",
+    destination: "platform=iOS Simulator,name=iPhone 17 Pro",
+    derivedDataPath: "#{OUTPUT_DIR}/DerivedData",
+    build: true,
+    code_sign_style: "Automatic",
+    CODE_SIGNING_ALLOWED: "NO"
+  )
+
+  puts("✅ Simulator build complete. Run app from Xcode or `npm run ios`.")
+end
+
+# ─── Lane: tf ──────────────────────────────────────────────────────────────────
+desc("Build Release + Upload to TestFlight (App Store Connect)")
+lane :tf do
+  ensure_gem_dependencies_installed!
+
+  # ── 1. Increment build number to current Git run ──────────────────────────
+  build_number = git_build_number(stop_on_change: false)
+  increment_build_number(
+    build_number: build_number,
+    xcodeproj: "../AIBrainIM.xcodeproj"
+  )
+  puts("📦 Build number: #{build_number}")
+
+  # ── 2. Archive ─────────────────────────────────────────────────────────────
+  xcodebuild(
+    workspace: "../AIBrainIM.xcworkspace",
+    scheme: "AIBrainIM",
+    configuration: "Release",
+    archive_path: ARCHIVE_PATH,
+    derivedDataPath: "#{OUTPUT_DIR}/DerivedData",
+    archive: true,
+    code_sign_style: "Automatic",
+    DEVELOPMENT_TEAM: ENV["APPLE_TEAM_ID"],
+    CODE_SIGN_IDENTITY: "Apple Distribution"
+  )
+
+  # ── 3. Export IPA ──────────────────────────────────────────────────────────
+  export_options = {
+    method: "app-store-connect",
+    signingStyle: "automatic",
+    stripSwiftSymbols: true,
+    uploadBitcode: false
+  }
+
+  export_options_path = "#{OUTPUT_DIR}/ExportOptions.plist"
+  File.write(export_options_path, export_options.to_plist)
+
+  xcodebuild(
+    exportArchive: true,
+    archivepath: ARCHIVE_PATH,
+    exportPath: EXPORT_PATH,
+    exportOptionsPlist: export_options_path,
+    code_sign_style: "Automatic",
+    DEVELOPMENT_TEAM: ENV["APPLE_TEAM_ID"]
+  )
+
+  # ── 4. Upload to TestFlight ────────────────────────────────────────────────
+  api_key = app_store_connect_api_key(
+    key_id: ENV["APPLE_API_KEY_ID"],
+    issuer_id: ENV["APPLE_API_ISSUER_ID"],
+    key_filepath: ENV["APPLE_API_KEY_FILEPATH"] # path to .p8 file
+  )
+
+  if api_key
+    upload_to_app_connect(api_key: api_key)
+    puts("✅ Uploaded to App Store Connect via API Key.")
+  else
+    # Fallback: use Spaceship auth
+    Spaceship::LocalLogin.login(ENV["APPLE_ID"], ENV["APPLE_APP_PASSWORD"])
+    deliver(
+      api_key: nil,
+      skip_waiting_for_build_processing: false,
+      reject_if_accepted: false
+    )
+    puts("✅ Uploaded via Apple ID.")
+  end
+
+  puts("🎉 TestFlight build uploaded! Check App Store Connect → TestFlight → Builds (~5-30 min processing).")
+end
+
+# ─── Lane: appstore ───────────────────────────────────────────────────────────
+desc("App Store submission (after TestFlight passes)")
+lane :appstore do
+  ensure_gem_dependencies_installed!
+
+  api_key = app_store_connect_api_key(
+    key_id: ENV["APPLE_API_KEY_ID"],
+    issuer_id: ENV["APPLE_API_ISSUER_ID"],
+    key_filepath: ENV["APPLE_API_KEY_FILEPATH"]
+  )
+
+  deliver(
+    api_key: api_key,
+    app_version: APP_VERSION,
+    skip_binary_upload: false,
+    skip_metadata: false,
+    skip_screenshots: true,   # set false + add screenshots/ when ready
+    automatic_release: true,
+    submission_information: {
+      add_id_info_uses_idfa: false,
+      add_id_info_uses_encryption: false,
+      content_rights_contains_third_party_content: false
+    }
+  )
+
+  puts("✅ Submitted to App Store! Check App Store Connect → App Store tab.")
+end
+
+# ─── Lane: test ────────────────────────────────────────────────────────────────
+desc("Run Jest tests")
+lane :test do
+  sh("cd .. && npm test")
+end
+
+# ─── Helper ────────────────────────────────────────────────────────────────────
+private_lane :ensure_gem_dependencies_installed! do
+  # Ensure Gemfile.lock is up to date — install if needed
+  # (Fastlane handles this automatically when run via `bundle exec`)
+  puts("Fastlane version: #{Fastlane::VERSION}")
+end

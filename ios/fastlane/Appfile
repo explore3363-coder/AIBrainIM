@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+# Appfile — AIBrainIM iOS App Store Connect config
+# Docs: https://docs.fastlane.tools/advanced/Appfile/
+
+app_identifier("com.openclaw.aibrainim")
+apple_id(ENV["APPLE_DEV_EMAIL"] || "dev@openclaw.ai")
+
+# Team ID — set via FASTLANE_ITC_TEAM_ID env var, or find in Apple Developer portal
+# itc_team_id(ENV["APPLE_ITC_TEAM_ID"])
+
+# For App Store Connect API Key (recommended over Apple ID + password)
+# key_id(ENV["APPLE_API_KEY_ID"])
+# For manual Apple ID upload:
+# apple_id(ENV["APPLE_ID"])
+# For SpaceAuth token (if 2FA enabled without API key):
+# spaceauth_token(ENV["SPACE_AUTH_TOKEN"])
