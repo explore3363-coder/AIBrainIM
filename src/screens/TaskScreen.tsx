@@ -1,5 +1,5 @@
-import React from 'react';
-import {ScrollView, Text, View, StyleSheet, TouchableOpacity} from 'react-native';
+import React, {useCallback} from 'react';
+import {ScrollView, Text, View, StyleSheet, TouchableOpacity, RefreshControl} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -107,7 +107,9 @@ function KanbanCol({
 
 export function TaskScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {tasks, refreshing} = useAppContext();
+  const {tasks, refreshing, refresh} = useAppContext();
+
+  const onRefresh = useCallback(() => { refresh(); }, [refresh]);
 
   const grouped = React.useMemo(() => {
     const g: Record<TaskState, Task[]> = {running: [], todo: [], done: [], blocked: []};
@@ -187,6 +189,13 @@ export function TaskScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.kanban}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        }
       >
         {COLUMNS.map(col => (
           <KanbanCol

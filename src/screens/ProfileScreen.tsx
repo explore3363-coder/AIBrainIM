@@ -10,7 +10,7 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {C, profileStatsMock} from '../data/mockData';
+import {C} from '../data/mockData';
 import {MetricCard} from '../components/MetricCard';
 import {useAppContext} from '../context/AppContext';
 
@@ -54,7 +54,6 @@ function MenuItem({emoji, title, subtitle, accent, onPress, badge}: MenuItemProp
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const stats = profileStatsMock;
   const {
     uploads,
     runtimeMode,
@@ -64,7 +63,21 @@ export function ProfileScreen() {
     pendingConfirmations,
     tasks,
     dispatches,
+    agents,
   } = useAppContext();
+
+  // Stats from live context — no hardcoded profileStatsMock
+  const stats = useMemo(() => {
+    const doneTasks = tasks.filter(task => task.state === 'done').length;
+    const activeAgents = agents.filter(a => a.status === 'online' || a.status === 'working').length;
+    return {
+      totalTasks: tasks.length,
+      completedTasks: doneTasks,
+      activeAgents,
+      memoryEntries: 8,   // stand-in; production: count from memory_recall API
+      knowledgeDocs: 8,    // stand-in; production: count from knowledge API
+    };
+  }, [tasks, agents]);
   const activeUploads = uploads.filter(
     f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
   ).length;

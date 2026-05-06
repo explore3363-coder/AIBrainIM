@@ -6,9 +6,14 @@
 
 ## 当前状态
 
-**判定：待收口**（2026-05-07）
+**判定：可提测（代码侧）**（2026-05-07 本轮更新）
 
-主功能闭环已贯通，剩余工作主要是 Apple 开发者账号配置与提测物料准备。
+代码侧 P1 可用版已基本收口：
+- ✅ ChatScreen typing indicator bug（handleSend 异常时状态卡住）已修复
+- ✅ ProfileScreen 统计改为实时 context 数据，不再依赖硬编码 mock
+- ✅ TaskScreen / DispatchChainScreen 已加入下拉刷新
+
+剩余主要是 Apple Developer 账号配置与 App Store Connect 物料准备（截图、Icon）。
 
 ---
 
@@ -20,10 +25,18 @@
 | ✅ | 五主功能（总览/对话/智能体/任务/我的） | 已贯通 |
 | ✅ | 记忆库 / 知识库 / 附件入口 / 调度链 | 已贯通 |
 | ✅ | GitHub Actions + Fastlane TestFlight 链路 | 预置待配 |
-| ⏳ | 至少完成一轮 LIVE 网关闭环验证 | Gateway 连通性待验证 |
-| ⏳ | 需确认项清零或压到可解释范围 | 3 条 pending |
-| ⏳ | 阻塞任务收口到可提测状态 | 视实际任务数 |
-| 🔲 | Apple 物料（Icon / 截图 / App Store Connect） | 待开始 |
+| ✅ | 需确认项支持确认/延后流转 | 已实现，状态回流到调度链 |
+| ✅ | 附件上传（无大小限制、分片、断点续传） | 已实现 |
+| ✅ | 记忆库写入/搜索（本地+远程补写） | 已贯通 |
+| ✅ | 知识库收录到记忆（本地+远程） | 已贯通 |
+| ✅ | ChatScreen typing indicator bug fix | 本轮修复 |
+| ✅ | ProfileScreen 统计使用实时 context | 本轮修复 |
+| ✅ | TaskScreen / DispatchChainScreen 下拉刷新 | 本轮添加 |
+| ⏳ | 至少完成一轮 LIVE 网关闭环验证 | Gateway 连通性待真实环境验证 |
+| ⏳ | 需确认项清零或压到可解释范围 | 3 条 pending，需人工拍板 |
+| 🔲 | Apple Developer 账号 + App Store Connect 配置 | 待开始 |
+| 🔲 | App Icon（1024×1024）+ 截图（6.7"/6.5"/5.5"） | 待准备 |
+| 🔲 | 第一个 TestFlight Build 上传 | 待触发 |
 
 ---
 

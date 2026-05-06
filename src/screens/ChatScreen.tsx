@@ -295,37 +295,48 @@ export function ChatScreen() {
 
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
 
-    const {reply, sent, taskId, dispatchId, sessionKey} = await sendMessage(outboundText);
+    try {
+      const {reply, sent, taskId, dispatchId, sessionKey} = await sendMessage(outboundText);
 
-    registerDispatch({
-      userText: queuedAttachmentSummaries.length > 0
-        ? `${userText}（携带 ${queuedAttachmentSummaries.length} 个附件）`
-        : userText,
-      reply,
-      taskId,
-      dispatchId,
-      sessionKey,
-      sent,
-      source: 'chat',
-    });
+      registerDispatch({
+        userText: queuedAttachmentSummaries.length > 0
+          ? `${userText}（携带 ${queuedAttachmentSummaries.length} 个附件）`
+          : userText,
+        reply,
+        taskId,
+        dispatchId,
+        sessionKey,
+        sent,
+        source: 'chat',
+      });
 
-    if (sent && queuedAttachmentSummaries.length > 0) {
+      if (sent && queuedAttachmentSummaries.length > 0) {
+        setMessages(m => [
+          ...m,
+          {
+            role: 'in',
+            name: '助理',
+            text: `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。`,
+          },
+        ]);
+        queuedAttachmentSummaries.forEach(att => clearQueuedAttachment(att.id));
+      }
+
+      setMessages(m => [...m, {role: 'in', name: '助理', text: reply}]);
+    } catch (err) {
       setMessages(m => [
         ...m,
         {
           role: 'in',
           name: '助理',
-          text: `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。`,
+          text: `⚠️ 发送失败：${err instanceof Error ? err.message : String(err)}`,
         },
       ]);
-      queuedAttachmentSummaries.forEach(att => clearQueuedAttachment(att.id));
+    } finally {
+      setSending(false);
+      setTyping(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
     }
-
-    setMessages(m => [...m, {role: 'in', name: '助理', text: reply}]);
-    setSending(false);
-    setTyping(false);
-    setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
-
   }, [
     clearQueuedAttachment,
     draft,
