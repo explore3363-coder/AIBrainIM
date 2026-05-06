@@ -247,7 +247,7 @@ export function KnowledgeBaseScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>📖 知识库</Text>
         <Text style={styles.sub}>{displayCount} 篇文档 · {searchResults ? '搜索结果' : '矿业 + 工程 + 技术 + 政策'}</Text>
-        <Text style={styles.helper}>运行态知识已汇入这里：实时 Agent 状态、任务链路、附件闭环与最新调度单会自动生成样本。现在收录知识后，也会同步回流到任务页和调度链。</Text>
+        <Text style={styles.helper}>运行态知识自动汇入 · 收录后可同步到任务与调度链</Text>
 
         {/* Search bar */}
         <View style={styles.searchRow}>

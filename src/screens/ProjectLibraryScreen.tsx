@@ -135,7 +135,7 @@ export function ProjectLibraryScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>📁 项目库</Text>
         <Text style={styles.sub}>{mergedProjects.length} 个项目 · 进度实时</Text>
-        <Text style={styles.helper}>这里已经不只是静态项目清单，而是会把移动端闭环、调度接入和确认链路同步投影成运行态项目。</Text>
+        <Text style={styles.helper}>运行态项目实时投影 · 移动端闭环、调度与确认链同步可见</Text>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}

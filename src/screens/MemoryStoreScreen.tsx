@@ -20,14 +20,14 @@ interface MemoryEntry {
 }
 
 const MEMORY_ENTRIES: MemoryEntry[] = [
-  {id:'m1', category:'decision', content:'P0 只做 AI 大脑驾驶舱，不做通用 IM 功能', agent:'助理', timestamp:'2026-05-06', source:'seed'},
-  {id:'m2', category:'rule',     content:'前端不设上下文长度限制，后端处理策略', agent:'黑金', timestamp:'2026-05-06', source:'seed'},
-  {id:'m3', category:'fact',     content:'移动端 Alpha 采用 React Native 0.85.2', agent:'开发', timestamp:'2026-05-05', source:'seed'},
-  {id:'m4', category:'preference', content:'用户偏好深色主题，星际蓝配色', agent:'助理', timestamp:'2026-05-05', source:'seed'},
-  {id:'m5', category:'decision', content:'附件上传不设前端硬限制，后端自行分片', agent:'助理', timestamp:'2026-05-05', source:'seed'},
-  {id:'m6', category:'rule',     content:'调度链必须可追踪，每条指令有 receive → deliver', agent:'助理', timestamp:'2026-05-04', source:'seed'},
-  {id:'m7', category:'fact',     content:'聚源三维项目优先级高于内部效率工具', agent:'无垠', timestamp:'2026-05-04', source:'seed'},
-  {id:'m8', category:'preference', content:'用户希望任务以 Kanban 视图呈现，优先级醒目', agent:'助理', timestamp:'2026-05-03', source:'seed'},
+  {id:'m1', category:'preference', content:'偏好深色主题，操作界面以星际蓝为主色调', agent:'助理', timestamp:'2026-05-06', source:'seed'},
+  {id:'m2', category:'preference', content:'任务以 Kanban 视图呈现，优先级要醒目', agent:'助理', timestamp:'2026-05-06', source:'seed'},
+  {id:'m3', category:'fact',     content:'聚源三维智慧矿山项目是当前最高优先级', agent:'助理', timestamp:'2026-05-05', source:'seed'},
+  {id:'m4', category:'decision', content:'上传文件不设大小限制，由后端自动处理分片', agent:'助理', timestamp:'2026-05-05', source:'seed'},
+  {id:'m5', category:'rule',     content:'调度链每条指令必须可追踪，有 receive → deliver 完整路径', agent:'助理', timestamp:'2026-05-04', source:'seed'},
+  {id:'m6', category:'fact',     content:'钨矿 AI 大脑主攻矿业领域知识与矿山数字化', agent:'助理', timestamp:'2026-05-03', source:'seed'},
+  {id:'m7', category:'preference', content:'希望智能体状态实时可见，首页看到正在发生什么', agent:'助理', timestamp:'2026-05-03', source:'seed'},
+  {id:'m8', category:'rule',     content:'需确认项必须人工拍板后才能继续推进，不能跳过', agent:'助理', timestamp:'2026-05-02', source:'seed'},
 ];
 
 const CATEGORY_META: Record<MemoryEntry['category'], {emoji: string; label: string; color: string}> = {
@@ -354,7 +354,7 @@ export function MemoryStoreScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>🧠 记忆库</Text>
         <Text style={styles.sub}>{mergedEntries.length} 条记忆 · {searchResults ? `搜索结果 ${filtered.length} 条` : '长期 + 短期'}</Text>
-        <Text style={styles.helper}>已接入实时上下文：最新调度、活跃任务、附件链路、待确认决策会自动汇入这里。现在新增记忆支持本地保留、远程补写、回填编辑。</Text>
+        <Text style={styles.helper}>实时状态自动汇入 · 新增记忆支持本地与远程同步</Text>
 
         <View style={styles.composerCard}>
           <Text style={styles.composerTitle}>{editingEntryId ? '编辑记忆' : '新增记忆'}</Text>

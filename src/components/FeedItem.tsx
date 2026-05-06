@@ -12,6 +12,7 @@ const TYPE_ICONS: Record<string, string> = {
   dispatch: '🔄',
   confirmation: '⚠️',
   system: '⚙️',
+  upload: '📤',
 };
 
 export function FeedItem({item}: Props) {

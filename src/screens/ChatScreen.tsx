@@ -415,10 +415,10 @@ export function ChatScreen() {
           {typing && (
             <View style={styles.msgIn}>
               <Text style={styles.msgName}>助理</Text>
-              <View style={{flexDirection:'row', alignItems:'center', paddingTop:2}}>
-                <Text style={styles.typingDot}>●</Text>
-                <Text style={styles.typingDot}>●</Text>
-                <Text style={styles.typingDot}>●</Text>
+              <View style={{flexDirection:'row', alignItems:'center', paddingTop:4, gap:5}}>
+                <Text style={[styles.typingDot, {opacity:1}]}>●</Text>
+                <Text style={[styles.typingDot, {opacity:0.6}]}>●</Text>
+                <Text style={[styles.typingDot, {opacity:0.3}]}>●</Text>
               </View>
             </View>
           )}
@@ -426,7 +426,7 @@ export function ChatScreen() {
           {/* Upload panel */}
           <View style={styles.uploadPanel}>
             <Text style={styles.uploadTitle}>📎 附件上传</Text>
-            <Text style={styles.uploadHint}>无前端大小限制 · 大文件自动分片 · 后台处理队列</Text>
+            <Text style={styles.uploadHint}>无大小限制 · 大文件自动后台处理 · 断点续传</Text>
             <View style={styles.chipRow}>
               {(['图片', '视频', 'PDF/文档', '压缩包', '矿山资料', '代码文件'] as string[]).map((type: string) => (
                 <TouchableOpacity

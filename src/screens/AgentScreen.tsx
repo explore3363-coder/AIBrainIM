@@ -71,8 +71,8 @@ export function AgentScreen() {
   const latestDispatch = dispatches[0];
 
   const controlSummary = workingAgents.length > 0
-    ? `当前最忙的是 ${workingAgents.map(agent => agent.name).join('、')}，前台已经能直接看见谁在执行，不再只是静态角色卡。`
-    : '当前没有执行中的智能体，说明这一刻系统处在待命或等待确认状态。';
+    ? `当前执行中：${workingAgents.map(agent => agent.name).join('、')}，可直接查看任务详情。`
+    : '当前没有执行中的智能体，系统处于待命状态。';
 
   const selectedTaskHint = selected.status === 'working'
     ? `${selected.name} 执行中：${selected.current}`
@@ -148,7 +148,7 @@ export function AgentScreen() {
           {refreshing
             ? '正在拉取智能体状态…'
             : runtimeMode === 'live'
-              ? '智能体状态实时同步 · 后台任务自动可见'
+              ? '已连接 · 实时同步'
               : `回退模式 · ${runtimeError ?? '等待网关恢复'}`}
         </Text>
       </View>

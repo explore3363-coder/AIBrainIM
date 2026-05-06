@@ -83,10 +83,10 @@ export function DashboardScreen() {
   const latestBlockedConfirmation = confirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
   const hottestUpload = uploads.find(item => item.status === 'uploading' || item.status === 'processing' || item.status === 'dispatched');
   const focusDescription = latestDispatch
-    ? `最新一条 AI 调度当前为「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
+    ? `最新调度「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
     : latestRunningTask
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
-      : '当前没有新的调度单压进来，可以优先处理需确认项并继续补齐真实接口闭环。';
+      : '当前没有进行中的调度单，系统运转正常。';
   const runtimeSourceText = runtimeMode === 'live' ? `已连接 OpenClaw · ${sessionCount} 个会话` : '本地回退数据';
   const runtimeStatusText = runtimeMode === 'live'
     ? `最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
@@ -217,7 +217,7 @@ export function DashboardScreen() {
           id: 'idle-default',
           tag: '下一步',
           title: '当前没有新的高优先动作',
-          detail: '优先检查需确认项，然后继续把真实 API 字段和上传闭环往生产态收口。',
+          detail: '系统运转正常，可检查需确认项或继续与 AI 对话。',
           accent: C.primary,
           onPress: () => navigation.navigate('Confirmations'),
         });
