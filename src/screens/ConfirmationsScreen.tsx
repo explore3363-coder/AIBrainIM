@@ -31,7 +31,8 @@ export function ConfirmationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Defensive: useRoute is a React Navigation hook that may not be available in test environments
   // where the full navigation tree is not initialized. Guard with typeof check.
-  const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const rawRoute = (typeof useRoute === 'function') ? useRoute() : null;
   const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'Confirmations'> | {params: undefined};
   const {confirmations, pendingConfirmations, confirmItem, deferItem, reopenItem} = useAppContext();
 

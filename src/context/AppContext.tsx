@@ -98,7 +98,8 @@ interface AppContextValue {
   injectDemoData: () => void;
 }
 
-function updateConfirmationStatus(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _updateConfirmationStatus(
   items: ConfirmationItem[],
   id: string,
   status: 'confirmed' | 'deferred',

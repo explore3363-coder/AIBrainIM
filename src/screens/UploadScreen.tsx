@@ -61,7 +61,8 @@ function FileTypeIcon(mime: string): string {
 export function UploadScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Defensive: useRoute is a React Navigation hook that may not be available in test environments
-  const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const rawRoute = (typeof useRoute === 'function') ? useRoute() : null;
   const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'Upload'> | {params?: RootStackParamList['Upload']};
   const {runtimeMode, runtimeError, gatewayConfigValid} = useAppContext();
   const [files, setFiles] = useState<UploadFile[]>([]);

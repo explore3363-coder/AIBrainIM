@@ -28,7 +28,8 @@ const STATUS_META: Record<DispatchRecord['status'], {label: string; accent: stri
 export function DispatchChainScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Defensive: useRoute is a React Navigation hook that may not be available in test environments
-  const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const rawRoute = (typeof useRoute === 'function') ? useRoute() : null;
   const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'DispatchChain'> | {params?: RootStackParamList['DispatchChain']};
   const {dispatches, refreshing, refresh} = useAppContext();
 

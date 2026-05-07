@@ -12,7 +12,6 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import {C, commandTraceMock, aiFeedMock} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
-import {uploadService} from '../services/uploadService';
 import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';
 import {StoreCard} from '../components/StoreCard';
