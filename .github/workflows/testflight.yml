@@ -101,7 +101,12 @@ jobs:
           security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "build-pass" ~/Library/Keychains/build.keychain-db
 
           # Verify
-          KEYCHAIN=~/Library/Keychains/build.keychain.db security find-identity -v -p codesigning "$KEYCHAIN" || echo 'find-identity returned no identities (may still work with xcodebuild)'
+          # Add WWDR G3 certificate to keychain if not already present
+          security add-certificates -k ~/Library/Keychains/build.keychain-db /tmp/wwdrg3.pem
+
+          # Try codesign directly as verification (more reliable than find-identity)
+          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
+          KEYCHAIN=~/Library/Keychains/build.keychain-db codesign -s "iPhone Distribution: Hong Yang (7S96N8A32U)" /tmp/test_sign_$$ 2>/dev/null && echo "CERT_USABLE" || echo "CERT_MAY_NOT_WORK"
           ls -la /tmp/certificate.p12
 
       - name: Build for Release (Archive)
