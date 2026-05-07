@@ -112,7 +112,7 @@ jobs:
 
       - name: Build for Release (Archive)
         run: |
-          security list-keychains --user ~/Library/Keychains/build.keychain-db
+          security list-keychains -s ~/Library/Keychains/build.keychain-db
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
 
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
