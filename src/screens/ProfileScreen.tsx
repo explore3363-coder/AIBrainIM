@@ -853,7 +853,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
   },
-  versionText: {color: C.textMuted, fontSize: 11},
   versionSep: {width: 1, height: 10, backgroundColor: C.borderSubtle},
   buildText: {color: C.textMuted, fontSize: 11},
   releaseProgressText: {color: C.textMuted, fontSize: 11, marginTop: 6},
