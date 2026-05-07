@@ -12,6 +12,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import {C, commandTraceMock, aiFeedMock} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
+import {uploadService} from '../services/uploadService';
 import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';
 import {StoreCard} from '../components/StoreCard';
@@ -65,6 +66,7 @@ export function DashboardScreen() {
     refreshing,
     refresh,
     runtimeMode,
+    injectDemoData,
   } = useAppContext();
 
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
@@ -359,19 +361,40 @@ export function DashboardScreen() {
         <View style={styles.cornerAccent} />
       </View>
 
-      {runtimeMode === 'fallback' && safeDispatches.length === 0 && (
-        <TouchableOpacity
-          style={styles.demoHintBanner}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('GatewaySettings')}
-        >
+      {runtimeMode === 'fallback' && (
+        <View style={styles.demoHintBanner}>
           <Text style={styles.demoHintIcon}>🛰️</Text>
           <View style={styles.demoHintText}>
             <Text style={styles.demoHintTitle}>尚未连接 OpenClaw Gateway</Text>
-            <Text style={styles.demoHintSub}>当前显示本地回退数据，点击前往配置 Gateway 地址与 Token 以接通真实调度链</Text>
+            <Text style={styles.demoHintSub}>
+              {safeDispatches.length === 0
+                ? '当前显示本地回退数据，先体验完整闭环可注入 Demo 数据'
+                : 'Gateway 未连接，首页数据来自本地缓存'}
+            </Text>
           </View>
-          <Text style={styles.demoHintArrow}>›</Text>
-        </TouchableOpacity>
+          <View style={styles.demoHintActions}>
+            <TouchableOpacity
+              style={styles.demoInjectBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                injectDemoData();
+                const { enqueueDemoUpload } = require('../services/uploadService');
+                enqueueDemoUpload(0);
+                enqueueDemoUpload(2);
+                refresh();
+              }}
+            >
+              <Text style={styles.demoInjectBtnText}>注入 Demo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.demoSettingsBtn}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('GatewaySettings')}
+            >
+              <Text style={styles.demoSettingsBtnText}>配置</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       <View style={styles.metricsGrid}>
@@ -554,22 +577,45 @@ const styles = StyleSheet.create({
 
   metricsGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14},
   demoHintBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'rgba(251,191,36,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(251,191,36,0.35)',
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 14,
     marginTop: 12,
     gap: 10,
   },
-  demoHintIcon: {fontSize: 22},
+  demoHintIcon: {fontSize: 22, marginBottom: 4},
   demoHintText: {flex: 1},
   demoHintTitle: {color: '#fbbf24', fontSize: 13, fontWeight: '700'},
   demoHintSub: {color: C.textMuted, fontSize: 11, marginTop: 3, lineHeight: 16},
   demoHintArrow: {color: '#fbbf24', fontSize: 20, fontWeight: '700'},
+  demoHintActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  demoInjectBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.5)',
+    alignItems: 'center',
+  },
+  demoInjectBtnText: {color: '#fbbf24', fontSize: 12, fontWeight: '900'},
+  demoSettingsBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.15)',
+    borderWidth: 1,
+    borderColor: C.borderActive,
+    alignItems: 'center',
+  },
+  demoSettingsBtnText: {color: C.primary, fontSize: 12, fontWeight: '900'},
   summaryGrid: {gap: 10, marginBottom: 2},
   summaryCard: {
     padding: 14,

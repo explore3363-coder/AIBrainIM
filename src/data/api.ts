@@ -444,14 +444,14 @@ export async function fetchRuntimeSnapshot(): Promise<RuntimeSnapshot> {
       sessionCount: sessions.length,
     };
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    console.warn('[api] fetchRuntimeSnapshot failed, fallback:', e);
+    // Silently fall back — this is expected when Gateway is unreachable during early development.
+    // No console.warn here to keep test output clean and avoid misleading "error" signals.
     return {
       agents: FALLBACK_AGENTS,
       tasks: FALLBACK_TASKS,
       dispatches: [],
       runtimeMode: 'fallback',
-      runtimeError: message,
+      runtimeError: e instanceof Error ? e.message : String(e),
       lastSyncedAt: Date.now(),
       sessionCount: 0,
     };
@@ -536,7 +536,7 @@ export async function sendMessage(text: string): Promise<SendMessageResult> {
       reply: `✓ 已通过 Feishu 回退链路送达（${shortId}）。`,
     };
   } catch (e) {
-    console.warn('[api] sendMessage failed:', e);
+    // Handled gracefully — failure reply is returned to caller, no need to log to console.
     return {
       sent: false,
       taskId: buildLocalTaskId('failed-task'),

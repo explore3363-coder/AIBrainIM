@@ -18,7 +18,7 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 
 **待完成（P1 之后）：** 真实 API 接入（Agent/Task/Chat/Upload 四链路替换 mock）
 
-**本轮新增：** App 内已加入 Gateway 连接配置页，可直接配置 URL / Token / 通道 / 目标账号，并做连通性测试与测试消息发送，不再需要为 TestFlight 临时改源码。
+**本轮新增：** Dashboard Fallback Banner 含 Demo 注入按钮（注入 3 条模拟调度 + 2 个演示附件），可在无 Gateway 环境下快速演示完整闭环。Gateway 连接配置页支持 URL / Token / 通道 / 目标账号配置与连通性测试。
 
 **上线准备参考：** [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)
 

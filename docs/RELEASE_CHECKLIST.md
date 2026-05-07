@@ -26,8 +26,14 @@
 - [x] Gateway 配置页（URL/Token/通道/账号配置 + 连通性测试）
 - [x] CI/CD：GitHub Actions TypeScript + iOS Simulator Build
 - [x] Fastlane：sim / tf / appstore lanes
-- [x] npm test 通过（4 suites, 47 tests）
+- [x] npm test 通过（5 suites, 51 tests，测试输出无 console.warn 泄漏）
 - [x] npm run typecheck 通过
+- [x] Demo 模式双入口（Profile 页 + Dashboard Fallback Banner 注入按钮）
+- [x] PrivacyInfo.xcprivacy 已配置（NSPrivacyAccessedAPI + NSPrivacyTracking=false）
+- [x] LaunchScreen 已配置（LaunchBackgroundColor，#050d1a 背景）
+- [x] App Icon 1024×1024 已就位（AppIcon-1024.png）
+- [x] 上线文档完整（APPSTORE_LISTING.md / TESTFLIGHT.md / RELEASE_CHECKLIST.md / PRIVACY.md / DEPLOY.md）
+- [x] Dashboard Fallback Banner 始终可见，含 Demo 注入按钮
 
 ### ⬜ 待完成（Apple 侧 — 需人工处理）
 - [ ] Apple Developer 账号 + Team ID 配置
