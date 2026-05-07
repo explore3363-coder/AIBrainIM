@@ -1,6 +1,6 @@
 # AIBrainIM TestFlight / App Store 上线准备清单
 
-> 更新：2026-05-07
+> 更新：2026-05-08
 
 ## 当前定位
 - React Native 0.85.2 为主工程（唯一主线，不再做 HTML 体验稿）
@@ -33,6 +33,8 @@
 - [x] npm test 通过（3 suites, 9 tests，测试输出无 console.warn 泄漏）
 - [x] npm run typecheck 通过
 - [x] iOS Simulator Build ✅ 成功
+- [x] 截图脚本就绪：`bash scripts/capture-screenshots.sh` → `build/AppStoreScreenshots/0_Dashboard_*.png`（1290×2796 / 1284×2778 / 1242×2208）
+- [x] App Store 截图已生成（iOS 26.4 simctl io screenshot 语法）
 - [x] Demo 模式双入口（Profile 页 + Dashboard Fallback Banner 注入按钮）
 - [x] PrivacyInfo.xcprivacy 已配置
 - [x] LaunchScreen 已配置（LaunchBackgroundColor，#050d1a 背景）
@@ -57,7 +59,7 @@ GitHub Vars（Settings → Secrets and variables → Actions → Variables）需
 - [ ] App Store Connect 创建 App 记录（Bundle ID: com.openclaw.aibrainim）
 - [ ] 权限文案（相册/相机如后续启用）
 - [ ] 第一个 TestFlight Build 上传 + 验证可安装
-- [ ] iPhone 截图（6.7" / 6.5" / 5.5"）
+- [ ] iPhone 截图（脚本已就绪：`npm run screenshot`）
 - [ ] App Store 填写内容（描述/关键词/隐私政策/支持链接）
 
 ### ⬜ 待完成（非阻塞，可并行）
