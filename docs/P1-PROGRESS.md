@@ -134,3 +134,39 @@
 5. GitHub Actions 自动上传第一个 TestFlight Build
 6. App Store Connect → TestFlight → 添加测试人员 → 真机验证
 ```
+
+---
+
+## 第二十二轮（2026-05-08 05:30 凌晨·持续开发）
+
+### 本轮完成
+
+**凌晨例行质量扫描：**
+- TypeScript ✅（tsc --noEmit 通过）
+- Jest ✅（10 suites / 82 tests 全部通过）
+- iOS Simulator Build ✅（BUILD SUCCEEDED）
+- Git: worktree 干净，ahead of origin/main by 2 commits → push 完毕
+
+**代码质量确认：**
+- 核心代码规模：10,147 行（Screen 13 个 + AppContext + api + uploadService）
+- 全仓库 TODO/FIXME/XXX/HACK 零残留（grep 扫描无结果）
+- 五主功能 + 信息层五入口全部就位且可交互
+- 分片上传服务（8 queueStage 完整）稳定运行
+- CI/CD 链路（ci.yml / testflight.yml）双轨就绪
+
+### 还差什么
+
+**唯一阻塞（人工依赖项，无法通过代码解决）：**
+1. Apple Developer 账号（$99/年）+ Team ID
+2. App Store Connect App 记录创建（Bundle ID: com.openclaw.aibrainim）
+3. GitHub Secrets / Vars 配置（APPLE_DIST_P12 / APPLE_APP_PASSWORD / APPLE_TEAM_ID / APPLE_DEV_EMAIL）
+
+**非阻塞（可并行推进）：**
+- 真实 Gateway API 接入（协议层已就绪，走 mock + fallback）
+- 消息发送 + 调度状态真实闭环验证
+
+### 下一步
+
+打 tag：`git tag v0.1.0 && git push --tags` → 触发 testflight.yml → Archive + Upload to App Store Connect → 等待 5-30 min 处理 → TestFlight 可安装验证。
+
+但在此之前，需要先完成 Apple Developer 账号注册和 GitHub Secrets 配置。
