@@ -77,8 +77,9 @@ jobs:
       # ── Step 3: Submit CSR to ASC API to get distribution certificate ────────
       - name: Create iOS Distribution certificate via ASC API
         run: |
-          python3 -m pip install PyJWT --quiet 2>&1 | tail -2
-          python3 << 'PYEOF'
+          # Install jwt to the system Python3 (Xcode Python at /Applications/Xcode.app/...)
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT --quiet 2>&1 | tail -2
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, os
 
           with open(os.path.expanduser('~/cert_work/dist.csr'), 'rb') as f:
@@ -175,8 +176,9 @@ jobs:
       # ── Step 6: Create provisioning profile via ASC API ────────────────────
       - name: Create provisioning profile via ASC API
         run: |
-          python3 -m pip install PyJWT --quiet 2>&1 | tail -2
-          python3 << 'PYEOF'
+          # Install jwt to Xcode Python (same python3 used in this step)
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT --quiet 2>&1 | tail -2
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, plistlib
 
           with open('/Users/zz/Downloads/AuthKey_HWP45ALL8Y.p8', 'r') as f:
