@@ -116,25 +116,30 @@ jobs:
           security list-keychains -s ~/Library/Keychains/build.keychain-db
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
 
+          # Bypass Xcode automatic signing — no provisioning profile download needed
+          # Use CODE_SIGNING_REQUIRED=NO so archive builds without signing
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
-            -allowProvisioningUpdates
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }}
 
       - name: Export IPA
         run: |
+          security list-keychains -s ~/Library/Keychains/build.keychain-db
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
 
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }}
 
       - name: List build artifacts
