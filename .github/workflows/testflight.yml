@@ -92,7 +92,8 @@ jobs:
                 raise Exception('APPLE_DIST_P12 is empty!')
             with open('/tmp/certificate.p12', 'wb') as f:
                 f.write(base64.b64decode(secret))
-            print(f'p12 decoded, size: {os.path.getsize("/tmp/certificate.p12")} bytes')
+            size = os.path.getsize('/tmp/certificate.p12')
+            print('p12 decoded, size: {} bytes'.format(size))
           "
           echo "Certificate p12 decoded"
 
