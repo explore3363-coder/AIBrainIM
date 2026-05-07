@@ -67,6 +67,8 @@ jobs:
           echo "Build number set to: ${BUILD_NUM}"
 
       - name: Import code signing certificate
+        env:
+          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
         run: |
           # Download WWDR G3 certificate FIRST (required for cert chain validation)
           curl -s -o /tmp/wwdrg3.der http://certs.apple.com/wwdrg3.der
@@ -99,10 +101,8 @@ jobs:
           security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "build-pass" ~/Library/Keychains/build.keychain-db
 
           # Verify
-          KEYCHAIN=~/Library/Keychains/build.keychain-db security find-identity -v -p codesigning "$KEYCHAIN" || echo 'find-identity returned no identities (may still work with xcodebuild)'
+          KEYCHAIN=~/Library/Keychains/build.keychain.db security find-identity -v -p codesigning "$KEYCHAIN" || echo 'find-identity returned no identities (may still work with xcodebuild)'
           ls -la /tmp/certificate.p12
-        env:
-          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
 
       - name: Build for Release (Archive)
         run: |
