@@ -75,7 +75,8 @@ jobs:
           openssl x509 -inform DER -outform PEM -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
           echo "WWDR G3 downloaded, size: $(wc -c < /tmp/wwdrg3.der) bytes"
 
-          # Create keychain
+          # Create keychain dir first, then keychain
+          mkdir -p ~/Library/Keychains
           security create-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
           security set-keychain-settings -t 3600 -u ~/Library/Keychains/build.keychain-db
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
