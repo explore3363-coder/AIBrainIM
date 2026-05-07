@@ -1,5 +1,5 @@
 import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
-import {Animated} from 'react-native';
+import {Animated, type NativeSyntheticEvent, type NativeScrollEvent} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ScrollView,
@@ -75,6 +75,7 @@ export function ChatScreen() {
   ]);
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
   const [queuedAttachmentIds, setQueuedAttachmentIds] = useState<string[]>([]);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollRef   = useRef<ScrollView>(null);
   const lastDispatchIdRef = useRef<string | undefined>(undefined);
   // Animated typing indicator — three dots pulse in sequence
@@ -485,6 +486,12 @@ export function ChatScreen() {
           contentContainerStyle={styles.chatContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent;
+            const atBottom = contentOffset.y >= contentSize.height - layoutMeasurement.height - 60;
+            setShowScrollBtn(!atBottom);
+          }}
+          scrollEventThrottle={16}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -657,6 +664,16 @@ export function ChatScreen() {
           </View>
         </ScrollView>
 
+        {showScrollBtn && (
+          <TouchableOpacity
+            style={styles.scrollFab}
+            activeOpacity={0.8}
+            onPress={() => scrollRef.current?.scrollToEnd({animated: true})}
+          >
+            <Text style={styles.scrollFabIcon}>↓</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.inputRow}>
           <View style={styles.inputWrap}>
             <TextInput
@@ -816,6 +833,24 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {opacity: 0.4},
   sendText: {color: C.bgRoot, fontWeight: '900', fontSize: 14},
+
+  scrollFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 90,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(56,100,200,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  scrollFabIcon: {color: '#fff', fontSize: 20, fontWeight: '900', marginTop: -2},
 
   cameraBtn: {
     marginTop: 10,
