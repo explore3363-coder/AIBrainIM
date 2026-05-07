@@ -6,12 +6,15 @@
 
 ## 当前状态
 
-**判定:可提测(代码侧)**(2026-05-07 更新:快捷入口补强、App Icon 确认就位、fastlane metadata 完整)
+**判定:可提测(代码侧)**(2026-05-07 晚间更新:截图自动化脚本就位,iOS Simulator Build 验证通过,TypeScript 零错误)
 
 代码侧 P1 可用版已基本收口:
 - ✅ ChatScreen typing indicator bug(handleSend 异常时状态卡住)已修复
 - ✅ ProfileScreen 统计改为实时 context 数据,不再依赖硬编码 mock
 - ✅ TaskScreen / DispatchChainScreen 已加入下拉刷新
+- ✅ iOS Simulator Build 验证通过(EXIT CODE 0)
+- ✅ TypeScript 编译零错误
+- ✅ npm run screenshot 自动化截图脚本就绪 (scripts/capture-screenshots.sh)
 
 剩余主要是 Apple Developer 账号配置与 App Store Connect 物料准备(截图、Icon)。
 
@@ -21,7 +24,7 @@
 
 | 状态 | 检查项 | 说明 |
 |------|--------|------|
-| ✅ | React Native 主工程 + iOS 构建 | 已验证 |
+| ✅ | React Native 主工程 + iOS 构建 | 2026-05-07 晚间验证 EXIT CODE 0 |
 | ✅ | 五主功能(总览/对话/智能体/任务/我的) | 已贯通 |
 | ✅ | 记忆库 / 知识库 / 附件入口 / 调度链 | 已贯通 |
 | ✅ | GitHub Actions + Fastlane TestFlight 链路 | 预置待配 |
@@ -35,7 +38,7 @@
 | ⏳ | 至少完成一轮 LIVE 网关闭环验证 | Gateway 连通性待真实环境验证 |
 | ⏳ | 需确认项清零或压到可解释范围 | 3 条 pending,需人工拍板 |
 | 🔲 | Apple Developer 账号 + App Store Connect 配置 | 待开始 |
-| 🔲 | 截图（6.7\"/6.5\"/5.5") | 待准备（可用 Simulator capture 替代） |
+| 🔲 | 截图（6.7"/6.5"/5.5") | npm run screenshot 已就绪，scripts/capture-screenshots.sh |
 | 🔲 | 第一个 TestFlight Build 上传 | 待触发 |
 
 ---
@@ -71,7 +74,7 @@
 | 描述文本 | 最多 4000 字 | 🔲 待准备 |
 | 关键词 | 最多 100 字符 | 🔲 待准备 |
 
-> **截图替代方案**:先用 Simulator 生成截图,Xcode → Device → Capture Screen Snapshot
+> **截图方案**:直接运行 `npm run screenshot`（需要 Mac Display session），或在 Simulator 中手动打开 App 后 Xcode → Device → Capture Screen Snapshot。自动化脚本已就绪(build/AppStoreScreenshots/)。
 
 ### 2.4 提交流程
 
