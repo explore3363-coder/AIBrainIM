@@ -70,4 +70,6 @@ https://github.com/explore3363-coder/AIBrainIM
 
 ## 隐私政策 URL
 
-https://github.com/explore3363-coder/AIBrainIM/blob/main/PRIVACY.md
+https://explore3363-coder.github.io/AIBrainIM/privacy.html
+
+> 隐私政策由 GitHub Pages 自动托管（`.github/workflows/pages.yml`），每次 `docs/privacy.html` 更新后自动部署。
