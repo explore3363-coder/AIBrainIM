@@ -117,6 +117,8 @@ export function DashboardScreen() {
     refresh,
     runtimeMode,
     recentCaptures,
+    lastSyncedAt,
+    sessionCount,
   } = useAppContext();
 
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
@@ -494,6 +496,14 @@ export function DashboardScreen() {
         <MetricCard label="进行中" value={`${runningCount}`} accent={C.working} />
         <MetricCard label="上传队列" value={`${uploadingCount}`} accent="#34d399" />
         <MetricCard label="需确认" value={`${pendingConfirmations}`} accent={C.highUrgency} />
+        <MetricCard label="活跃会话" value={`${sessionCount}`} accent={C.primary} />
+        {lastSyncedAt ? (
+          <MetricCard
+            label="最后同步"
+            value={new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', second: '2-digit'})}
+            accent={runtimeMode === 'live' ? '#34d399' : '#fbbf24'}
+          />
+        ) : null}
       </View>
 
       <View style={styles.focusBoard}>
