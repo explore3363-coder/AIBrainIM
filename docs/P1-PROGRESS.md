@@ -4,7 +4,15 @@
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第十九轮凌晨收口）
+## 当前状态：P1 可用版收口完毕 ✅（第二十一轮凌晨状态收口）
+
+### 本轮（第二十一轮）完成：截图刷新 + 状态收口
+- TypeScript ✅ · Jest 10 suites / 82 tests ✅ · iOS Simulator Build ✅（BUILD SUCCEEDED）
+- Git ahead of origin/main by 1 commit，worktree 干净
+- 截图刷新成功（05:12 完成）：原始 1206×2622 px + App Store 三尺寸（1290×2796 / 1284×2778 / 1242×2208）
+- 代码规模：10,266 行核心业务代码（Screen组件13个 + AppContext + api + uploadService）
+- 协议映射层完整（sessions_send 直连 + Feishu 回退双路径，Gateway 轮询 + Finalize 自动同步到任务流/调度链/AI产出流）
+- 阻塞项全部为人工依赖项，无工程阻塞
 
 ### 本轮（第十九轮）完成：CI 清理 + 截图刷新
 - TypeScript ✅ · Jest 10 suites/82 tests ✅ · iOS Build ✅
