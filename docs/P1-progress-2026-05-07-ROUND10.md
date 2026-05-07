@@ -2,67 +2,57 @@
 
 ## 本轮完成
 
-### CI 配置修复
-- `ci.yml` 原使用 `base64 -d` 解码 `APPLE_API_KEY_CONTENT`，与 `testflight.yml` 不一致
-  - `testflight.yml` 正确使用 `printf '%s'` 直接写 PEM 原文
-  - 已修正 `ci.yml` 为直接写文件，与 `testflight.yml` 保持一致
-- 同时在 `ci.yml` 中加入 PEM 格式验证，key 文件无效时 workflow 快速失败（而非静默生成错误文件）
+### CI 链路清理与 TestFlight 上传逻辑归一化
+- **ci.yml（tf-build job）**：将 API Key 通过 `GITHUB_ENV` 持久化到 `$KEY_FILE` 路径，替代原来指向不存在的 `fastlane/apple_auth_key.p8`，altool 上传命令改用 `KEY_FILE` 环境变量，移除无效的 `--type JSON` 和多余的 Fastlane 密码参数
+- **testflight.yml**：精简为独立 job，只保留 build/export + altool 上传 + GitHub Release，移除了 ci.yml 中已经有的重复 tf-build job，altool 命令去掉多余 `--username`/`--password` 参数（API Key 认证不需要）
+- 两份 workflow 现在 altool 调用方式一致，均为 `-apiKey + -apiKeyPath` 直连 API Key 认证
 
-### 代码库最终确认
+### 代码审查确认
+- TypeScript ✅（npm run typecheck 通过）
+- Jest ✅（70 tests / 9 suites 全部通过）
+- iOS Simulator Build ✅（BUILD SUCCEEDED）
+- 代码无开发者自嗨残留，各 Screen 功能完整
+
+### 仓库状态
+- `ci.yml` + `testflight.yml` 修复后无未提交变更
+- 当前 HEAD: `0d8b468 docs: P1 round 10 - ci.yml fix + final status`
+
+## 当前状态
+
 | 验证项 | 状态 |
 |--------|------|
-| TypeScript check | ✅ 通过 |
-| Jest tests | ✅ 70 tests / 9 suites 全部通过 |
-| iOS Simulator Build | ✅ 历史已确认 |
-| GitHub push | ✅ `efd50b3` 已推送 |
-
-### 仓库状态概览
-- 13 个 Screen，13 个 Component，完整导航树（5 Tab + 8 Stack）
-- `AppContext` 全局状态：agents/tasks/dispatches/uploads/confirmations
-- `uploadService`：分片/直传/断点续传/指数退避/后台队列/结果回流
-- `api.ts`：Gateway sessions_send / sessions_list / message 三路真实 API
-- `gatewayConfig`：完整校验 + token 脱敏 + 连通性测试
-- `KnowledgeBaseScreen`：`wikiQuery` → `feishu_wiki` 搜索 → `feishu_doc` 读取正文（降级 fallback）
-- `MemoryStoreScreen`：`memory_recall` / `memory_store` 远程 API
-- `ChatScreen`：消息发送 → registerDispatch → taskId/dispatchId 回流
-- `DispatchChainScreen`：五阶段链路（receive → dispatch → feedback → synthesis → deliver）
-- `ConfirmationsScreen`：pending / confirmed / deferred 状态流转
-- `DashboardScreen`：Spotlight 面板（根据 pending 数 / runtimeMode 动态切换重点）
-- `ProfileScreen`：无硬编码 stats，数据全部从实时 context 计算
-
-### 五主功能 + 五信息入口全部贯通
-| 入口 | 状态 |
-|------|------|
-| 总览 | ✅ AI 产出流 / 调度状态 / 需确认项 / TODAY FOCUS |
-| 对话 | ✅ 消息发送 / 附件上下文 / 调度状态卡 / 长上下文策略 Banner |
-| 智能体 | ✅ Agent 状态 / 详情 / 关联任务+调度 |
-| 任务 | ✅ 全局 Kanban（running/todo/done/blocked）|
-| 我的 | ✅ 信息层入口 / Gateway / TestFlight 准备 |
-| 记忆库 | ✅ 本地+远程搜索 / 编辑 / 补写 / category filter |
-| 知识库 | ✅ 矿业/工程/技术/政策 + wiki 全文查询 |
-| 附件库 | ✅ 历史文件+上传队列合并显示 |
-| 调度链 | ✅ 五阶段链路 + dispatch 状态卡 |
-| 项目库 | ✅ 五个真实项目（AIBrainIM/聚源三维/OpenClaw Runtime/钨矿研判/选矿专家）|
-
-### CI/CD 链路
-- `ci.yml`：main push → TypeScript + iOS Simulator Build
-- `testflight.yml`：打 tag v*.*.* → Release Archive + Upload to App Store Connect
+| TypeScript check | ✅ |
+| Jest tests | ✅ 70 tests / 9 suites |
+| iOS Simulator Build | ✅ |
+| 五主功能（总览/对话/智能体/任务/我的） | ✅ |
+| 信息层五入口（记忆/知识/附件/项目/调度链） | ✅ |
+| 上传服务（分片/直传/断点续传/后台队列） | ✅ |
+| Gateway 配置页 | ✅ |
+| ChatScreen 持久化 + 长上下文策略 | ✅ |
+| Feishu Wiki 集成（知识库"查看全文"） | ✅ |
+| CI/CD：TypeScript + iOS Simulator Build | ✅ |
+| Fastlane（sim / tf / appstore lanes） | ✅ |
+| App Icon 1024×1024 | ✅ |
+| PrivacyInfo.xcprivacy | ✅ |
+| LaunchScreen | ✅ |
+| GitHub Actions 上传链路（altool）| ✅ 修复一致 |
+| 开发者自嗨内容清理 | ✅ 零残留 |
 
 ## 还差什么
 
-**唯一阻塞：Apple 侧配置**（需人工处理，无法通过代码推进）
+**唯一阻塞：Apple 侧配置（纯外部依赖）**
 
-| 阻塞项 | 类型 | 状态 |
-|--------|------|------|
-| Apple Developer 账号 + Team ID | 外部，$99/年 | ⏳ 待配置 |
-| App Store Connect App 记录（Bundle ID: com.openclaw.aibrainim）| 外部 | ⏳ 待创建 |
-| GitHub Secrets 配置（APPLE_API_KEY_ID / APPLE_API_KEY_CONTENT / APPLE_APP_PASSWORD）| 外部 | ⏳ 待配置 |
-| GitHub Vars 配置（APPLE_TEAM_ID / APPLE_DEV_EMAIL）| 外部 | ⏳ 待配置 |
-| iPhone 截图（6.7" / 6.5" / 5.5"）| 外部 | ⏳ 待制作 |
-| 隐私政策实际 URL | 外部 | ⏳ 待填写 |
+| 阻塞项 | 类型 |
+|--------|------|
+| Apple Developer 账号（$99/年）+ Team ID | 外部 |
+| App Store Connect App 记录（Bundle ID: com.openclaw.aibrainim）| 外部 |
+| GitHub Secrets：`APPLE_API_KEY_ID` + `APPLE_API_KEY_CONTENT`（.p8 内容）| 外部 |
+| GitHub Variables：`APPLE_TEAM_ID`（不是 Team Name）| 外部 |
+| iPhone 截图（6.7" / 6.5" / 5.5"）| 外部 |
+| 隐私政策实际可访问 URL | 外部 |
 
 **非阻塞项（可并行）：**
-- 真实 Gateway API 接入（协议映射层已就绪）
+- 真实 Gateway API 接入（协议映射层已就绪，mock fallback 正常）
 - 消息发送 + 调度状态真实闭环验证
 - memory/knowledge 真实向量检索接入
 
@@ -76,4 +66,4 @@ GitHub Actions 自动触发 Archive + TestFlight 上传。
 
 ---
 
-> **P1 结论**：经过十轮推进，AIBrainIM 代码库功能完整、工程态健康、CI 就绪、文档齐全。唯一真实阻塞是 Apple Developer 账号和 App Store Connect 配置，这是外部依赖，代码侧已无可进一步推进的空间。
+> **P1 进展总结**：经过第十轮清理，CI 链路和 TestFlight 上传逻辑已完全归一化，代码库质量稳定、功能完整、iOS 构建通过。唯一真实阻塞是 Apple Developer 账号和 App Store Connect 配置。

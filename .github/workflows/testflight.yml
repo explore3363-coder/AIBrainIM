@@ -53,12 +53,11 @@ jobs:
       - name: Install Pods
         run: cd ios && pod install && cd ..
 
-      # Bump build number (CI_BUILD_NUMBER from GitHub run index)
+      # Bump build number to current GitHub run number
       - name: Set Info.plist build version
         run: |
           BUILD_NUM=${{ github.run_number }}
           PLIST=ios/AIBrainIM/Info.plist
-          # Update CFBundleVersion if present, else add it
           if grep -q CFBundleVersion "$PLIST"; then
             sed -i '' "s/<key>CFBundleVersion<\/key><string>[^<]*<\/string>/<key>CFBundleVersion<\/key><string>${BUILD_NUM}<\/string>/" "$PLIST"
           fi
@@ -88,35 +87,37 @@ jobs:
       - name: List build artifacts
         run: ls -la build/
 
-      # ── Upload via altool (App Store Connect API) ──────────────────────────────
+      # ── Upload via altool (App Store Connect API Key auth) ─────────────────────
       # Setup (GitHub repo → Settings → Secrets and variables → Actions):
-      #   APPLE_API_KEY_ID        — from App Store Connect → Users & Access → Keys
-      #   APPLE_API_KEY_CONTENT   — raw .p8 file content (NOT base64 encoded here)
-      #   APPLE_APP_PASSWORD      — app-specific password for your Apple ID
-      #   Vars.APPLE_TEAM_ID      — your Apple Team ID (Team ID, not Team Name)
-      #   Vars.APPLE_DEV_EMAIL    — Apple Developer email for altool auth
+      #   Secrets:
+      #     APPLE_API_KEY_ID        — from App Store Connect → Users & Access → Keys
+      #     APPLE_API_KEY_CONTENT   — raw .p8 PEM file content (NOT base64 encoded)
+      #   Variables:
+      #     APPLE_TEAM_ID           — your Apple Team ID (not Team Name)
       - name: Upload to App Store Connect
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           IPA_PATH="build/AIBrainIM.ipa"
 
-          # Write API key to temp file for altool
-          # APPLE_API_KEY_CONTENT is stored as raw .p8 PEM text in the secret
+          # Write .p8 key to temp file (API key auth — no username/password needed)
           KEY_FILE=$(mktemp /tmp/api_key.p8)
           printf '%s' "$APPLE_API_KEY_CONTENT" > "$KEY_FILE"
 
-          # Upload using altool
+          # Validate it looks like a PEM before uploading
+          if ! grep -q "BEGIN PRIVATE KEY" "$KEY_FILE"; then
+            echo "ERROR: APPLE_API_KEY_CONTENT does not look like a valid PEM private key"
+            cat "$KEY_FILE"
+            exit 1
+          fi
+
           xcrun altool \
             --upload-app \
             -type ios \
             -file "$IPA_PATH" \
             -apiKey "$APPLE_API_KEY_ID" \
-            -apiKeyPath "$KEY_FILE" \
-            --password "$APPLE_APP_PASSWORD" \
-            -username "${{ vars.APPLE_DEV_EMAIL }}"
+            -apiKeyPath "$KEY_FILE"
 
           rm -f "$KEY_FILE"
 

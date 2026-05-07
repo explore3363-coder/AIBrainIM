@@ -109,14 +109,14 @@ jobs:
       # APPLE_API_KEY_CONTENT is stored as raw .p8 PEM text in the secret (NOT base64 encoded)
       - name: Create API key file
         run: |
-          KEY_FILE=$(mktemp /tmp/api_key.p8)
+          KEY_FILE="/tmp/api_key.p8"
           printf '%s' "$APPLE_API_KEY_CONTENT" > "$KEY_FILE"
-          # Verify the file looks like a valid PEM key
           if ! grep -q "BEGIN PRIVATE KEY" "$KEY_FILE"; then
             echo "ERROR: APPLE_API_KEY_CONTENT does not look like a valid PEM file"
             cat "$KEY_FILE"
             exit 1
           fi
+          echo "KEY_FILE=$KEY_FILE" >> $GITHUB_ENV
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
 
@@ -137,7 +137,6 @@ jobs:
             -exportPath fastlane/builds \
             -exportOptionsPlist ios/ExportOptions.plist
 
-      # Upload to TestFlight
       - name: Upload to TestFlight
         run: |
           xcrun altool \
@@ -145,11 +144,7 @@ jobs:
             -type ios \
             -file fastlane/builds/AIBrainIM.ipa \
             -apiKey "${{ secrets.APPLE_API_KEY_ID }}" \
-            -apiKeyPath fastlane/apple_auth_key.p8 \
-            --type JSON
-        env:
-          FASTLANE_APP_STORE_CONNECT_API_KEY_PATH: fastlane/apple_auth_key.p8
-          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+            -apiKeyPath "$KEY_FILE"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
