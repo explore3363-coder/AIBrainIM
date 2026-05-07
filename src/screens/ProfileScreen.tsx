@@ -73,33 +73,38 @@ export function ProfileScreen() {
     refresh,
   } = useAppContext();
 
-  const activeUploads = uploads.filter(
+  const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
+
+  const activeUploads = safeUploads.filter(
     f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
   ).length;
 
-  const dispatchInFlight = dispatches.filter(item => item.status !== 'completed' && item.status !== 'failed').length;
-  const memorySignals = Math.min(99, dispatches.length + pendingConfirmations + Math.min(tasks.length, 6));
-  const knowledgeSignals = Math.min(99, agents.length + Math.min(tasks.length, 8) + Math.min(uploads.length, 6));
+  const dispatchInFlight = safeDispatches.filter(item => item.status !== 'completed' && item.status !== 'failed').length;
+  const memorySignals = Math.min(99, safeDispatches.length + pendingConfirmations + Math.min(safeTasks.length, 6));
+  const knowledgeSignals = Math.min(99, safeAgents.length + Math.min(safeTasks.length, 8) + Math.min(safeUploads.length, 6));
 
   // Stats from live context — no hardcoded profileStatsMock
   const stats = useMemo(() => {
-    const doneTasks = tasks.filter(task => task.state === 'done').length;
-    const activeAgents = agents.filter(a => a.status === 'online' || a.status === 'working').length;
+    const doneTasks = safeTasks.filter(task => task.state === 'done').length;
+    const activeAgents = safeAgents.filter(a => a.status === 'online' || a.status === 'working').length;
     return {
-      totalTasks: tasks.length,
+      totalTasks: safeTasks.length,
       completedTasks: doneTasks,
       activeAgents,
       memoryEntries: memorySignals,
       knowledgeDocs: knowledgeSignals,
     };
-  }, [tasks, agents, memorySignals, knowledgeSignals]);
+  }, [safeTasks, safeAgents, memorySignals, knowledgeSignals]);
   const runtimeSummary = runtimeMode === 'live'
     ? `已连接 OpenClaw Gateway · ${sessionCount} 个会话 · 最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
     : `当前处于本地回退模式${runtimeError ? ` · ${runtimeError}` : ''}`;
 
-  const runningTasks = tasks.filter(task => task.state === 'running').length;
-  const blockedTasks = tasks.filter(task => task.state === 'blocked').length;
-  const doneTasks = tasks.filter(task => task.state === 'done').length;
+  const runningTasks = safeTasks.filter(task => task.state === 'running').length;
+  const blockedTasks = safeTasks.filter(task => task.state === 'blocked').length;
+  const doneTasks = safeTasks.filter(task => task.state === 'done').length;
 
   const releaseSignals = useMemo(() => {
     const blockers: string[] = [];

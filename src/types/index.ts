@@ -62,7 +62,7 @@ export interface DispatchRecord {
   createdAt: number;
   updatedAt?: number;
   status: 'submitted' | 'dispatched' | 'processing' | 'completed' | 'failed';
-  source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system';
+  source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system' | 'cron' | 'subagent' | 'fallback';
   agentId?: string;
   label?: string;
   stageText?: string;
@@ -74,6 +74,7 @@ export type RuntimeMode = 'live' | 'fallback';
 export interface RuntimeSnapshot {
   agents: Agent[];
   tasks: Task[];
+  dispatches: DispatchRecord[];
   runtimeMode: RuntimeMode;
   runtimeError?: string;
   lastSyncedAt: number;

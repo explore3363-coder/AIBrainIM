@@ -140,7 +140,7 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [gatewayWarningCount, setGatewayWarningCount] = useState(0);
   const uploadStatusRef = useRef<Record<string, UploadFile['status']>>({});
 
-  const latestDispatch = dispatches[0];
+  const latestDispatch = Array.isArray(dispatches) ? dispatches[0] : undefined;
 
   const pendingConfirmations = useMemo(
     () => confirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length,
@@ -162,12 +162,18 @@ export function AppProvider({children}: {children: ReactNode}) {
         fetchRuntimeSnapshot(),
         fetchConfirmations(),
       ]);
-      setAgents(snapshot.agents);
-      setTasks(snapshot.tasks);
+      setAgents(Array.isArray(snapshot.agents) ? snapshot.agents : []);
+      setTasks(Array.isArray(snapshot.tasks) ? snapshot.tasks : []);
+      setDispatches(current => {
+        if (current.length > 0) {
+          return current;
+        }
+        return Array.isArray(snapshot.dispatches) ? snapshot.dispatches : [];
+      });
       setRuntimeMode(snapshot.runtimeMode);
       setRuntimeError(snapshot.runtimeError);
       setLastSyncedAt(snapshot.lastSyncedAt);
-      setSessionCount(snapshot.sessionCount);
+      setSessionCount(typeof snapshot.sessionCount === 'number' ? snapshot.sessionCount : 0);
       setConfirmations(c);
       setUploads(uploadService.getQueue());
       await refreshGatewayStatus();
@@ -209,7 +215,7 @@ export function AppProvider({children}: {children: ReactNode}) {
       setDispatches(items => [confirmDispatch, ...items].slice(0, 20));
     }
 
-    void resolveConfirmation(id, 'confirmed');
+    resolveConfirmation(id, 'confirmed').catch(() => {});
   }, [confirmations]);
 
   const deferItem = useCallback((id: string) => {
@@ -230,7 +236,7 @@ export function AppProvider({children}: {children: ReactNode}) {
       setDispatches(items => [deferDispatch, ...items].slice(0, 20));
     }
 
-    void resolveConfirmation(id, 'deferred');
+    resolveConfirmation(id, 'deferred').catch(() => {});
   }, [confirmations]);
 
   const registerDispatch = useCallback((payload: {
@@ -630,7 +636,7 @@ export function AppProvider({children}: {children: ReactNode}) {
 
     void tick();
     const poll = setInterval(() => {
-      void tick();
+      tick().catch(() => {});
     }, 4000);
 
     return () => {

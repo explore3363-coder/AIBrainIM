@@ -143,6 +143,81 @@ const AGENT_META: Record<string, {name: string; role: string; focus: string; acc
   kaifa:   {name:'开发',    role:'Codex 开发 Bot',     focus:'代码、构建、Bug 修复',           accent:'#4ade80'},
 };
 
+function inferAgentIdFromSessionKey(key: string): string {
+  const parts = key.split(':');
+  return parts[1] ?? parts[0] ?? 'zhuli';
+}
+
+function normalizeSessionLabel(label?: string): string {
+  return (label ?? '')
+    .replace(/^Cron:\s*/i, '')
+    .replace(/^Session:\s*/i, '')
+    .replace(/^Thread:\s*/i, '')
+    .trim();
+}
+
+function inferTaskSourceType(
+  key: string,
+  label: string,
+): Task['sourceType'] {
+  const text = `${key} ${label}`.toLowerCase();
+  if (text.includes(':cron:')) return 'cron';
+  if (text.includes(':subagent:')) return 'subagent';
+  if (text.includes('upload') || text.includes('附件') || text.includes('文件')) return 'upload';
+  if (text.includes('memory') || text.includes('记忆')) return 'memory';
+  if (text.includes('knowledge') || text.includes('wiki') || text.includes('知识')) return 'knowledge';
+  if (text.includes('confirm') || text.includes('确认')) return 'confirmation';
+  return 'chat';
+}
+
+function inferTaskPriority(label: string): Task['priority'] {
+  if (/\bP0\b/i.test(label) || /高优|阻塞|紧急/.test(label)) return 'P0';
+  if (/\bP1\b/i.test(label) || /本轮|当前|继续推进/.test(label)) return 'P1';
+  return 'P2';
+}
+
+function inferTaskState(status: string, updatedAt: number): TaskState {
+  const ageMs = Date.now() - updatedAt;
+  if (status === 'running') return 'running';
+  if (status === 'done') return 'done';
+  if (status === 'failed' || status === 'error') return 'blocked';
+  return ageMs < 2 * 60 * 60 * 1000 ? 'todo' : 'done';
+}
+
+function buildTaskOwner(agentId: string, sourceType: Task['sourceType']): string {
+  const agentName = AGENT_META[agentId]?.name ?? agentId;
+  if (sourceType === 'cron') return `${agentName} / 定时链路`;
+  if (sourceType === 'subagent') return `${agentName} / 子链路`;
+  if (sourceType === 'upload') return `${agentName} / 附件链路`;
+  if (sourceType === 'knowledge') return `${agentName} / 知识链路`;
+  if (sourceType === 'memory') return `${agentName} / 记忆链路`;
+  if (sourceType === 'confirmation') return `${agentName} / 确认链路`;
+  return `${agentName} / 对话链路`;
+}
+
+function buildTaskNext(state: TaskState, sourceType: Task['sourceType']): string {
+  if (state === 'done') return '结果已回流到前台';
+  if (state === 'blocked') return '存在错误或待确认节点，需要人工处理';
+  if (state === 'running') {
+    if (sourceType === 'upload') return '后台正在处理附件并等待结果回流';
+    if (sourceType === 'knowledge') return '知识写入或文档链路正在推进';
+    if (sourceType === 'memory') return '记忆写入与回读链路正在推进';
+    return '执行中，等待状态继续回流';
+  }
+  return '等待进入下一步执行';
+}
+
+function buildTraceSummary(sourceType: Task['sourceType'], label: string): string {
+  const safeLabel = label || '未命名任务';
+  if (sourceType === 'cron') return `定时链路 · ${safeLabel}`;
+  if (sourceType === 'subagent') return `子 Agent 链路 · ${safeLabel}`;
+  if (sourceType === 'upload') return `附件链路 · ${safeLabel}`;
+  if (sourceType === 'knowledge') return `知识链路 · ${safeLabel}`;
+  if (sourceType === 'memory') return `记忆链路 · ${safeLabel}`;
+  if (sourceType === 'confirmation') return `确认链路 · ${safeLabel}`;
+  return `对话链路 · ${safeLabel}`;
+}
+
 function sessionsToAgents(sessions: GatewaySessionSummary[]): Agent[] {
   const map = new Map<string, {
     id: string; name: string; role: string; status: AgentStatus;
@@ -152,12 +227,12 @@ function sessionsToAgents(sessions: GatewaySessionSummary[]): Agent[] {
 
   for (const s of sessions) {
     const key      = (s.key as string) || '';
-    const agentId  = key.split(':')[1] ?? key.split(':')[0];
+    const agentId  = inferAgentIdFromSessionKey(key);
     if (!AGENT_META[agentId]) continue;
 
     const status    = (s.status as string) || 'idle';
     const updatedAt = (s.updatedAt as number) || 0;
-    const label     = (s.label as string) || '';
+    const label     = normalizeSessionLabel((s.label as string) || '');
     const runtimeMs = (s.runtimeMs as number) || 0;
     const now       = Date.now();
     const isRecent  = (now - updatedAt) < 5 * 60 * 1000;
@@ -211,66 +286,116 @@ function sessionsToTasks(sessions: GatewaySessionSummary[]): Task[] {
   const tasks: Task[] = [];
   const now = Date.now();
   const seen = new Set<string>();
-  const agentNames: Record<string, string> = {
-    zhuli:'助理', renzhi:'认知中枢', xunlong:'寻龙', wuyin:'无垠',
-    tansuo:'探索', zhilian:'智联', heijin:'黑金', kaifa:'开发',
-  };
 
   for (const s of sessions) {
     const key = (s.key as string) || '';
-    const isSubagent = key.includes(':subagent:');
-    const isCron = key.includes(':cron:');
-    if (!isSubagent && !isCron) continue;
-
     const updatedAt = (s.updatedAt as number) || 0;
     const ageMs = now - updatedAt;
     if (ageMs > 48 * 60 * 60 * 1000) continue;
 
-    const parts = key.split(':');
-    const agentId = parts[1] || 'kaifa';
-    const rawLabel = ((s.label as string) || '未命名任务').trim();
-    const label = rawLabel.replace(/^Cron: /, '').trim();
+    const agentId = inferAgentIdFromSessionKey(key);
+    if (!AGENT_META[agentId]) continue;
+
+    const rawLabel = normalizeSessionLabel((s.label as string) || '');
     const status = (s.status as string) || 'done';
     const runtimeMs = (s.runtimeMs as number) || 0;
+    const sourceType = inferTaskSourceType(key, rawLabel);
+    const state = inferTaskState(status, updatedAt);
 
-    const state: TaskState =
-      status === 'running' ? 'running'
-      : status === 'done' ? 'done'
-      : ageMs < 2 * 60 * 60 * 1000 ? 'todo'
-      : 'done';
-
-    const title = label.length > 45 ? `${label.slice(0, 45)}…` : label;
-    const dedupeKey = `${key}:${title}`;
+    const titleBase = rawLabel || `${AGENT_META[agentId].name} 当前链路`;
+    const title = titleBase.length > 45 ? `${titleBase.slice(0, 45)}…` : titleBase;
+    const dedupeKey = `${key}:${title}:${state}`;
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
 
-    const traceSummary = isCron
-      ? `定时链路 · ${rawLabel || 'Cron 任务'}`
-      : `子 Agent 链路 · ${rawLabel || '未命名任务'}`;
-
     tasks.push({
-      id: `task-${parts[2] ?? String(updatedAt)}`,
+      id: `task-${key.replace(/[^a-zA-Z0-9]+/g, '-').slice(-24)}-${updatedAt || now}`,
       title,
-      owner: isCron ? `${agentNames[agentId] ?? agentId} / 定时链路` : (agentNames[agentId] ?? agentId),
+      owner: buildTaskOwner(agentId, sourceType),
       state,
-      eta: runtimeMs > 0 ? `${Math.round(runtimeMs / 1000)}s` : (state === 'done' ? '已完成' : '待执行'),
-      next: state === 'done'
-        ? '结果已落回任务流'
-        : state === 'running'
-          ? '执行中，等待状态继续回流'
-          : '等待进入下一步执行',
-      priority: label.includes('P0') ? 'P0' : label.includes('P1') ? 'P1' : 'P2',
+      eta: runtimeMs > 0 ? `${Math.round(runtimeMs / 1000)}s` : (state === 'done' ? '已完成' : state === 'blocked' ? '待处理' : '待执行'),
+      next: buildTaskNext(state, sourceType),
+      priority: inferTaskPriority(rawLabel),
       agentId,
       sessionKey: key,
       updatedAt,
-      sourceType: isCron ? 'cron' : 'subagent',
-      traceSummary,
+      sourceType,
+      traceSummary: buildTraceSummary(sourceType, titleBase),
     });
   }
 
   return tasks
     .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
-    .slice(0, 12);
+    .slice(0, 16);
+}
+
+function mapSessionStatusToDispatchStatus(status: string): DispatchRecord['status'] {
+  if (status === 'running') return 'dispatched';
+  if (status === 'done') return 'completed';
+  if (status === 'failed' || status === 'error') return 'failed';
+  return 'processing';
+}
+
+function buildDispatchReply(agentId: string, label: string, status: DispatchRecord['status'], runtimeMs: number, sessionKey: string): string {
+  const agentName = AGENT_META[agentId]?.name ?? agentId;
+  const runtimeText = runtimeMs > 0 ? ` · 已运行 ${Math.round(runtimeMs / 1000)}s` : '';
+  const sessionText = sessionKey ? ` · ${sessionKey}` : '';
+
+  if (status === 'completed') {
+    return `✓ ${agentName}${label ? ` [${label}]` : ''} 已完成本轮执行${runtimeText}${sessionText}`;
+  }
+  if (status === 'failed') {
+    return `⚠️ ${agentName}${label ? ` [${label}]` : ''} 执行异常${runtimeText}${sessionText}`;
+  }
+  if (status === 'dispatched') {
+    return `🛰 ${agentName}${label ? ` [${label}]` : ''} 正在执行${runtimeText}${sessionText}`;
+  }
+  return `… ${agentName}${label ? ` [${label}]` : ''} 正在处理中${runtimeText}${sessionText}`;
+}
+
+function sessionsToDispatches(sessions: GatewaySessionSummary[]): DispatchRecord[] {
+  const records: DispatchRecord[] = [];
+  const now = Date.now();
+  const seen = new Set<string>();
+
+  for (const s of sessions) {
+    const key = (s.key as string) || '';
+    const updatedAt = (s.updatedAt as number) || 0;
+    const ageMs = now - updatedAt;
+    if (ageMs > 48 * 60 * 60 * 1000) continue;
+
+    const agentId = inferAgentIdFromSessionKey(key);
+    if (!AGENT_META[agentId]) continue;
+
+    const label = normalizeSessionLabel((s.label as string) || '');
+    const status = mapSessionStatusToDispatchStatus((s.status as string) || 'done');
+    const runtimeMs = (s.runtimeMs as number) || 0;
+    const source = inferTaskSourceType(key, label);
+    const title = label || `${AGENT_META[agentId].name} 当前链路`;
+    const recordId = `live-${key.replace(/[^a-zA-Z0-9]+/g, '-').slice(-32)}-${updatedAt || now}`;
+    if (seen.has(recordId)) continue;
+    seen.add(recordId);
+
+    records.push({
+      id: recordId,
+      userText: title,
+      reply: buildDispatchReply(agentId, label, status, runtimeMs, key),
+      taskId: `task-${key.replace(/[^a-zA-Z0-9]+/g, '-').slice(-24)}-${updatedAt || now}`,
+      dispatchId: `dispatch-${key.replace(/[^a-zA-Z0-9]+/g, '-').slice(-24)}-${updatedAt || now}`,
+      sessionKey: key,
+      createdAt: updatedAt || now,
+      updatedAt: updatedAt || now,
+      status,
+      source: source === 'fallback' ? 'system' : source,
+      agentId,
+      label,
+      stageText: label || AGENT_META[agentId].focus,
+    });
+  }
+
+  return records
+    .sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))
+    .slice(0, 20);
 }
 
 // ─── Fallback data ───────────────────────────────────────────────────────────
@@ -307,9 +432,12 @@ export async function fetchRuntimeSnapshot(): Promise<RuntimeSnapshot> {
     const agents = sessionsToAgents(sessions);
     const tasks = sessionsToTasks(sessions);
 
+    const dispatches = sessionsToDispatches(sessions);
+
     return {
       agents: agents.length > 0 ? agents : FALLBACK_AGENTS,
       tasks: tasks.length > 0 ? tasks : FALLBACK_TASKS,
+      dispatches,
       runtimeMode: 'live',
       runtimeError: undefined,
       lastSyncedAt: Date.now(),
@@ -321,6 +449,7 @@ export async function fetchRuntimeSnapshot(): Promise<RuntimeSnapshot> {
     return {
       agents: FALLBACK_AGENTS,
       tasks: FALLBACK_TASKS,
+      dispatches: [],
       runtimeMode: 'fallback',
       runtimeError: message,
       lastSyncedAt: Date.now(),

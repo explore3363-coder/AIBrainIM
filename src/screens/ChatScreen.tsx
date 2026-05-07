@@ -77,6 +77,9 @@ export function ChatScreen() {
   const scrollRef   = useRef<ScrollView>(null);
   const lastDispatchIdRef = useRef<string | undefined>(undefined);
 
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeAttachments = useMemo(() => Array.isArray(attachments) ? attachments : [], [attachments]);
+
   // ── Chat history persistence ─────────────────────────────────────────
   const [historyRestored, setHistoryRestored] = useState(false);
 
@@ -116,7 +119,7 @@ export function ChatScreen() {
 
   // ── Dispatch status updates ───────────────────────────────────────────
   useEffect(() => {
-    const latest = dispatches[0];
+    const latest = safeDispatches[0];
     if (!latest || latest.id === lastDispatchIdRef.current) {
       return;
     }
@@ -146,7 +149,7 @@ export function ChatScreen() {
     });
 
     setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
-  }, [dispatches]);
+  }, [safeDispatches]);
 
   // Sync attachment previews from upload queue
   const syncAttachments = useCallback(() => {
@@ -163,8 +166,8 @@ export function ChatScreen() {
   }, []);
 
   const queuedAttachmentSummaries = useMemo(
-    () => attachments.filter(att => queuedAttachmentIds.includes(att.id)),
-    [attachments, queuedAttachmentIds],
+    () => safeAttachments.filter(att => queuedAttachmentIds.includes(att.id)),
+    [safeAttachments, queuedAttachmentIds],
   );
 
   const clearQueuedAttachment = useCallback((id: string) => {
@@ -306,19 +309,19 @@ export function ChatScreen() {
     '代码文件':  handlePickDocument,
   };
 
-  const latestDispatch = dispatches[0];
+  const latestDispatch = safeDispatches[0];
 
   useEffect(() => {
     if (!queuedAttachmentIds.length) {
       return;
     }
 
-    const activeIds = new Set(attachments.map(item => item.id));
+    const activeIds = new Set(safeAttachments.map(item => item.id));
     const doneIds = queuedAttachmentIds.filter(id => !activeIds.has(id));
     if (doneIds.length > 0) {
       setQueuedAttachmentIds(ids => ids.filter(id => !doneIds.includes(id)));
     }
-  }, [attachments, queuedAttachmentIds]);
+  }, [safeAttachments, queuedAttachmentIds]);
 
   const handleSend = useCallback(async () => {
     if (!draft.trim() || sending) return;

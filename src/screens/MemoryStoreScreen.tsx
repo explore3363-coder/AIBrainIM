@@ -117,10 +117,15 @@ export function MemoryStoreScreen() {
   const [localCreatedEntries, setLocalCreatedEntries] = useState<MemoryEntry[]>([]);
   const {dispatches, tasks, uploads, confirmations, registerMemoryCapture} = useAppContext();
 
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  const safeConfirmations = useMemo(() => Array.isArray(confirmations) ? confirmations : [], [confirmations]);
+
   const dynamicEntries = useMemo<MemoryEntry[]>(() => {
     const items: MemoryEntry[] = [];
 
-    const latestDispatch = dispatches[0];
+    const latestDispatch = safeDispatches[0];
     if (latestDispatch) {
       items.push({
         id: `dispatch-${latestDispatch.id}`,
@@ -132,7 +137,7 @@ export function MemoryStoreScreen() {
       });
     }
 
-    const runningTask = tasks.find(task => task.state === 'running');
+    const runningTask = safeTasks.find(task => task.state === 'running');
     if (runningTask) {
       items.push({
         id: `task-${runningTask.id}`,
@@ -144,7 +149,7 @@ export function MemoryStoreScreen() {
       });
     }
 
-    const activeUpload = uploads.find(file => file.status === 'uploading' || file.status === 'processing' || file.status === 'dispatched');
+    const activeUpload = safeUploads.find(file => file.status === 'uploading' || file.status === 'processing' || file.status === 'dispatched');
     if (activeUpload) {
       items.push({
         id: `upload-${activeUpload.id}`,
@@ -156,7 +161,7 @@ export function MemoryStoreScreen() {
       });
     }
 
-    const pendingConfirmation = confirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
+    const pendingConfirmation = safeConfirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
     if (pendingConfirmation) {
       items.push({
         id: `confirmation-${pendingConfirmation.id}`,
@@ -169,7 +174,7 @@ export function MemoryStoreScreen() {
     }
 
     return items;
-  }, [confirmations, dispatches, tasks, uploads]);
+  }, [safeConfirmations, safeDispatches, safeTasks, safeUploads]);
 
   const mergedEntries = useMemo(
     () => [...localCreatedEntries, ...dynamicEntries, ...MEMORY_ENTRIES],

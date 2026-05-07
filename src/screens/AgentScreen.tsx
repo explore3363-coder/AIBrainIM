@@ -48,7 +48,10 @@ type RootStackParamList = {
 export function AgentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {agents, tasks, dispatches, pendingConfirmations, refreshing, runtimeMode, runtimeError} = useAppContext();
-  const [selected, setSelected] = useState<Agent>(agents[0] ?? {
+  const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const [selected, setSelected] = useState<Agent>(() => safeAgents[0] ?? {
     id: 'placeholder',
     name: '助理',
     role: 'AI 总指挥',
@@ -59,16 +62,16 @@ export function AgentScreen() {
   });
 
   useEffect(() => {
-    if (!agents.length) return;
-    const synced = agents.find(agent => agent.id === selected.id);
-    setSelected(synced ?? agents[0]);
-  }, [agents, selected.id]);
+    if (!safeAgents.length) return;
+    const synced = safeAgents.find(agent => agent.id === selected.id);
+    setSelected(synced ?? safeAgents[0]);
+  }, [safeAgents, selected.id]);
 
-  const workingAgents = useMemo(() => agents.filter(agent => agent.status === 'working'), [agents]);
-  const onlineAgents = useMemo(() => agents.filter(agent => agent.status === 'online' || agent.status === 'working'), [agents]);
-  const runningTasks = useMemo(() => tasks.filter(task => task.state === 'running'), [tasks]);
-  const blockedTasks = useMemo(() => tasks.filter(task => task.state === 'blocked'), [tasks]);
-  const latestDispatch = dispatches[0];
+  const workingAgents = useMemo(() => safeAgents.filter(agent => agent.status === 'working'), [safeAgents]);
+  const onlineAgents = useMemo(() => safeAgents.filter(agent => agent.status === 'online' || agent.status === 'working'), [safeAgents]);
+  const runningTasks = useMemo(() => safeTasks.filter(task => task.state === 'running'), [safeTasks]);
+  const blockedTasks = useMemo(() => safeTasks.filter(task => task.state === 'blocked'), [safeTasks]);
+  const latestDispatch = safeDispatches[0];
 
   const controlSummary = workingAgents.length > 0
     ? `当前执行中：${workingAgents.map(agent => agent.name).join('、')}，可直接查看任务详情。`
@@ -81,12 +84,12 @@ export function AgentScreen() {
       : `${selected.name} 待命，可接收新分派`;
 
   const selectedTaskCount = useMemo(
-    () => tasks.filter(task => task.agentId === selected.id && task.state !== 'done').length,
-    [tasks, selected.id],
+    () => safeTasks.filter(task => task.agentId === selected.id && task.state !== 'done').length,
+    [safeTasks, selected.id],
   );
 
   const selectedAgentTasks = useMemo(
-    () => tasks
+    () => safeTasks
       .filter(task => task.agentId === selected.id)
       .sort((a, b) => {
         const aUpdated = a.updatedAt ?? 0;
@@ -94,19 +97,19 @@ export function AgentScreen() {
         return bUpdated - aUpdated;
       })
       .slice(0, 3),
-    [tasks, selected.id],
+    [safeTasks, selected.id],
   );
 
   const selectedDispatchCount = useMemo(
-    () => dispatches.filter(dispatch => dispatch.agentId === selected.id).length,
-    [dispatches, selected.id],
+    () => safeDispatches.filter(dispatch => dispatch.agentId === selected.id).length,
+    [safeDispatches, selected.id],
   );
 
   const selectedAgentDispatches = useMemo(
-    () => dispatches
+    () => safeDispatches
       .filter(dispatch => dispatch.agentId === selected.id)
       .slice(0, 2),
-    [dispatches, selected.id],
+    [safeDispatches, selected.id],
   );
 
   const actionCards = [

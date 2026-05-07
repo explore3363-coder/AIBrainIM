@@ -66,26 +66,32 @@ export function DashboardScreen() {
     runtimeMode,
   } = useAppContext();
 
-  const activeCount  = useMemo(() => agents.filter(a => a.status === 'online' || a.status === 'working').length, [agents]);
-  const runningCount = useMemo(() => tasks.filter(t => t.state === 'running').length, [tasks]);
-  const doneCount = useMemo(() => tasks.filter(t => t.state === 'done').length, [tasks]);
-  const blockedCount = useMemo(() => tasks.filter(t => t.state === 'blocked').length, [tasks]);
-  const uploadingCount = useMemo(() => uploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [uploads]);
-  const dispatchActiveCount = useMemo(() => dispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length, [dispatches]);
-  const uploadDoneCount = useMemo(() => uploads.filter(u => u.status === 'done' || u.status === 'dispatched').length, [uploads]);
+  const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeConfirmations = useMemo(() => Array.isArray(confirmations) ? confirmations : [], [confirmations]);
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
 
-  const latestDispatch = dispatches[0];
+  const activeCount  = useMemo(() => safeAgents.filter(a => a.status === 'online' || a.status === 'working').length, [safeAgents]);
+  const runningCount = useMemo(() => safeTasks.filter(t => t.state === 'running').length, [safeTasks]);
+  const doneCount = useMemo(() => safeTasks.filter(t => t.state === 'done').length, [safeTasks]);
+  const blockedCount = useMemo(() => safeTasks.filter(t => t.state === 'blocked').length, [safeTasks]);
+  const uploadingCount = useMemo(() => safeUploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [safeUploads]);
+  const dispatchActiveCount = useMemo(() => safeDispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length, [safeDispatches]);
+  const uploadDoneCount = useMemo(() => safeUploads.filter(u => u.status === 'done' || u.status === 'dispatched').length, [safeUploads]);
+
+  const latestDispatch = safeDispatches[0];
   const latestDispatchMeta = latestDispatch ? DISPATCH_STATUS_META[latestDispatch.status] : null;
-  const latestRunningTask = tasks.find(task => task.state === 'running');
-  const latestBlockedConfirmation = confirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
-  const hottestUpload = uploads.find(item => item.status === 'uploading' || item.status === 'processing' || item.status === 'dispatched');
+  const latestRunningTask = safeTasks.find(task => task.state === 'running');
+  const latestBlockedConfirmation = safeConfirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
+  const hottestUpload = safeUploads.find(item => item.status === 'uploading' || item.status === 'processing' || item.status === 'dispatched');
   const focusDescription = latestDispatch
     ? `最新调度「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
     : latestRunningTask
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
       : '当前没有进行中的调度单，系统运转正常。';
   const liveFeed = useMemo<AIFeedItem[]>(() => {
-    const dispatchFeed = dispatches.slice(0, 4).map((item, index) => ({
+    const dispatchFeed = safeDispatches.slice(0, 4).map((item, index) => ({
       id: `dispatch-${item.id}-${index}`,
       agent: `助理 · ${DISPATCH_STATUS_META[item.status].label}`,
       agentAccent: DISPATCH_STATUS_META[item.status].accent,
@@ -94,7 +100,7 @@ export function DashboardScreen() {
       type: item.status === 'failed' ? 'system' as const : item.status === 'completed' ? 'output' as const : 'dispatch' as const,
     }));
 
-    const uploadFeed = uploads
+    const uploadFeed = safeUploads
       .filter(item => item.status === 'dispatched' || item.status === 'error' || item.status === 'processing')
       .slice(-3)
       .reverse()
@@ -114,11 +120,11 @@ export function DashboardScreen() {
 
     const merged = [...dispatchFeed, ...uploadFeed];
     return merged.length ? merged.slice(0, 6) : aiFeedMock;
-  }, [dispatches, uploads]);
+  }, [safeDispatches, safeUploads]);
 
   const dispatchTrace = useMemo<CommandTrace[]>(() => {
-    if (!dispatches.length) return commandTraceMock;
-    const latest = dispatches[0];
+    if (!safeDispatches.length) return commandTraceMock;
+    const latest = safeDispatches[0];
     return [
       {stage:'receive', title:'接收指令', actor:'你 → 助理', detail: latest.userText},
       {stage:'dispatch', title:'生成调度单', actor:'助理 / Gateway', detail: `taskId=${latest.taskId ?? '未生成'} · dispatchId=${latest.dispatchId ?? '未生成'}`},
@@ -126,7 +132,7 @@ export function DashboardScreen() {
       {stage:'synthesis', title:'当前状态', actor:'调度链', detail: `${DISPATCH_STATUS_META[latest.status].label}${latest.sessionKey ? ` · session=${latest.sessionKey}` : ''}`},
       {stage:'deliver', title:'结果交付', actor:'APP', detail: latest.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链和 AI 产出流。' : latest.status === 'failed' ? '该调度单执行异常，已保留记录，建议查看调度链并重试。' : '该调度单已同步到任务流、调度链和 AI 产出流。'},
     ];
-  }, [dispatches]);
+  }, [safeDispatches]);
 
   const actionQueue = useMemo(() => {
     const queue: Array<{

@@ -70,17 +70,23 @@ export function ProjectLibraryScreen() {
   const [activeDomain, setActiveDomain] = useState<FilterDomain>('全部');
   const {tasks, uploads, dispatches, confirmations, agents} = useAppContext();
 
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeConfirmations = useMemo(() => Array.isArray(confirmations) ? confirmations : [], [confirmations]);
+  const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
+
   const runtimeProjects = useMemo<Project[]>(() => {
     const items: Project[] = [];
 
-    const runningTaskCount = tasks.filter(task => task.state === 'running').length;
-    const blockedTaskCount = tasks.filter(task => task.state === 'blocked').length;
-    const doneTaskCount = tasks.filter(task => task.state === 'done').length;
-    const activeUploadCount = uploads.filter(file => file.status === 'queued' || file.status === 'uploading' || file.status === 'processing').length;
-    const latestDispatch = dispatches[0];
-    const pendingConfirmations = confirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length;
-    const onlineAgents = agents.filter(agent => agent.status === 'online' || agent.status === 'working').length;
-    const workingAgents = agents.filter(agent => agent.status === 'working').length;
+    const runningTaskCount = safeTasks.filter(task => task.state === 'running').length;
+    const blockedTaskCount = safeTasks.filter(task => task.state === 'blocked').length;
+    const doneTaskCount = safeTasks.filter(task => task.state === 'done').length;
+    const activeUploadCount = safeUploads.filter(file => file.status === 'queued' || file.status === 'uploading' || file.status === 'processing').length;
+    const latestDispatch = safeDispatches[0];
+    const pendingConfirmations = safeConfirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length;
+    const onlineAgents = safeAgents.filter(agent => agent.status === 'online' || agent.status === 'working').length;
+    const workingAgents = safeAgents.filter(agent => agent.status === 'working').length;
     const latestDate = new Date().toLocaleDateString('zh-CN');
 
     items.push({
@@ -132,7 +138,7 @@ export function ProjectLibraryScreen() {
     }
 
     return items;
-  }, [agents, confirmations, dispatches, tasks, uploads]);
+  }, [safeAgents, safeConfirmations, safeDispatches, safeTasks, safeUploads]);
 
   const mergedProjects = useMemo(() => [...runtimeProjects, ...PROJECTS], [runtimeProjects]);
 

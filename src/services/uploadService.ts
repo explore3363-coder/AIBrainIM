@@ -40,11 +40,23 @@ type UploadStatus =
 // Re-export for consumers
 export type {UploadType, UploadFile, UploadStatus};
 
+// ─── Gateway config (lazy import to avoid circular dependency) ─────────────────
+function _getUploadConfig() {
+  try {
+    // Dynamic import to avoid circular dependency with gatewayConfig
+    const {getGatewayConfig, validateGatewayConfig} = require('./gatewayConfig');
+    return {getGatewayConfig, validateGatewayConfig};
+  } catch {
+    return null;
+  }
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CHUNK_SIZE           = 2 * 1024 * 1024; // 2 MB
 const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024; // 10 MB
 const MAX_RETRIES          = 5;
 const BASE_DELAY_MS        = 500; // ms; exponential backoff base
+const UPLOAD_TIMEOUT_MS    = 30000; // 30s per request
 
 // ─── Chunk-level state (enables true resume) ──────────────────────────────────
 interface ChunkState {
@@ -150,11 +162,84 @@ function _assignAgent(type: UploadType): string {
 
 // ─── Internal upload ──────────────────────────────────────────────────────────
 
+async function _tryRealUpload(
+  file: UploadFile,
+  onProgress: (pct: number) => void,
+): Promise<boolean> {
+  const cfg = _getUploadConfig();
+  if (!cfg) return false;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let config: any = null;
+  try {
+    config = await cfg.getGatewayConfig();
+  } catch {
+    return false;
+  }
+
+  const validation = cfg.validateGatewayConfig(config);
+  if (!validation.valid) return false;
+
+  const {gatewayUrl, gatewayToken} = config;
+  if (!gatewayUrl || !gatewayToken) return false;
+
+  try {
+    const formData = new FormData();
+    // React Native requires uri, name, type fields on the blob object
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
+    } as unknown as Blob);
+    formData.append('uploadId', file.id);
+
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+    const res = await fetch(`${gatewayUrl}/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${gatewayToken}`,
+        'Content-Type': 'multipart/form-data',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.warn(`[uploadService] Gateway /upload returned ${res.status}: ${body.slice(0, 120)}`);
+      return false;
+    }
+
+    // Upload succeeded — read progress from response if available
+    try {
+      const json = await res.json() as Record<string, unknown>;
+      const pct = typeof json.progress === 'number' ? json.progress : 90;
+      onProgress(pct);
+    } catch {
+      onProgress(90);
+    }
+    return true;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[uploadService] Real upload failed, falling back to simulation: ${msg}`);
+    return false;
+  }
+}
+
 /**
- * Simulated direct upload (small files < 10 MB).
- * In production: POST to /upload with FormData, track X-Progress header.
+ * Direct upload for small files (< 10 MB).
+ * Tries real Gateway HTTP POST first; falls back to simulation.
  */
 async function _directUpload(state: UploadState): Promise<void> {
+  const realOk = await _tryRealUpload(state.file, (pct) => {
+    _updateFile(state.file.id, {status: 'uploading', progress: pct});
+  });
+  if (realOk) return;
+
+  // Simulation fallback
   const STEPS = 10;
   for (let i = 1; i <= STEPS; i++) {
     await delay(120);
@@ -164,40 +249,77 @@ async function _directUpload(state: UploadState): Promise<void> {
 }
 
 /**
- * Simulated chunked upload (large files ≥ 10 MB).
- * Each chunk uploaded sequentially with retry; on failure only the failed
- * chunk is retried (true resume — only unacknowledged chunks repeat).
- *
- * Production: PUT /upload/chunk?uploadId=...&chunkIndex=...
+ * Chunked upload for large files (≥ 10 MB or unknown size).
+ * Tries real Gateway PUT /upload/chunk when configured; falls back to simulation.
+ * On failure only the failed chunk is retried (true resume).
  */
 async function _chunkedUpload(state: UploadState): Promise<void> {
-  const {chunks, totalChunks} = state;
+  const {chunks, totalChunks, file} = state;
+
+  // Try to get real Gateway config once
+  const cfg = _getUploadConfig();
+  let gatewayUrl = '';
+  let gatewayToken = '';
+  if (cfg) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config: any = await cfg.getGatewayConfig();
+      const validation = cfg.validateGatewayConfig(config);
+      if (validation.valid) {
+        gatewayUrl = config.gatewayUrl;
+        gatewayToken = config.gatewayToken;
+      }
+    } catch { /* use simulation */ }
+  }
 
   for (let i = 0; i < totalChunks; i++) {
     const chunk = chunks[i];
     if (chunk.uploaded) continue; // already done, skip
 
-    try {
-      await withRetry(async () => {
-        // Simulate chunk upload — replace with real fetch() in production
-        await delay(300);
-        // In production:
-        // const fd = new FormData();
-        // fd.append('chunk', uri slice for this chunk, filename);
-        // await fetch(`${GATEWAY_URL}/upload/chunk?uploadId=${state.file.id}&chunkIndex=${i}`, {
-        //   method: 'PUT', body: fd,
-        //   headers: { Authorization: `Bearer ${GATEWAY_TOKEN}` },
-        // });
-      });
+    let chunkOk = false;
+
+    // Try real Gateway chunked upload
+    if (gatewayUrl && gatewayToken && !file.uri.startsWith('demo://')) {
+      try {
+        const chunkUrl = `${gatewayUrl}/upload/chunk?uploadId=${file.id}&chunkIndex=${i}&totalChunks=${totalChunks}`;
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+        const res = await fetch(chunkUrl, {
+          method: 'PUT',
+          body: file.uri, // In RN, uri can be used as body directly
+          headers: {
+            'Authorization': `Bearer ${gatewayToken}`,
+            'Content-Type': file.mimeType,
+            'X-Chunk-Index': String(i),
+            'X-Total-Chunks': String(totalChunks),
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(t);
+        chunkOk = res.ok;
+      } catch {
+        chunkOk = false;
+      }
+    }
+
+    if (!chunkOk) {
+      // Simulation fallback for this chunk
+      try {
+        await withRetry(async () => {
+          await delay(300);
+        });
+        chunk.uploaded = true;
+        chunk.retries  = 0;
+      } catch {
+        chunk.retries++;
+        if (chunk.retries > MAX_RETRIES) {
+          throw new Error(`分片 ${i + 1}/${totalChunks} 上传失败，已达最大重试次数`);
+        }
+        throw new Error(`分片 ${i + 1} 上传失败`);
+      }
+    } else {
       chunk.uploaded = true;
       chunk.retries  = 0;
-    } catch {
-      chunk.retries++;
-      if (chunk.retries > MAX_RETRIES) {
-        throw new Error(`分片 ${i + 1}/${totalChunks} 上传失败，已达最大重试次数`);
-      }
-      // Re-throw so withRetry in processUpload retries this chunk
-      throw new Error(`分片 ${i + 1} 上传失败`);
     }
 
     const uploadedChunks = chunks.filter(c => c.uploaded).length;

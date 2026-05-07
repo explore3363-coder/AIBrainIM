@@ -99,7 +99,7 @@ export function GatewaySettingsScreen() {
       const normalized = sessions
         .map(item => ({
           key: item.key ?? '',
-          label: item.label ?? '未命名会话',
+          label: (item.label ?? '未命名会话').replace(/^Cron:\s*/i, '').replace(/^Session:\s*/i, '').trim(),
           status: item.status ?? 'unknown',
         }))
         .filter(item => item.key);
@@ -136,11 +136,17 @@ export function GatewaySettingsScreen() {
       await refreshGatewayStatus();
       const result = await gatewayInvoke('sessions_list', 'json', {}, config);
       const payload = result as {sessions?: unknown[]; content?: Array<{text?: string}>};
-      const count = Array.isArray(payload?.sessions)
-        ? payload.sessions.length
-        : Array.isArray(payload?.content)
-          ? payload.content.length
-          : 0;
+      let count = 0;
+      if (Array.isArray(payload?.sessions)) {
+        count = payload.sessions.length;
+      } else if (Array.isArray(payload?.content) && payload.content[0]?.text) {
+        try {
+          const inner = JSON.parse(payload.content[0].text);
+          count = Array.isArray(inner?.sessions) ? inner.sessions.length : payload.content.length;
+        } catch {
+          count = payload.content.length;
+        }
+      }
       const reply = `✓ Gateway 连通性测试通过：sessions_list 已返回 ${count} 条结果。`;
       await refresh();
       setStatusText(`连通成功 · sessions_list 已返回（${count} 条）`);

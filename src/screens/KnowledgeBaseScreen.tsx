@@ -74,19 +74,24 @@ export function KnowledgeBaseScreen() {
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const {agents, tasks, uploads, dispatches, registerKnowledgeCapture} = useAppContext();
 
+  const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+
   const runtimeDocs = useMemo<KBDoc[]>(() => {
     const docs: KBDoc[] = [];
 
-    const activeAgentCount = agents.filter(agent => agent.status === 'online' || agent.status === 'working').length;
+    const activeAgentCount = safeAgents.filter(agent => agent.status === 'online' || agent.status === 'working').length;
     docs.push({
       id: 'runtime-agents',
       category: 'technical',
       title: '当前 Agent Runtime 在线态势',
-      summary: `${activeAgentCount}/${agents.length} 个 Agent 当前在线或工作中，移动端已经能消费实时智能体状态。`,
+      summary: `${activeAgentCount}/${safeAgents.length} 个 Agent 当前在线或工作中，移动端已经能消费实时智能体状态。`,
       updatedAt: new Date().toLocaleDateString('zh-CN'),
     });
 
-    const currentTask = tasks.find(task => task.state === 'running' || task.state === 'todo');
+    const currentTask = safeTasks.find(task => task.state === 'running' || task.state === 'todo');
     if (currentTask) {
       docs.push({
         id: `runtime-task-${currentTask.id}`,
@@ -97,7 +102,7 @@ export function KnowledgeBaseScreen() {
       });
     }
 
-    const uploadDoc = uploads.find(file => file.status === 'processing' || file.status === 'dispatched' || file.status === 'done');
+    const uploadDoc = safeUploads.find(file => file.status === 'processing' || file.status === 'dispatched' || file.status === 'done');
     if (uploadDoc) {
       docs.push({
         id: `runtime-upload-${uploadDoc.id}`,
@@ -108,7 +113,7 @@ export function KnowledgeBaseScreen() {
       });
     }
 
-    const latestDispatch = dispatches[0];
+    const latestDispatch = safeDispatches[0];
     if (latestDispatch) {
       docs.push({
         id: `runtime-dispatch-${latestDispatch.id}`,
@@ -120,7 +125,7 @@ export function KnowledgeBaseScreen() {
     }
 
     return docs;
-  }, [agents, dispatches, tasks, uploads]);
+  }, [safeAgents, safeDispatches, safeTasks, safeUploads]);
 
   const mergedDocs = useMemo(() => [...runtimeDocs, ...KB_DOCS], [runtimeDocs]);
 
