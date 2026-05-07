@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -23,6 +24,7 @@ type RootStackParamList = {
   DispatchChain: undefined;
   Confirmations: undefined;
   Upload: undefined;
+  GatewaySettings: undefined;
 };
 
 interface MenuItemProps {
@@ -64,7 +66,20 @@ export function ProfileScreen() {
     tasks,
     dispatches,
     agents,
+    gatewaySummary,
+    gatewayConfigValid,
+    gatewayWarningCount,
+    refreshing,
+    refresh,
   } = useAppContext();
+
+  const activeUploads = uploads.filter(
+    f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
+  ).length;
+
+  const dispatchInFlight = dispatches.filter(item => item.status !== 'completed' && item.status !== 'failed').length;
+  const memorySignals = Math.min(99, dispatches.length + pendingConfirmations + Math.min(tasks.length, 6));
+  const knowledgeSignals = Math.min(99, agents.length + Math.min(tasks.length, 8) + Math.min(uploads.length, 6));
 
   // Stats from live context — no hardcoded profileStatsMock
   const stats = useMemo(() => {
@@ -74,13 +89,10 @@ export function ProfileScreen() {
       totalTasks: tasks.length,
       completedTasks: doneTasks,
       activeAgents,
-      memoryEntries: 8,   // stand-in; production: count from memory_recall API
-      knowledgeDocs: 8,    // stand-in; production: count from knowledge API
+      memoryEntries: memorySignals,
+      knowledgeDocs: knowledgeSignals,
     };
-  }, [tasks, agents]);
-  const activeUploads = uploads.filter(
-    f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
-  ).length;
+  }, [tasks, agents, memorySignals, knowledgeSignals]);
   const runtimeSummary = runtimeMode === 'live'
     ? `已连接 OpenClaw Gateway · ${sessionCount} 个会话 · 最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
     : `当前处于本地回退模式${runtimeError ? ` · ${runtimeError}` : ''}`;
@@ -88,7 +100,6 @@ export function ProfileScreen() {
   const runningTasks = tasks.filter(task => task.state === 'running').length;
   const blockedTasks = tasks.filter(task => task.state === 'blocked').length;
   const doneTasks = tasks.filter(task => task.state === 'done').length;
-  const dispatchInFlight = dispatches.filter(item => item.status !== 'completed' && item.status !== 'failed').length;
 
   const releaseSignals = useMemo(() => {
     const blockers: string[] = [];
@@ -214,7 +225,17 @@ export function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={C.primary}
+          />
+        }
+      >
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrap}>
@@ -233,11 +254,69 @@ export function ProfileScreen() {
           </View>
         </View>
 
+        {/* 快捷入口 strip */}
+        <View style={styles.quickAccessRow}>
+          <TouchableOpacity style={styles.quickAccessBtn} activeOpacity={0.8} onPress={() => navigation.navigate('MemoryStore')}>
+            <Text style={styles.quickAccessEmoji}>🧠</Text>
+            <Text style={styles.quickAccessLabel}>记忆库</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAccessBtn} activeOpacity={0.8} onPress={() => navigation.navigate('KnowledgeBase')}>
+            <Text style={styles.quickAccessEmoji}>📖</Text>
+            <Text style={styles.quickAccessLabel}>知识库</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAccessBtn} activeOpacity={0.8} onPress={() => navigation.navigate('FileLibrary')}>
+            <Text style={styles.quickAccessEmoji}>📎</Text>
+            <Text style={styles.quickAccessLabel}>附件库</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAccessBtn} activeOpacity={0.8} onPress={() => navigation.navigate('DispatchChain')}>
+            <Text style={styles.quickAccessEmoji}>🔗</Text>
+            <Text style={styles.quickAccessLabel}>调度链</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Stats */}
         <View style={styles.statsGrid}>
           <MetricCard label="总任务"     value={`${stats.totalTasks}`}     accent={C.primary} />
           <MetricCard label="已完成"     value={`${stats.completedTasks}`}  accent="#34d399" />
           <MetricCard label="活跃 Agent" value={`${stats.activeAgents}`}  accent={C.accent} />
+        </View>
+
+        <Text style={styles.sectionTitle}>🛰️ 当前运行态</Text>
+        <View style={styles.runtimeBoard}>
+          <View style={styles.runtimeBoardTop}>
+            <View>
+              <Text style={styles.runtimeBoardTitle}>OpenClaw 直连健康度</Text>
+              <Text style={styles.runtimeBoardSub}>{gatewaySummary}</Text>
+            </View>
+            <View style={[styles.runtimeBadge, runtimeMode === 'live' ? styles.runtimeBadgeLive : styles.runtimeBadgeFallback]}>
+              <Text style={[styles.runtimeBadgeText, runtimeMode === 'live' ? styles.runtimeBadgeTextLive : styles.runtimeBadgeTextFallback]}>
+                {runtimeMode === 'live' ? 'LIVE' : 'FALLBACK'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.runtimeGrid}>
+            <View style={styles.runtimeCell}>
+              <Text style={styles.runtimeCellLabel}>网关配置</Text>
+              <Text style={styles.runtimeCellValue}>{gatewayConfigValid ? '可测试' : '待补全'}</Text>
+              <Text style={styles.runtimeCellHint}>{gatewayWarningCount > 0 ? `${gatewayWarningCount} 个提醒` : '当前无预警'}</Text>
+            </View>
+            <View style={styles.runtimeCell}>
+              <Text style={styles.runtimeCellLabel}>调度推进中</Text>
+              <Text style={styles.runtimeCellValue}>{dispatchInFlight}</Text>
+              <Text style={styles.runtimeCellHint}>直接影响首页 AI 产出流</Text>
+            </View>
+            <View style={styles.runtimeCell}>
+              <Text style={styles.runtimeCellLabel}>待人工拍板</Text>
+              <Text style={styles.runtimeCellValue}>{pendingConfirmations}</Text>
+              <Text style={styles.runtimeCellHint}>不清掉就会卡住闭环</Text>
+            </View>
+            <View style={styles.runtimeCell}>
+              <Text style={styles.runtimeCellLabel}>上传链路</Text>
+              <Text style={styles.runtimeCellValue}>{activeUploads}</Text>
+              <Text style={styles.runtimeCellHint}>前端上传 / 后台处理 / 回流</Text>
+            </View>
+          </View>
         </View>
 
         {/* 信息层入口 */}
@@ -246,14 +325,14 @@ export function ProfileScreen() {
           <MenuItem
             emoji="🧠"
             title="记忆库"
-            subtitle={`${stats.memoryEntries} 条记忆 · 长期 + 短期`}
+            subtitle={`${stats.memoryEntries} 条运行态信号 · 长期 + 短期记忆入口`}
             accent="#a78bfa"
             onPress={() => navigation.navigate('MemoryStore')}
           />
           <MenuItem
             emoji="📖"
             title="知识库"
-            subtitle={`${stats.knowledgeDocs} 篇文档 · 矿业 + 工程 + 技术`}
+            subtitle={`${stats.knowledgeDocs} 条知识信号 · 矿业 + 工程 + 技术入口`}
             accent={C.primary}
             onPress={() => navigation.navigate('KnowledgeBase')}
           />
@@ -427,15 +506,15 @@ export function ProfileScreen() {
             title="OpenClaw 状态"
             subtitle={runtimeSummary}
             accent={runtimeMode === 'live' ? C.primary : '#f97316'}
-            onPress={() => {}}
+            onPress={() => navigation.navigate('GatewaySettings')}
             badge={runtimeMode === 'live' ? 'LIVE' : 'FALLBACK'}
           />
           <MenuItem
-            emoji="📊"
-            title="使用统计"
-            subtitle="任务完成率 · Agent 活跃趋势"
+            emoji="⚙️"
+            title="Gateway 连接配置"
+            subtitle="地址 / Token / 通道 / 目标账号 · 可保存可测试"
             accent={C.accent}
-            onPress={() => {}}
+            onPress={() => navigation.navigate('GatewaySettings')}
           />
         </View>
 
@@ -520,8 +599,72 @@ const styles = StyleSheet.create({
   statusDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent, marginRight: 5},
   statusText: {color: C.accent, fontSize: 11, fontWeight: '800'},
 
+  // Quick Access Strip
+  quickAccessRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  quickAccessBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 18,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  quickAccessEmoji: {fontSize: 22},
+  quickAccessLabel: {color: C.textBody, fontSize: 11, fontWeight: '700', marginTop: 5},
+
   // Stats
   statsGrid: {flexDirection: 'row', gap: 10, marginBottom: 8},
+  runtimeBoard: {
+    borderRadius: 20,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    padding: 14,
+    gap: 12,
+  },
+  runtimeBoardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  runtimeBoardTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900'},
+  runtimeBoardSub: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 5},
+  runtimeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  runtimeBadgeLive: {
+    backgroundColor: 'rgba(52,211,153,0.12)',
+    borderColor: '#34d399',
+  },
+  runtimeBadgeFallback: {
+    backgroundColor: 'rgba(249,115,22,0.12)',
+    borderColor: '#f97316',
+  },
+  runtimeBadgeText: {fontSize: 11, fontWeight: '900'},
+  runtimeBadgeTextLive: {color: '#34d399'},
+  runtimeBadgeTextFallback: {color: '#f97316'},
+  runtimeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
+  runtimeCell: {
+    width: '48%',
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(56,100,200,0.08)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  runtimeCellLabel: {color: C.textMuted, fontSize: 11, fontWeight: '700'},
+  runtimeCellValue: {color: C.textTitle, fontSize: 20, fontWeight: '900', marginTop: 6},
+  runtimeCellHint: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4},
 
   // Sections
   sectionTitle: {

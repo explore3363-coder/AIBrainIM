@@ -22,6 +22,7 @@ import {ProjectLibraryScreen} from './screens/ProjectLibraryScreen';
 import {DispatchChainScreen}  from './screens/DispatchChainScreen';
 import {ConfirmationsScreen}  from './screens/ConfirmationsScreen';
 import {UploadScreen}         from './screens/UploadScreen';
+import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
@@ -124,6 +125,11 @@ function RootNavigator() {
         name="Upload"
         component={UploadScreen}
         options={{title: '📤 上传管理', headerBackTitle: '返回'}}
+      />
+      <Stack.Screen
+        name="GatewaySettings"
+        component={GatewaySettingsScreen}
+        options={{title: 'Gateway 配置', headerBackTitle: '返回'}}
       />
     </Stack.Navigator>
   );

@@ -22,6 +22,11 @@ import {
   buildDispatchRecordUpdate,
 } from '../data/api';
 import {uploadService, type UploadFile} from '../services/uploadService';
+import {
+  getGatewayConfig,
+  summarizeGatewayConfig,
+  validateGatewayConfig,
+} from '../services/gatewayConfig';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface AppContextValue {
@@ -36,7 +41,11 @@ interface AppContextValue {
   runtimeError?: string;
   lastSyncedAt?: number;
   sessionCount: number;
+  gatewaySummary: string;
+  gatewayConfigValid: boolean;
+  gatewayWarningCount: number;
   refresh: () => void;
+  refreshGatewayStatus: () => Promise<void>;
   confirmItem: (id: string) => void;
   deferItem: (id: string) => void;
   registerDispatch: (payload: {
@@ -46,7 +55,7 @@ interface AppContextValue {
     dispatchId?: string;
     sessionKey?: string;
     sent: boolean;
-    source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation';
+    source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system';
   }) => void;
   markLatestDispatchActive: (label?: string, agentId?: string, sessionKey?: string, runtimeMs?: number, updatedAt?: number) => void;
   finalizeLatestDispatch: (payload: {
@@ -100,7 +109,11 @@ const AppContext = createContext<AppContextValue>({
   runtimeError: undefined,
   lastSyncedAt: undefined,
   sessionCount: 0,
+  gatewaySummary: '配置读取中…',
+  gatewayConfigValid: false,
+  gatewayWarningCount: 0,
   refresh: () => {},
+  refreshGatewayStatus: async () => {},
   confirmItem: () => {},
   deferItem: () => {},
   registerDispatch: () => {},
@@ -122,6 +135,9 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [runtimeError, setRuntimeError] = useState<string | undefined>();
   const [lastSyncedAt, setLastSyncedAt] = useState<number | undefined>();
   const [sessionCount, setSessionCount] = useState(0);
+  const [gatewaySummary, setGatewaySummary] = useState('配置读取中…');
+  const [gatewayConfigValid, setGatewayConfigValid] = useState(false);
+  const [gatewayWarningCount, setGatewayWarningCount] = useState(0);
   const uploadStatusRef = useRef<Record<string, UploadFile['status']>>({});
 
   const latestDispatch = dispatches[0];
@@ -130,6 +146,14 @@ export function AppProvider({children}: {children: ReactNode}) {
     () => confirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred').length,
     [confirmations],
   );
+
+  const refreshGatewayStatus = useCallback(async () => {
+    const gatewayConfig = await getGatewayConfig();
+    const gatewayValidation = validateGatewayConfig(gatewayConfig);
+    setGatewaySummary(summarizeGatewayConfig(gatewayConfig));
+    setGatewayConfigValid(gatewayValidation.valid);
+    setGatewayWarningCount(gatewayValidation.warnings.length);
+  }, []);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -146,10 +170,11 @@ export function AppProvider({children}: {children: ReactNode}) {
       setSessionCount(snapshot.sessionCount);
       setConfirmations(c);
       setUploads(uploadService.getQueue());
+      await refreshGatewayStatus();
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshGatewayStatus]);
 
   const confirmItem = useCallback((id: string) => {
     const target = confirmations.find(item => item.id === id);
@@ -215,7 +240,7 @@ export function AppProvider({children}: {children: ReactNode}) {
     dispatchId?: string;
     sessionKey?: string;
     sent: boolean;
-    source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation';
+    source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system';
   }) => {
     const createdAt = Date.now();
     const record: DispatchRecord = {
@@ -245,11 +270,13 @@ export function AppProvider({children}: {children: ReactNode}) {
               ? '记忆库 / 调度链'
               : payload.source === 'confirmation'
                 ? '确认链 / 调度链'
-                : '助理 / 调度链',
+                : payload.source === 'system'
+                  ? '系统检查 / 调度链'
+                  : '助理 / 调度链',
         state: payload.sent ? 'running' : 'blocked',
         eta: payload.sent ? '已提交' : '发送失败',
         next: payload.sent ? '等待助理拆解与分派' : '检查网络或网关后重试',
-        priority: payload.source === 'confirmation' ? 'P0' : 'P1',
+        priority: payload.source === 'confirmation' ? 'P0' : payload.source === 'system' ? 'P2' : 'P1',
         sessionKey: payload.sessionKey,
         updatedAt: createdAt,
         sourceType: payload.source ?? 'chat',
@@ -626,7 +653,11 @@ export function AppProvider({children}: {children: ReactNode}) {
         runtimeError,
         lastSyncedAt,
         sessionCount,
+        gatewaySummary,
+        gatewayConfigValid,
+        gatewayWarningCount,
         refresh,
+        refreshGatewayStatus,
         confirmItem,
         deferItem,
         registerDispatch,

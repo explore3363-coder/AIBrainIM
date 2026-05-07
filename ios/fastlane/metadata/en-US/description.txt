@@ -1,0 +1,24 @@
+AI Collaboration Hub — Your mobile AI brain command center
+
+**Core Features:**
+• AI Output Stream: Real-time view of AI assistant, agent, and background task outputs
+• Chat Commands: Send instructions to AI via conversation, supports image, video, document, archive, and code file uploads
+• Agent Monitoring: View all agent real-time status, work focus, and dispatch details
+• Task Board: P0–P2 task Kanban, status-driven, agent ownership, attachment upload chain support
+• My Info Layer: Unified entry for Memory Store, Knowledge Base, File Library, Project Library
+
+**Four Libraries:**
+• Memory Store — Long-term + short-term memory, user preferences and system rules
+• Knowledge Base — Mining, engineering, technical documents and vector retrieval
+• File Library — Uploaded files automatically dispatched to corresponding agents
+• Dispatch Chain — View complete flow of instructions from receipt to delivery
+
+**File Upload:**
+• No frontend size limit; images, videos, documents, archives, and code files all supported
+• Large files (≥10MB) auto chunked upload with resumable breakpoints
+• After upload, automatically enters background processing queue, AI dispatches to corresponding agent
+
+**Use Cases:**
+Mining research, smart mining project, AI collaboration platform operation, mining processing technology judgment
+
+Supported devices: iPhone (iOS 15.1+)

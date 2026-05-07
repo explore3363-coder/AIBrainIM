@@ -30,7 +30,7 @@ export interface Task {
   agentId?: string;
   sessionKey?: string;
   updatedAt?: number;
-  sourceType?: 'subagent' | 'cron' | 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'fallback';
+  sourceType?: 'subagent' | 'cron' | 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system' | 'fallback';
   traceSummary?: string;
 }
 
@@ -94,6 +94,10 @@ export interface GatewayMessageResult {
   chatId?: string;
   threadId?: string;
   sessionKey?: string;
+  runId?: string;
+  status?: string;
+  reply?: string;
+  error?: string;
 }
 
 export interface AIFeedItem {

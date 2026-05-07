@@ -42,7 +42,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>AI 大脑需要使用麦克风录制语音消息和视频。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>AI 协作平台仅在你主动上传带定位信息的现场资料时，才会读取当前位置用于辅助任务判断。</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchScreen</key>

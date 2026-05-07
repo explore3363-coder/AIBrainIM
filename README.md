@@ -18,6 +18,8 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 
 **待完成（P1 之后）：** 真实 API 接入（Agent/Task/Chat/Upload 四链路替换 mock）
 
+**本轮新增：** App 内已加入 Gateway 连接配置页，可直接配置 URL / Token / 通道 / 目标账号，并做连通性测试与测试消息发送，不再需要为 TestFlight 临时改源码。
+
 **上线准备参考：** [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)
 
 ---
@@ -48,6 +50,27 @@ v*.*.* tag push  → GitHub Actions: TestFlight Archive + Upload → App Store C
 ```
 
 详见 [DEPLOY.md](./DEPLOY.md) 与 [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)
+
+## Gateway 连接配置
+
+进入路径：**我的 → OpenClaw 状态** 或 **我的 → Gateway 连接配置**
+
+可配置项：
+- Gateway URL
+- Gateway Token
+- 消息通道（默认 `feishu`）
+- 目标账号 / 会话
+
+安全原则：
+- App 不再内置真实 Gateway Token 或真实目标账号
+- TestFlight / App Store 包默认只带空白配置，需要在“Gateway 连接配置”里手动填写
+- 这样才能避免把生产凭据直接打进安装包
+
+可执行动作：
+- 测试 `sessions_list` 连通性
+- 发送一条测试消息，验证真实调度链是否开始回流
+
+这一步的目的很直接：让 AIBrainIM 在 TestFlight 环境下切换真实网关时，不需要重新打包改常量。
 
 ## App Store / TestFlight
 

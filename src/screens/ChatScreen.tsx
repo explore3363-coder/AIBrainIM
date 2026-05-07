@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -59,11 +60,12 @@ const DISPATCH_STATUS_LABEL = {
 } as const;
 
 const CHAT_HISTORY_KEY = '@AIBrainIM:chatHistory';
-const MAX_HISTORY = 50; // keep last 50 messages for P1; 长上下文+分层记忆后续扩展
+// 不做产品层硬限制；长上下文+分层记忆+按需回补在后端处理，前端保留足够历史用于展示
+const MAX_HISTORY = 300;
 
 export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {dispatches, registerDispatch, runtimeMode, runtimeError} = useAppContext();
+  const {dispatches, registerDispatch, runtimeMode, runtimeError, refreshing, refresh} = useAppContext();
   const [draft, setDraft]   = useState('');
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -451,6 +453,13 @@ export function ChatScreen() {
           contentContainerStyle={styles.chatContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={C.primary}
+            />
+          }
         >
           <View style={styles.dispatchStatusCard}>
             <View style={styles.dispatchStatusTop}>

@@ -4,12 +4,12 @@
  * Auth: Bearer token from openclaw.json gateway.auth.token
  *
  * Endpoints used:
- *   POST /tools/invoke  — sessions_list, message (send)
+ *   POST /tools/invoke  — sessions_list, sessions_send, message (send fallback)
  *
  * Message flow:
- *   1. sendMessage → message tool → Feishu → zhuli agent
- *   2. zhuli responds via Feishu (user also sees in Feishu)
- *   3. App polls sessions_list for subagent activity as "live feed"
+ *   1. directMode=true  → sessions_send → OpenClaw session → reply
+ *   2. directMode=false → message.send → Feishu fallback
+ *   3. App 继续用 sessions_list 观察运行态与子链路活动
  */
 
 import type {
@@ -22,10 +22,13 @@ import type {
   DispatchRecord,
 } from '../types';
 import type {AgentStatus, TaskState} from '../types';
+import {
+  getGatewayConfig,
+  validateGatewayConfig,
+  type GatewayConfig,
+} from '../services/gatewayConfig';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
-const GATEWAY_URL   = 'http://127.0.0.1:18789';
-const GATEWAY_TOKEN = 'aebb240dad9c7ba10d99daf6a4388cfb56708000e5694c9c';
 const TIMEOUT_MS    = 10000;
 
 
@@ -45,15 +48,23 @@ interface GatewayResponse {
 }
 
 export async function gatewayInvoke(
-  tool: string, action: string, args: Record<string, unknown> = {},
+  tool: string,
+  action: string,
+  args: Record<string, unknown> = {},
+  overrideConfig?: GatewayConfig,
 ): Promise<unknown> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const config = overrideConfig ?? await getGatewayConfig();
+  const validation = validateGatewayConfig(config);
+  if (!validation.valid) {
+    throw new Error(`Gateway 配置未完成：${validation.errors.join('；')}`);
+  }
   try {
-    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
+    const res = await fetch(`${config.gatewayUrl}/tools/invoke`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
+        'Authorization': `Bearer ${config.gatewayToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({tool, action, args}),
@@ -103,12 +114,20 @@ function extractMessageResult(result: unknown): GatewayMessageResult {
   const chatId = candidate.chatId ?? candidate.chat_id;
   const threadId = candidate.threadId ?? candidate.thread_id;
   const sessionKey = candidate.sessionKey ?? candidate.session_key;
+  const runId = candidate.runId ?? candidate.run_id;
+  const status = candidate.status;
+  const reply = candidate.reply;
+  const error = candidate.error;
 
   return {
     messageId: typeof messageId === 'string' ? messageId : undefined,
     chatId: typeof chatId === 'string' ? chatId : undefined,
     threadId: typeof threadId === 'string' ? threadId : undefined,
     sessionKey: typeof sessionKey === 'string' ? sessionKey : undefined,
+    runId: typeof runId === 'string' ? runId : undefined,
+    status: typeof status === 'string' ? status : undefined,
+    reply: typeof reply === 'string' ? reply : undefined,
+    error: typeof error === 'string' ? error : undefined,
   };
 }
 
@@ -132,14 +151,14 @@ function sessionsToAgents(sessions: GatewaySessionSummary[]): Agent[] {
   }>();
 
   for (const s of sessions) {
-    const key      = (s['key'] as string) || '';
+    const key      = (s.key as string) || '';
     const agentId  = key.split(':')[1] ?? key.split(':')[0];
     if (!AGENT_META[agentId]) continue;
 
-    const status    = (s['status'] as string) || 'idle';
-    const updatedAt = (s['updatedAt'] as number) || 0;
-    const label     = (s['label'] as string) || '';
-    const runtimeMs = (s['runtimeMs'] as number) || 0;
+    const status    = (s.status as string) || 'idle';
+    const updatedAt = (s.updatedAt as number) || 0;
+    const label     = (s.label as string) || '';
+    const runtimeMs = (s.runtimeMs as number) || 0;
     const now       = Date.now();
     const isRecent  = (now - updatedAt) < 5 * 60 * 1000;
 
@@ -198,21 +217,21 @@ function sessionsToTasks(sessions: GatewaySessionSummary[]): Task[] {
   };
 
   for (const s of sessions) {
-    const key = (s['key'] as string) || '';
+    const key = (s.key as string) || '';
     const isSubagent = key.includes(':subagent:');
     const isCron = key.includes(':cron:');
     if (!isSubagent && !isCron) continue;
 
-    const updatedAt = (s['updatedAt'] as number) || 0;
+    const updatedAt = (s.updatedAt as number) || 0;
     const ageMs = now - updatedAt;
     if (ageMs > 48 * 60 * 60 * 1000) continue;
 
     const parts = key.split(':');
     const agentId = parts[1] || 'kaifa';
-    const rawLabel = ((s['label'] as string) || '未命名任务').trim();
+    const rawLabel = ((s.label as string) || '未命名任务').trim();
     const label = rawLabel.replace(/^Cron: /, '').trim();
-    const status = (s['status'] as string) || 'done';
-    const runtimeMs = (s['runtimeMs'] as number) || 0;
+    const status = (s.status as string) || 'done';
+    const runtimeMs = (s.runtimeMs as number) || 0;
 
     const state: TaskState =
       status === 'running' ? 'running'
@@ -277,10 +296,14 @@ const FALLBACK_TASKS: Task[] = [
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
+export async function listGatewaySessions(overrideConfig?: GatewayConfig): Promise<GatewaySessionSummary[]> {
+  const result = await gatewayInvoke('sessions_list', 'json', {}, overrideConfig);
+  return parseSessionsList(result);
+}
+
 export async function fetchRuntimeSnapshot(): Promise<RuntimeSnapshot> {
   try {
-    const result = await gatewayInvoke('sessions_list', 'json', {});
-    const sessions = parseSessionsList(result);
+    const sessions = await listGatewaySessions();
     const agents = sessionsToAgents(sessions);
     const tasks = sessionsToTasks(sessions);
 
@@ -344,22 +367,44 @@ function buildLocalTaskId(prefix: string): string {
 
 export async function sendMessage(text: string): Promise<SendMessageResult> {
   try {
+    const config = await getGatewayConfig();
+    const taskId = buildLocalTaskId('task');
+    const dispatchId = buildLocalTaskId('dispatch');
+
+    if (config.directMode) {
+      const result = await gatewayInvoke('sessions_send', 'json', {
+        sessionKey: config.sessionKey,
+        message: text,
+        timeoutSeconds: 20,
+      }, config);
+      const directResult = extractMessageResult(result);
+      const ok = directResult.status === 'ok' || Boolean(directResult.reply);
+      if (!ok) {
+        throw new Error(directResult.error || directResult.status || '直连会话调用失败');
+      }
+      return {
+        sent: true,
+        taskId,
+        dispatchId: directResult.runId ?? dispatchId,
+        sessionKey: directResult.sessionKey ?? config.sessionKey,
+        reply: directResult.reply ?? '已收到回复。',
+      };
+    }
+
     const result = await gatewayInvoke('message', 'send', {
-      channel: 'feishu',
-      target:  'ou_9782bd16e99998d38b13d05ff5cb648c',
+      channel: config.channel,
+      target: config.target,
       message: text,
-    });
+    }, config);
     const messageResult = extractMessageResult(result);
     const traceId = messageResult.messageId ?? messageResult.threadId ?? messageResult.chatId ?? 'ok';
     const shortId = traceId.length > 12 ? traceId.slice(0, 12) : traceId;
-    const taskId = buildLocalTaskId('task');
-    const dispatchId = buildLocalTaskId('dispatch');
     return {
       sent: true,
       taskId,
       dispatchId,
       sessionKey: messageResult.sessionKey ?? messageResult.threadId ?? messageResult.chatId ?? messageResult.messageId,
-      reply: `✓ 消息已送达至助理（${shortId}）。已生成调度单：${taskId} / ${dispatchId}，可在「任务」和「调度链」继续追踪。`,
+      reply: `✓ 已通过 Feishu 回退链路送达（${shortId}）。`,
     };
   } catch (e) {
     console.warn('[api] sendMessage failed:', e);
@@ -384,11 +429,11 @@ export async function pollForActivity(sinceMs: number): Promise<{
 
     let newest: {label: string; agentId: string; key: string; updatedAt: number} | null = null;
     for (const s of sessions) {
-      const key      = (s['key'] as string) || '';
+      const key      = (s.key as string) || '';
       const agentId  = key.split(':')[1] ?? '';
-      const startedAt = (s['startedAt'] as number) || 0;
-      const updatedAt  = (s['updatedAt'] as number) || 0;
-      const label      = (s['label'] as string) || '';
+      const startedAt = (s.startedAt as number) || 0;
+      const updatedAt  = (s.updatedAt as number) || 0;
+      const label      = (s.label as string) || '';
 
       if (!key.includes(':subagent:')) continue;
       if (startedAt <= sinceMs && updatedAt <= sinceMs) continue;
@@ -399,15 +444,15 @@ export async function pollForActivity(sinceMs: number): Promise<{
     }
 
     if (newest && (now - newest.updatedAt) < 120_000) {
-      const matched = sessions.find(s => ((s['key'] as string) || '') === newest.key);
-      const rawStatus = (matched?.['status'] as string) || 'running';
+      const matched = sessions.find(s => ((s.key as string) || '') === newest.key);
+      const rawStatus = (matched?.status as string) || 'running';
       return {
         active: true,
         label: newest.label,
         agentId: newest.agentId,
         sessionKey: newest.key,
         status: rawStatus === 'done' ? 'done' : 'running',
-        runtimeMs: (matched?.['runtimeMs'] as number) || 0,
+        runtimeMs: (matched?.runtimeMs as number) || 0,
         updatedAt: newest.updatedAt,
       };
     }
@@ -421,9 +466,10 @@ export async function uploadFile(
   try {
     const formData = new FormData();
     formData.append('file', {uri, name, type: mimeType} as unknown as Blob);
-    const res = await fetch(`${GATEWAY_URL}/upload`, {
+    const config = await getGatewayConfig();
+    const res = await fetch(`${config.gatewayUrl}/upload`, {
       method: 'POST', body: formData,
-      headers: {'Authorization': `Bearer ${GATEWAY_TOKEN}`},
+      headers: {'Authorization': `Bearer ${config.gatewayToken}`},
     });
     if (res.ok) return await res.json();
   } catch { /* fall through */ }

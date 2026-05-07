@@ -27,6 +27,7 @@ type RootStackParamList = {
   ProjectLibrary: undefined;
   Confirmations: undefined;
   DispatchChain: undefined;
+  GatewaySettings: undefined;
 };
 
 const NAV_MAP: Record<string, keyof RootStackParamList> = {
@@ -63,9 +64,6 @@ export function DashboardScreen() {
     refreshing,
     refresh,
     runtimeMode,
-    runtimeError,
-    lastSyncedAt,
-    sessionCount,
   } = useAppContext();
 
   const activeCount  = useMemo(() => agents.filter(a => a.status === 'online' || a.status === 'working').length, [agents]);
@@ -86,13 +84,6 @@ export function DashboardScreen() {
     : latestRunningTask
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
       : '当前没有进行中的调度单，系统运转正常。';
-  const runtimeSourceText = runtimeMode === 'live' ? `已连接 OpenClaw · ${sessionCount} 个会话` : '本地回退数据';
-  const runtimeStatusText = runtimeMode === 'live'
-    ? `最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
-    : runtimeError
-      ? `回退原因：${runtimeError}`
-      : '网关不可用时自动回退';
-
   const liveFeed = useMemo<AIFeedItem[]>(() => {
     const dispatchFeed = dispatches.slice(0, 4).map((item, index) => ({
       id: `dispatch-${item.id}-${index}`,
@@ -288,9 +279,9 @@ export function DashboardScreen() {
         <View style={styles.heroGlass} />
         <View style={styles.heroBody}>
           <View style={styles.heroText}>
-            <Text style={styles.eyebrow}>钨矿 AI 大脑 · 实时协同</Text>
-            <Text style={styles.heroTitle}>AI 大脑驾驶舱</Text>
-            <Text style={styles.heroSub}>总览 · 对话 · 智能体 · 任务 · 我的</Text>
+            <Text style={styles.eyebrow}>AI 协作平台</Text>
+            <Text style={styles.heroTitle}>智能协同中枢</Text>
+            <Text style={styles.heroSub}>随时在线 · 任务自动流转 · 附件即传即用</Text>
           </View>
           <View style={styles.livePill}>
             <View style={[styles.liveDot, runtimeMode === 'fallback' && styles.liveDotFallback]} />
@@ -367,22 +358,6 @@ export function DashboardScreen() {
       </View>
 
       <SectionTitle title="AI 产出流" hint="实时 AI 输出与系统事件" />
-      <View style={styles.liveStatusBar}>
-        <View style={styles.liveStatusItem}>
-          <Text style={styles.liveStatusLabel}>数据源</Text>
-          <Text style={styles.liveStatusValue}>{refreshing ? '同步中' : runtimeSourceText}</Text>
-        </View>
-        <View style={styles.liveStatusDivider} />
-        <View style={styles.liveStatusItem}>
-          <Text style={styles.liveStatusLabel}>当前闭环</Text>
-          <Text style={styles.liveStatusValue}>{latestDispatchMeta ? `总览 / 对话 / 智能体 / 任务 / 确认流 · ${latestDispatchMeta.label}` : '总览 / 对话 / 智能体 / 任务 / 确认流'}</Text>
-        </View>
-        <View style={styles.liveStatusDivider} />
-        <View style={styles.liveStatusItem}>
-          <Text style={styles.liveStatusLabel}>运行状态</Text>
-          <Text style={styles.liveStatusValue}>{runtimeStatusText}</Text>
-        </View>
-      </View>
       <View style={styles.feedList}>
         {liveFeed.map(item => <FeedItem key={item.id} item={item} />)}
       </View>
@@ -526,21 +501,6 @@ const styles = StyleSheet.create({
   actionQueueDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
   actionQueueArrow: {color: C.textMuted, fontSize: 24, fontWeight: '300'},
   feedList: {gap: 9},
-  liveStatusBar: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 12,
-    marginBottom: 10,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(8,18,36,0.56)',
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
-  },
-  liveStatusItem: {flex: 1},
-  liveStatusLabel: {color: C.textMuted, fontSize: 11, fontWeight: '700'},
-  liveStatusValue: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700'},
-  liveStatusDivider: {width: 1, backgroundColor: C.borderSubtle},
   confirmList: {gap: 9},
   storeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
   overviewGrid: {gap: 10},

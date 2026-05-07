@@ -1,5 +1,5 @@
-import React, {useMemo} from 'react';
-import {Text, View, StyleSheet, ScrollView} from 'react-native';
+import React, {useCallback, useMemo} from 'react';
+import {Text, View, StyleSheet, ScrollView, RefreshControl} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C, commandTraceMock} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
@@ -14,7 +14,11 @@ const STATUS_META: Record<DispatchRecord['status'], {label: string; accent: stri
 };
 
 export function DispatchChainScreen() {
-  const {dispatches} = useAppContext();
+  const {dispatches, refreshing, refresh} = useAppContext();
+
+  const onRefresh = useCallback(() => {
+    refresh();
+  }, [refresh]);
 
   const latestDispatch = dispatches[0];
   const latestMeta = latestDispatch ? STATUS_META[latestDispatch.status] : null;
@@ -47,7 +51,16 @@ export function DispatchChainScreen() {
         <Text style={styles.title}>🔗 调度链</Text>
         <Text style={styles.sub}>指令从接收到交付的完整流转</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        }
+      >
         <View style={styles.overviewRow}>
           <View style={styles.overviewCard}>
             <Text style={styles.overviewLabel}>总调度</Text>

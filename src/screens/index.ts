@@ -11,3 +11,4 @@ export {ProjectLibraryScreen} from './ProjectLibraryScreen';
 export {DispatchChainScreen}  from './DispatchChainScreen';
 export {ConfirmationsScreen}  from './ConfirmationsScreen';
 export {UploadScreen}         from './UploadScreen';
+export {GatewaySettingsScreen} from './GatewaySettingsScreen';
