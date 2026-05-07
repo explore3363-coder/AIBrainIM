@@ -124,6 +124,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            PROVISIONING_PROFILE_SPECIFIER="iPhone Distribution: Hong Yang" \
             OTHER_CODE_SIGN_FLAGS="--keychain=$HOME/Library/Keychains/build.keychain-db" \
             -allowProvisioningUpdates
 
@@ -138,6 +139,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            PROVISIONING_PROFILE_SPECIFIER="iPhone Distribution: Hong Yang" \
             OTHER_CODE_SIGN_FLAGS="--keychain=$HOME/Library/Keychains/build.keychain-db"
 
       - name: List build artifacts
