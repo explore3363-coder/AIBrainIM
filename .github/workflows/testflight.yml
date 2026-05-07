@@ -66,10 +66,28 @@ jobs:
           fi
           echo "Build number set to: ${BUILD_NUM}"
 
+      - name: Import code signing certificate
+        env:
+          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
+        run: |
+          echo "$APPLE_DIST_P12" | base64 -d > /tmp/certificate.p12
+
+          # Create keychain with no password
+          security create-keychain -p "build-pass" /Users/zz/Library/Keychains/build.keychain-db
+          security set-keychain-settings -t 3600 -u /Users/zz/Library/Keychains/build.keychain-db
+          security unlock-keychain -p "build-pass" /Users/zz/Library/Keychains/build.keychain-db
+
+          # Import certificate
+          security import /tmp/certificate.p12 -k /Users/zz/Library/Keychains/build.keychain-db -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "build-pass" /Users/zz/Library/Keychains/build.keychain-db
+
+          # Verify
+          KEYCHAIN=/Users/zz/Library/Keychains/build.keychain-db security find-identity -v -p codesigning "$KEYCHAIN"
+
       - name: Build for Release (Archive)
         run: |
-          # Remove hardcoded CODE_SIGN_IDENTITY from project to allow Automatic signing to work
-          sed -i '' 's/CODE_SIGN_IDENTITY = .*/CODE_SIGN_IDENTITY = "-";/' ios/AIBrainIM.xcodeproj/project.pbxproj
+          security list-keychains --user /Users/zz/Library/Keychains/build.keychain-db
+          security unlock-keychain -p "build-pass" /Users/zz/Library/Keychains/build.keychain-db
 
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
@@ -77,19 +95,24 @@ jobs:
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            OTHER_CODE_SIGN_FLAGS="--keychain=/Users/zz/Library/Keychains/build.keychain.db" \
             -allowProvisioningUpdates
 
       - name: Export IPA
         run: |
+          security unlock-keychain -p "build-pass" /Users/zz/Library/Keychains/build.keychain-db
+
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
-            -allowProvisioningUpdates
+            OTHER_CODE_SIGN_FLAGS="--keychain=/Users/zz/Library/Keychains/build.keychain.db"
 
       - name: List build artifacts
         run: ls -la build/
