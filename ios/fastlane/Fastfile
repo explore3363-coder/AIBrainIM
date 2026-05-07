@@ -24,7 +24,7 @@ lane :sim do
     workspace: "../AIBrainIM.xcworkspace",
     scheme: "AIBrainIM",
     configuration: "Debug",
-    destination: "platform=iOS Simulator,name=iPhone 17 Pro",
+    destination: "id=9D743488-943A-40AC-B4A7-B4B63D5BFB53" # iPhone 17 Pro (Booted)
     derivedDataPath: "#{OUTPUT_DIR}/DerivedData",
     build: true,
     code_sign_style: "Automatic",
