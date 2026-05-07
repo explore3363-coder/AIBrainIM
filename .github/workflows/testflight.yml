@@ -104,8 +104,9 @@ jobs:
           IPA_PATH="build/AIBrainIM.ipa"
 
           # Write API key to temp file for altool
+          # APPLE_API_KEY_CONTENT is stored as raw .p8 PEM text in the secret
           KEY_FILE=$(mktemp /tmp/api_key.p8)
-          echo "$APPLE_API_KEY_CONTENT" | base64 -d > "$KEY_FILE"
+          printf '%s' "$APPLE_API_KEY_CONTENT" > "$KEY_FILE"
 
           # Upload using altool
           xcrun altool \
