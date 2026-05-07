@@ -66,7 +66,6 @@ export function DashboardScreen() {
     refreshing,
     refresh,
     runtimeMode,
-    injectDemoData,
     recentCaptures,
   } = useAppContext();
 
@@ -383,33 +382,16 @@ export function DashboardScreen() {
           <View style={styles.demoHintText}>
             <Text style={styles.demoHintTitle}>尚未连接 OpenClaw Gateway</Text>
             <Text style={styles.demoHintSub}>
-              {safeDispatches.length === 0
-                ? '当前显示本地回退数据，先体验完整闭环可注入 Demo 数据'
-                : 'Gateway 未连接，首页数据来自本地缓存'}
+              当前显示本地数据；去「我的 → Gateway 配置」连接后可体验完整实时闭环。
             </Text>
           </View>
-          <View style={styles.demoHintActions}>
-            <TouchableOpacity
-              style={styles.demoInjectBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                injectDemoData();
-                const { enqueueDemoUpload } = require('../services/uploadService');
-                enqueueDemoUpload(0);
-                enqueueDemoUpload(2);
-                refresh();
-              }}
-            >
-              <Text style={styles.demoInjectBtnText}>注入 Demo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.demoSettingsBtn}
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('GatewaySettings')}
-            >
-              <Text style={styles.demoSettingsBtnText}>配置</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.demoSettingsBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('GatewaySettings')}
+          >
+            <Text style={styles.demoSettingsBtnText}>去配置</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -607,29 +589,16 @@ const styles = StyleSheet.create({
   demoHintTitle: {color: '#fbbf24', fontSize: 13, fontWeight: '700'},
   demoHintSub: {color: C.textMuted, fontSize: 11, marginTop: 3, lineHeight: 16},
   demoHintArrow: {color: '#fbbf24', fontSize: 20, fontWeight: '700'},
-  demoHintActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  demoInjectBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.5)',
-    alignItems: 'center',
-  },
-  demoInjectBtnText: {color: '#fbbf24', fontSize: 12, fontWeight: '900'},
   demoSettingsBtn: {
-    flex: 1,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: 'rgba(56,100,200,0.15)',
     borderWidth: 1,
     borderColor: C.borderActive,
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
   demoSettingsBtnText: {color: C.primary, fontSize: 12, fontWeight: '900'},
   summaryGrid: {gap: 10, marginBottom: 2},

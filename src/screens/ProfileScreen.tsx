@@ -71,7 +71,6 @@ export function ProfileScreen() {
     gatewayWarningCount,
     refreshing,
     refresh,
-    injectDemoData,
   } = useAppContext();
 
   const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
@@ -506,36 +505,6 @@ export function ProfileScreen() {
             subtitle="总览 / 对话 / 智能体 / 任务 / 我的 已全功能贯通"
             accent="#34d399"
             onPress={() => {}}
-          />
-          <MenuItem
-            emoji="🎲"
-            title="Demo 模式"
-            subtitle="为演示注入模拟调度 / 任务 / 附件数据"
-            accent="#fbbf24"
-            onPress={() => {
-              Alert.alert(
-                '🎲 Demo 模式',
-                '这会在当前 App 中注入模拟数据（调度 / 任务 / 附件），方便演示和 QA 测试。\n\n不会影响真实 Gateway 数据，也不会提交到后台。\n\n重新打开 App 或下拉刷新会恢复到 Gateway 数据。',
-                [
-                  {text: '取消', style: 'cancel'},
-                  {
-                    text: '注入 Demo 数据',
-                    onPress: () => {
-                      injectDemoData();
-                      try {
-                        const { enqueueDemoUpload } = require('../services/uploadService');
-                        enqueueDemoUpload(0); // image demo
-                        enqueueDemoUpload(2); // video demo (large file)
-                      } catch { /* uploadService may not be available */ }
-                      Alert.alert(
-                        '✅ Demo 数据已注入',
-                        '已注入 3 条模拟调度 + 2 个演示附件。请到「总览」和「任务」页面查看效果。',
-                      );
-                    },
-                  },
-                ],
-              );
-            }}
           />
           <MenuItem
             emoji="🌐"

@@ -84,22 +84,22 @@ export const brainStoresMock: BrainStore[] = [
 ];
 
 // ─── AI Feed (AI 产出流) ──────────────────────────────────────────────────────
+// Fallback feed shown to end users when Gateway is not connected.
+// User-appropriate: describes app value, not implementation details.
 export const aiFeedMock: AIFeedItem[] = [
-  {id:'f1', agent:'助理',    agentAccent:C.accent,    text:'首页已收窄为 AI 驾驶舱，不再堆开发者自嗨信息，核心只保留 AI 产出流、调度状态、需确认项。', timestamp:'21:02', type:'output'},
-  {id:'f2', agent:'黑金',    agentAccent:'#f97316',    text:'五主功能固定为总览、对话、智能体、任务、我的；对话上下文不做产品层硬限制，交给后端长上下文与分层记忆。', timestamp:'21:04', type:'output'},
-  {id:'f3', agent:'智联',    agentAccent:C.primary,    text:'记忆库、知识库、项目库、附件库入口已串到总览与我的页，形成最小闭环。', timestamp:'21:06', type:'output'},
-  {id:'f4', agent:'助理',    agentAccent:C.accent,    text:'当前调度链：用户指令 → 助理拆解 → 黑金/开发/智联协同 → 状态与结果回流移动端。', timestamp:'21:08', type:'dispatch'},
-  {id:'f5', agent:'助理',    agentAccent:C.accent,    text:'需确认项仍保留三类：研究辅助接入、记忆策略、附件后端处理策略；不阻塞当前 P1 可用版。', timestamp:'21:10', type:'confirmation'},
-  {id:'f6', agent:'开发',    agentAccent:'#4ade80',    text:'下一步转向真实 API：Agent / Task / Chat / Upload 四条链路替换 mock 数据。', timestamp:'21:12', type:'output'},
+  {id:'f1', agent:'助理',    agentAccent:C.accent,    text:'发送一条指令，助理会立即接收并开始调度，结果实时回流到这里。', timestamp:'21:02', type:'output'},
+  {id:'f2', agent:'助理',    agentAccent:C.accent,    text:'附件（图片、视频、文档）上传后会自动进入 AI 处理流程，无需手动分派。', timestamp:'21:04', type:'upload'},
+  {id:'f3', agent:'助理',    agentAccent:C.accent,    text:'需要人工拍板的事项会停在这里等你决策，不会自动推进。', timestamp:'21:06', type:'confirmation'},
+  {id:'f4', agent:'助理',    agentAccent:C.accent,    text:'记忆库和知识库会在对话中自动被引用，结果同步回流到首页。', timestamp:'21:08', type:'knowledge'},
 ];
 
 // ─── Dispatch Chain ──────────────────────────────────────────────────────────
+// User-appropriate trace shown when no real dispatches exist yet.
 export const commandTraceMock: CommandTrace[] = [
-  {stage:'receive',   title:'接收指令',  actor:'你 → 助理',             detail:'提出 P1 可用版：React Native 主线、五主功能固定、打通记忆/知识/附件/调度闭环'},
-  {stage:'dispatch',  title:'拆解调度',  actor:'助理',                   detail:'按最短路径拆成首页驾驶舱、对话链路、Agent 状态、任务流、我的页入口治理'},
-  {stage:'feedback',  title:'子 Agent 反馈',actor:'黑金 / 开发 / 智联',  detail:'黑金推进产品结构与状态呈现，开发负责代码实现，智联负责记忆与知识入口对齐'},
-  {stage:'synthesis', title:'总指挥压缩', actor:'助理',                  detail:'把各 Agent 反馈压缩成任务状态、风险、需确认项与下一步建议'},
-  {stage:'deliver',   title:'结果回传',  actor:'APP',                    detail:'在移动端统一显示 AI 产出流、调度链、确认队列与附件处理入口'},
+  {stage:'receive',   title:'接收指令',  actor:'你 → 助理',             detail:'在「对话」中发送一条指令，助理立即接收并开始工作。'},
+  {stage:'dispatch',  title:'智能调度',  actor:'助理',                   detail:'助理将指令拆解并分派给对应智能体执行，全程无需手动干预。'},
+  {stage:'feedback',  title:'状态回流',  actor:'智能体',                detail:'执行状态实时回流到调度链和首页，不用刷新页面。'},
+  {stage:'synthesis', title:'结果交付',  actor:'助理 / APP',            detail:'完成后结果自动同步到对话、任务流和首页 AI 产出流。'},
 ];
 
 // ─── Confirmation Items (需确认项) ────────────────────────────────────────────
