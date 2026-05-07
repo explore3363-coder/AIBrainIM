@@ -107,17 +107,32 @@ function extractMessageResult(result: unknown): GatewayMessageResult {
   const nested = (payload.result ?? {}) as Record<string, unknown>;
   const candidate = Object.keys(nested).length > 0 ? nested : payload;
 
+  // sessions_send returns {content: [{type:'text', text:'{"reply":"...","status":"ok",...}'}]}
+  // Parse the inner JSON string to extract the actual reply.
+  let parsedInner: Record<string, unknown> = {};
+  const content = (candidate.content as Array<{type: string; text: string}> | undefined);
+  if (content?.[0]?.text) {
+    try {
+      parsedInner = JSON.parse(content[0].text) as Record<string, unknown>;
+    } catch {
+      // Not JSON — treat raw text as reply
+      parsedInner = {reply: content[0].text};
+    }
+  }
+
   const messageId = candidate.messageId
     ?? candidate.message_id
     ?? candidate.msgId
-    ?? candidate.msg_id;
-  const chatId = candidate.chatId ?? candidate.chat_id;
-  const threadId = candidate.threadId ?? candidate.thread_id;
-  const sessionKey = candidate.sessionKey ?? candidate.session_key;
-  const runId = candidate.runId ?? candidate.run_id;
-  const status = candidate.status;
-  const reply = candidate.reply;
-  const error = candidate.error;
+    ?? candidate.msg_id
+    ?? parsedInner.messageId
+    ?? parsedInner.message_id;
+  const chatId = candidate.chatId ?? candidate.chat_id ?? parsedInner.chatId ?? parsedInner.chat_id;
+  const threadId = candidate.threadId ?? candidate.thread_id ?? parsedInner.threadId ?? parsedInner.thread_id;
+  const sessionKey = candidate.sessionKey ?? candidate.session_key ?? parsedInner.sessionKey ?? parsedInner.session_key;
+  const runId = candidate.runId ?? candidate.run_id ?? parsedInner.runId ?? parsedInner.run_id;
+  const status = (candidate.status as string | undefined) ?? (parsedInner.status as string | undefined);
+  const reply = (candidate.reply as string | undefined) ?? (parsedInner.reply as string | undefined);
+  const error = (candidate.error as string | undefined) ?? (parsedInner.error as string | undefined);
 
   return {
     messageId: typeof messageId === 'string' ? messageId : undefined,
@@ -500,24 +515,44 @@ export async function sendMessage(text: string): Promise<SendMessageResult> {
     const taskId = buildLocalTaskId('task');
     const dispatchId = buildLocalTaskId('dispatch');
 
-    if (config.directMode) {
-      const result = await gatewayInvoke('sessions_send', 'json', {
-        sessionKey: config.sessionKey,
-        message: text,
-        timeoutSeconds: 20,
-      }, config);
-      const directResult = extractMessageResult(result);
-      const ok = directResult.status === 'ok' || Boolean(directResult.reply);
-      if (!ok) {
-        throw new Error(directResult.error || directResult.status || '直连会话调用失败');
-      }
+    // Feishu fallback requires a target — fail fast with a clear message if not configured
+    if (!config.directMode && !config.target) {
       return {
-        sent: true,
-        taskId,
-        dispatchId: directResult.runId ?? dispatchId,
-        sessionKey: directResult.sessionKey ?? config.sessionKey,
-        reply: directResult.reply ?? '已收到回复。',
+        sent: false,
+        taskId: buildLocalTaskId('failed-task'),
+        dispatchId: buildLocalTaskId('failed-dispatch'),
+        reply: '⚠️ Feishu 回退模式未配置目标账号。请先在「我的 → Gateway 配置」填写目标账号后重试。',
       };
+    }
+
+    if (config.directMode) {
+      try {
+        const result = await gatewayInvoke('sessions_send', 'json', {
+          sessionKey: config.sessionKey,
+          message: text,
+          timeoutSeconds: 20,
+        }, config);
+        const directResult = extractMessageResult(result);
+        const ok = directResult.status === 'ok' || Boolean(directResult.reply);
+        if (!ok) {
+          throw new Error(directResult.error || directResult.status || '直连会话调用失败');
+        }
+        return {
+          sent: true,
+          taskId,
+          dispatchId: directResult.runId ?? dispatchId,
+          sessionKey: directResult.sessionKey ?? config.sessionKey,
+          reply: directResult.reply ?? '已收到回复。',
+        };
+      } catch (directErr) {
+        // sessions_send not available — degrade gracefully to Feishu fallback
+        const errMsg = directErr instanceof Error ? directErr.message : String(directErr);
+        if (errMsg.includes('not_found') || errMsg.includes('Tool not available') || errMsg.includes('not available')) {
+          // fall through to Feishu fallback
+        } else {
+          throw directErr;
+        }
+      }
     }
 
     const result = await gatewayInvoke('message', 'send', {

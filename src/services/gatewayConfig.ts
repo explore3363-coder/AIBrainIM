@@ -20,7 +20,7 @@ const STORAGE_KEY = '@AIBrainIM:gatewayConfig';
 export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   gatewayUrl: 'http://127.0.0.1:18789',
   gatewayToken: '',
-  directMode: true,
+  directMode: false, // sessions_send tool not available in current Gateway; use Feishu message.send fallback
   sessionKey: 'agent:zhuli:feishu:direct:ou_9782bd16e99998d38b13d05ff5cb648c',
   channel: 'feishu',
   target: '',
