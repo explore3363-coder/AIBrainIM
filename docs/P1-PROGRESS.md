@@ -1,12 +1,18 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-07 20:50 GMT+8
+> 最后更新：2026-05-07 21:38 GMT+8
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第六轮完成）
+## 当前状态：P1 可用版收口完毕 ✅（第十轮完成）
 
-### 本轮（第八轮）完成：代码质量审查 + README 收口
+### 本轮（第十轮）完成：App Icon PNG 修复 + testflight.yml 修正
+- `AppIcon-1024.png` 原为 JPEG 伪装成 .png（84KB JPEG），App Store 要求纯 PNG 格式，已替换为真正 PNG（153KB）
+- `testflight.yml`：APPLE_API_KEY_CONTENT 注释说"NOT base64 encoded"但代码执行了 `base64 -d`，已修正为 `printf` 直写，与 ci.yml 保持一致
+- TypeScript ✅ 70 tests ✅
+- GitHub push ✅
+
+### 上轮（第九轮）完成：代码质量审查 + README 收口
 - 全仓库关键词扫描（TODO/FIXME/开发中/待实现/demo/placeholder/stub）：零残留
 - `injectDemoData` 已无 UI 入口，纯内部残留，可留；`aiFeedMock`/`commandTraceMock` 作首页 fallback 保留（非自嗨）
 - README 删除过期描述，确认为 P1 收口状态
