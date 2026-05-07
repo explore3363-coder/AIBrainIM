@@ -1,12 +1,23 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-08 04:30 GMT+8
+> 最后更新：2026-05-08 04:51 GMT+8
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第十八轮凌晨巡检验证）
+## 当前状态：P1 可用版收口完毕 ✅（第十九轮凌晨收口）
+
+### 本轮（第十九轮）完成：CI 清理 + 截图刷新
+- TypeScript ✅ · Jest 10 suites/82 tests ✅ · iOS Build ✅
+- App Store 截图刷新：`scripts/capture-screenshots.sh` → `build/AppStoreScreenshots/0_Dashboard_67/65/55.png`（iOS 26.4 simctl io screenshot）
+- `.github/workflows/ci.yml` 清理：移除 129 行重复 `tf-build` job（内含硬编码 Apple 团队凭证 `Hong Yang / 7S96N8A32U / 1165010090`）
+- ci.yml 现为纯 CI 工具链：TypeScript + iOS Simulator Build；TestFlight/Release 构建完全由 `testflight.yml` 承接（使用 GitHub Vars 方式，凭证不硬编码）
+- 隐私描述 Info.plist 全覆盖（NSCamera / NSPhotoLibrary / NSMicrophone / NSLocationWhenInUse）
+- PrivacyInfo.xcprivacy 已就位且字段完整
+- LaunchBackgroundColor (#050d1a) + AppIcon 1024 已配置
+- 阻塞项全部为人工依赖项，无工程阻塞
 
 ### 本轮（第十八轮）完成：凌晨快速状态确认
+（见上方本轮记录）
 - TypeScript ✅ · Jest 10 suites/82 tests ✅ · Git clean ✅ · iOS Build ✅
 - 快速审查核心文件：ChatScreen · DashboardScreen · uploadService · ProjectLibraryScreen · GatewaySettingsScreen
 - ChatScreen：打字机动画 · 调度状态卡片 · 附件上下文携带 · 会话历史持久化 · 长上下文提示

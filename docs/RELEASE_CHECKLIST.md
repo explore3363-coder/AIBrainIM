@@ -59,7 +59,7 @@ GitHub Vars（Settings → Secrets and variables → Actions → Variables）需
 - [ ] App Store Connect 创建 App 记录（Bundle ID: com.openclaw.aibrainim）
 - [ ] 权限文案（相册/相机如后续启用）
 - [ ] 第一个 TestFlight Build 上传 + 验证可安装
-- [ ] iPhone 截图（脚本已就绪：`npm run screenshot`）
+- [x] iPhone 截图已刷新（`bash scripts/capture-screenshots.sh` → `build/AppStoreScreenshots/0_Dashboard_67/65/55.png`）
 - [ ] App Store 填写内容（描述/关键词/隐私政策/支持链接）
 
 ### ⬜ 待完成（非阻塞，可并行）
@@ -85,9 +85,9 @@ GitHub Vars（Settings → Secrets and variables → Actions → Variables）需
 - [ ] Archive + TestFlight 验证
 
 ## App Store 素材
-- [ ] 6.7-inch 截图（1290×2796）
-- [ ] 6.5-inch 截图（1284×2778）
-- [ ] 5.5-inch 截图（1242×2208）
+- [x] 6.7-inch 截图（1290×2796）→ `build/AppStoreScreenshots/0_Dashboard_67.png`
+- [x] 6.5-inch 截图（1284×2778）→ `build/AppStoreScreenshots/0_Dashboard_65.png`
+- [x] 5.5-inch 截图（1242×2208）→ `build/AppStoreScreenshots/0_Dashboard_55.png`
 - [x] App Icon 1024×1024 ✅
 - [ ] 应用描述（中文）
 - [ ] 关键词
