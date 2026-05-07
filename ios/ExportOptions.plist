@@ -8,6 +8,8 @@
     <string>manual</string>
     <key>signingCertificate</key>
     <string>iPhone Distribution: Hong Yang (7S96N8A32U)</string>
+    <key>teamId</key>
+    <string>1165010090</string>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadBitcode</key>
