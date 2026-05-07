@@ -84,6 +84,24 @@ describe('DashboardScreen', () => {
     expect(root.findAllByType(Text).some(node => node.props.children === '首页重点')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === '首屏只保留用户真会关心的三件事')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === 'P1 正在从样板走向可用驾驶舱')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === 'TestFlight / App Store 还有 1 项待拍板')).toBe(true);
+  });
+
+  it('navigates to confirmations from launch spotlight when launch path is blocked', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<DashboardScreen />);
+    });
+
+    const cta = findPressableByLabel(tree!.root, 'TestFlight / App Store 还有 1 项待拍板');
+    expect(cta).toBeTruthy();
+
+    await ReactTestRenderer.act(async () => {
+      cta!.props.onPress();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Confirmations');
   });
 
   it('navigates to project library from spotlight card', async () => {

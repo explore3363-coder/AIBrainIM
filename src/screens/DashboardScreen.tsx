@@ -41,6 +41,47 @@ type SpotlightCard = {
   target: keyof RootStackParamList;
 };
 
+function buildLaunchSpotlight(params: {
+  pendingConfirmations: number;
+  runtimeMode: 'live' | 'fallback';
+  latestBlockedConfirmation?: {title: string; description: string} | undefined;
+}): SpotlightCard {
+  const {pendingConfirmations, runtimeMode, latestBlockedConfirmation} = params;
+
+  if (pendingConfirmations > 0) {
+    return {
+      id: 'spotlight-launch',
+      eyebrow: '上线链路',
+      title: `TestFlight / App Store 还有 ${pendingConfirmations} 项待拍板`,
+      detail: latestBlockedConfirmation
+        ? `先清掉「${latestBlockedConfirmation.title}」这一类人工确认项，上线链路才不会卡在最后一公里。`
+        : '上线准备已经进入人工拍板阶段，先把待确认项收口。',
+      accent: C.highUrgency,
+      target: 'Confirmations',
+    };
+  }
+
+  if (runtimeMode === 'fallback') {
+    return {
+      id: 'spotlight-launch',
+      eyebrow: '上线链路',
+      title: '上线前先打通真实 Gateway',
+      detail: '没有真实 Gateway 回流，TestFlight 包只能演示样板，不能验证完整 AI 闭环。',
+      accent: '#f97316',
+      target: 'GatewaySettings',
+    };
+  }
+
+  return {
+    id: 'spotlight-launch',
+    eyebrow: '上线链路',
+    title: 'TestFlight / App Store 已进入收口阶段',
+    detail: '当前重点不再是补概念页，而是持续压实真实运行态、确认项和交付物一致性。',
+    accent: '#34d399',
+    target: 'Profile',
+  };
+}
+
 const NAV_MAP: Record<string, keyof RootStackParamList> = {
   memory: 'MemoryStore',
   knowledge: 'KnowledgeBase',
@@ -314,6 +355,12 @@ export function DashboardScreen() {
       ? `AI 产出、调度状态和任务链已经开始共用真实运行态数据，当前还有 ${dispatchActiveCount} 条链路在前台可见。`
       : '当前没有新的执行堆积，适合继续推进产品闭环或做真机验证。';
 
+    const launchSpotlight = buildLaunchSpotlight({
+      pendingConfirmations,
+      runtimeMode,
+      latestBlockedConfirmation,
+    });
+
     return [
       {
         id: 'spotlight-output',
@@ -335,6 +382,7 @@ export function DashboardScreen() {
         accent: pendingConfirmations > 0 ? C.highUrgency : '#34d399',
         target: 'Confirmations',
       },
+      launchSpotlight,
       {
         id: 'spotlight-project',
         eyebrow: '项目闭环',
@@ -344,7 +392,7 @@ export function DashboardScreen() {
         target: 'ProjectLibrary',
       },
     ];
-  }, [dispatchActiveCount, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, pendingConfirmations]);
+  }, [dispatchActiveCount, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, pendingConfirmations, runtimeMode]);
 
   const summaryCards = useMemo(() => {
     const summary: Array<{

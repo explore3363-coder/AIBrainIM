@@ -133,6 +133,9 @@ export function TaskScreen() {
 
   const onRefresh = useCallback(() => { refresh(); }, [refresh]);
 
+  const safeDispatches = React.useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeUploads = React.useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+
   const handleTaskPress = useCallback((task: Task) => {
     if (task.state === 'blocked' || task.sourceType === 'confirmation') {
       const confirmationId = task.id.startsWith('confirm-') ? task.id.replace(/^confirm-/, '') : undefined;
@@ -144,8 +147,13 @@ export function TaskScreen() {
     }
 
     if (task.sourceType === 'upload') {
+      const linkedFileId = task.id.startsWith('upload-') ? task.id.replace(/^upload-/, '') : undefined;
+      const linkedUpload = safeUploads.find(upload => upload.id === linkedFileId)
+        ?? safeUploads.find(upload => upload.dispatchId === task.sessionKey);
+
       navigation.navigate('Upload', {
-        focusDispatchId: task.sessionKey,
+        focusFileId: linkedUpload?.id ?? linkedFileId,
+        focusDispatchId: linkedUpload?.dispatchId ?? task.sessionKey,
       });
       return;
     }
@@ -164,10 +172,7 @@ export function TaskScreen() {
       focusTaskId: task.id,
       focusSessionKey: task.sessionKey,
     });
-  }, [navigation]);
-
-  const safeDispatches = React.useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
-  const safeUploads = React.useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  }, [navigation, safeUploads]);
 
   const grouped = React.useMemo(() => {
     const g: Record<TaskState, Task[]> = {running: [], todo: [], done: [], blocked: []};

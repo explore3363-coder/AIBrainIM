@@ -9,7 +9,7 @@ import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
-import {uploadService, enqueueUpload, type UploadFile} from '../services/uploadService';
+import {uploadService, enqueueUpload, type UploadFile, type UploadQueueStage} from '../services/uploadService';
 import {launchImageLibrary, type ImagePickerResponse} from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
 import type {RootStackParamList} from '../App';
@@ -25,6 +25,29 @@ const STATUS_META: Record<string, {label: string; color: string; bg: string}> = 
   dispatched: {label:'已分派', color:'#34d399', bg:'rgba(52,211,153,0.1)'},
   error:      {label:'失败',   color:'#f87171', bg:'rgba(248,113,113,0.1)'},
 };
+
+const QUEUE_STAGE_LABEL: Record<UploadQueueStage, string> = {
+  queued: '等待上传',
+  chunking: '分片准备中',
+  uploading: '上传中',
+  merging: '分片合并中',
+  processing: '后台处理中',
+  dispatched: '已进入调度链',
+  done: '已完成',
+  error: '上传失败',
+};
+
+function describeTransfer(file: UploadFile): string {
+  const stage = QUEUE_STAGE_LABEL[file.queueStage] ?? '处理中';
+  if (file.transferMode === 'direct') {
+    return `直传 · ${stage}`;
+  }
+
+  const chunkText = file.totalChunks
+    ? `${file.uploadedChunks ?? 0}/${file.totalChunks} 片`
+    : '分片模式';
+  return `分片 / 断点续传 · ${chunkText} · ${stage}`;
+}
 
 function FileTypeIcon(mime: string): string {
   if (mime.startsWith('image/')) return '🖼️';
@@ -114,6 +137,11 @@ export function UploadScreen() {
     );
   };
 
+  const handleAnalyzeInChat = (file: UploadFile) => {
+    uploadService.markFileForNextDispatch(file.id);
+    navigation.navigate('Tabs', {screen: 'Chat'});
+  };
+
   const handleDelete = (fileId: string) => {
     Alert.alert('删除文件', '确定从上传队列中移除？', [
       {text: '取消', style: 'cancel'},
@@ -145,6 +173,11 @@ export function UploadScreen() {
   const completed = rankedFiles.filter(f => f.status === 'done' || f.status === 'dispatched');
   const active    = rankedFiles.filter(f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing');
   const failed    = rankedFiles.filter(f => f.status === 'error');
+  const spotlightFile = rankedFiles.find(file => file.id === focusFileId)
+    ?? rankedFiles.find(file => focusDispatchId != null && file.dispatchId === focusDispatchId)
+    ?? rankedFiles[0];
+  const completedCount = completed.length;
+  const latestCompleted = completed[0];
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -188,6 +221,47 @@ export function UploadScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.content}>
+        {(spotlightFile || completedCount > 0) && (
+          <View style={styles.closureCard}>
+            <Text style={styles.closureEyebrow}>上传闭环</Text>
+            <Text style={styles.closureTitle}>
+              {spotlightFile
+                ? `当前焦点：${spotlightFile.name}`
+                : `最近已完成 ${completedCount} 个附件处理`}
+            </Text>
+            <Text style={styles.closureDetail}>
+              {spotlightFile
+                ? `${describeTransfer(spotlightFile)}${spotlightFile.dispatchId ? ` · 已关联调度 ${spotlightFile.dispatchId}` : ''}`
+                : '附件上传、后台处理和调度链已经形成可见闭环。'}
+            </Text>
+            <View style={styles.closureActions}>
+              {spotlightFile?.dispatchId ? (
+                <TouchableOpacity
+                  style={styles.closurePrimaryBtn}
+                  activeOpacity={0.82}
+                  onPress={() => navigation.navigate('DispatchChain', {focusDispatchId: spotlightFile.dispatchId})}
+                >
+                  <Text style={styles.closurePrimaryBtnText}>查看调度链</Text>
+                </TouchableOpacity>
+              ) : null}
+              {spotlightFile ? (
+                <TouchableOpacity
+                  style={styles.closureSecondaryBtn}
+                  activeOpacity={0.82}
+                  onPress={() => handleAnalyzeInChat(spotlightFile)}
+                >
+                  <Text style={styles.closureSecondaryBtnText}>回到对话继续分析</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {latestCompleted ? (
+              <Text style={styles.closureSubtext}>
+                最近完成：{latestCompleted.name}{latestCompleted.agent ? ` · ${latestCompleted.agent}` : ''}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
         {/* Active uploads — always visible at top when any are running */}
         {active.length > 0 && (
           <View style={styles.activeBanner}>
@@ -201,7 +275,7 @@ export function UploadScreen() {
         {/* 上传链路说明：不做大小限制 */}
         <View style={styles.uploadPolicyBanner}>
           <Text style={styles.uploadPolicyText}>
-            📡 无大小限制 · 大文件自动分片 + 断点续传 · 后台 AI 处理队列
+            📡 无大小限制 · 小文件直传 · 大文件自动分片/断点续传 · 后台 AI 处理队列
           </Text>
         </View>
 
@@ -213,7 +287,7 @@ export function UploadScreen() {
               直接点击下方按钮上传文件，无大小限制。
             </Text>
             <Text style={styles.emptyHint}>
-              大文件（≥10 MB）自动分片上传 + 断点续传
+              小文件直传；≥10 MB 或未知大小文件自动分片上传 + 断点续传
             </Text>
             <View style={styles.emptyUploadRow}>
               <TouchableOpacity
@@ -296,6 +370,10 @@ export function UploadScreen() {
                             {uploadService.formatBytes(f.size)} · {meta.label}
                             {f.status === 'uploading' && ` · ${Math.round(f.progress)}%`}
                           </Text>
+                          <Text style={styles.transferMeta}>{describeTransfer(f)}</Text>
+                          {f.transferMode === 'chunked' && typeof f.totalChunks === 'number' ? (
+                            <Text style={styles.chunkMeta}>已完成 {f.uploadedChunks ?? 0}/{f.totalChunks} 片</Text>
+                          ) : null}
                           {(f.status === 'uploading' || f.status === 'processing') && (
                             <View style={styles.progressBar}>
                               <View style={[styles.progressFill, {width: `${f.progress}%`}]} />
@@ -339,6 +417,13 @@ export function UploadScreen() {
                               </Text>
                             </TouchableOpacity>
                           ) : null}
+                          <TouchableOpacity
+                            style={styles.chatLink}
+                            activeOpacity={0.78}
+                            onPress={() => handleAnalyzeInChat(f)}
+                          >
+                            <Text style={styles.chatLinkText}>💬 回到对话继续分析</Text>
+                          </TouchableOpacity>
                         </View>
                         <TouchableOpacity onPress={() => handleDelete(f.id)}>
                           <Text style={styles.doneIcon}>✓</Text>
@@ -398,6 +483,36 @@ const styles = StyleSheet.create({
   activeDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary},
   activeText: {color: C.primary, fontSize: 12, fontWeight: '800', flex: 1},
 
+  closureCard: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(52,211,153,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.18)',
+    marginBottom: 10,
+  },
+  closureEyebrow: {
+    color: '#34d399',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  closureTitle: {color: C.textTitle, fontSize: 16, fontWeight: '900'},
+  closureDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
+  closureActions: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12},
+  closurePrimaryBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: '#34d399',
+  },
+  closurePrimaryBtnText: {color: C.bgRoot, fontSize: 13, fontWeight: '900'},
+  closureSecondaryBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: C.borderSubtle,
+  },
+  closureSecondaryBtnText: {color: C.textTitle, fontSize: 13, fontWeight: '800'},
+  closureSubtext: {color: C.textMuted, fontSize: 11, marginTop: 10},
+
   uploadPolicyBanner: {
     paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10,
     borderRadius: 12,
@@ -434,6 +549,8 @@ const styles = StyleSheet.create({
   cardBody:  {flex: 1},
   fileName:  {color: C.textTitle, fontSize: 14, fontWeight: '800'},
   fileMeta:  {color: C.textMuted, fontSize: 11, marginTop: 4},
+  transferMeta: {color: C.textBody, fontSize: 11, marginTop: 6},
+  chunkMeta: {color: C.textMuted, fontSize: 11, marginTop: 2},
   errorText: {color: '#f87171', fontSize: 11, marginTop: 4},
   statusDot: {fontSize: 16, color: C.primary},
   doneIcon:  {fontSize: 18, color: '#34d399', fontWeight: '900'},
@@ -472,6 +589,19 @@ const styles = StyleSheet.create({
   },
   dispatchLinkText: {
     color: C.primary,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  chatLink: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    alignSelf: 'flex-start',
+  },
+  chatLinkText: {
+    color: '#34d399',
     fontSize: 11,
     fontWeight: '800',
   },

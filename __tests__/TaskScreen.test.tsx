@@ -20,7 +20,7 @@ jest.mock('../src/context/AppContext', () => ({
         sourceType: 'confirmation',
       },
       {
-        id: 'upload-task-1',
+        id: 'upload-file-1',
         title: '处理矿山巡检视频',
         owner: '黑金',
         state: 'running',
@@ -28,7 +28,7 @@ jest.mock('../src/context/AppContext', () => ({
         next: '等待附件链路处理完成',
         priority: 'P1',
         sourceType: 'upload',
-        sessionKey: 'upload-session-1',
+        sessionKey: 'upload-dispatch-1',
       },
       {
         id: 'dispatch-task-1',
@@ -148,7 +148,8 @@ describe('TaskScreen', () => {
       uploadCard!.props.onPress();
     });
     expect(mockNavigate).toHaveBeenCalledWith('Upload', {
-      focusDispatchId: 'upload-session-1',
+      focusFileId: 'upload-1',
+      focusDispatchId: 'upload-dispatch-1',
     });
 
     mockNavigate.mockClear();

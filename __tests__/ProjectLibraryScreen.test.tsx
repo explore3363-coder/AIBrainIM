@@ -8,7 +8,7 @@ const mockNavigate = jest.fn();
 jest.mock('../src/context/AppContext', () => ({
   useAppContext: () => ({
     tasks: [
-      {id: 'task-1', title: '任务A', owner: '黑金', state: 'running', eta: '10m', next: '继续推进', priority: 'P0'},
+      {id: 'task-1', title: '推进 AIBrainIM P1 闭环', owner: '黑金', state: 'running', eta: '10m', next: '继续推进移动端驾驶舱', priority: 'P0'},
       {id: 'task-2', title: '任务B', owner: '助理', state: 'blocked', eta: '待确认', next: '等待拍板', priority: 'P1'},
     ],
     uploads: [
@@ -69,9 +69,47 @@ describe('ProjectLibraryScreen', () => {
 
     const root = tree!.root;
     expect(root.findAllByType(Text).some(node => node.props.children === '📁 项目库')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === '聚源三维运行投影')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === '回首页看总览')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === '看上传队列')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === '检查 Gateway 连接')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === '看最近调度')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === '去清确认项')).toBe(true);
+  });
+
+  it('routes project signals into AIBrainIM and 聚源三维 runtime cards', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<ProjectLibraryScreen />);
+    });
+
+    const root = tree!.root;
+    const texts = root.findAllByType(Text).map(node => {
+      const child = node.props.children;
+      return Array.isArray(child) ? child.join('') : String(child);
+    });
+
+    expect(texts.some(text => text.includes('已识别 1 个移动端相关任务、1 条调度、0 个相关附件'))).toBe(true);
+    expect(texts.some(text => text.includes('已识别 0 个聚源三维相关任务、0 条调度信号'))).toBe(true);
+  });
+
+  it('surfaces the top project focus queue for current closure priorities', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<ProjectLibraryScreen />);
+    });
+
+    const root = tree!.root;
+    const texts = root.findAllByType(Text).map(node => {
+      const child = node.props.children;
+      return Array.isArray(child) ? child.join('') : String(child);
+    });
+
+    expect(texts.some(text => text.includes('先做什么'))).toBe(true);
+    expect(texts.some(text => text.includes('人工确认与收口'))).toBe(true);
+    expect(texts.some(text => text.includes('当前有 1 个阻塞任务、1 项待确认'))).toBe(true);
   });
 
   it('navigates to tab route with params when tapping dashboard CTA', async () => {
@@ -89,6 +127,42 @@ describe('ProjectLibraryScreen', () => {
     });
 
     expect(mockNavigate).toHaveBeenCalledWith('Tabs', {screen: 'Dashboard'});
+  });
+
+  it('navigates to upload queue when tapping secondary AIBrainIM CTA', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<ProjectLibraryScreen />);
+    });
+
+    const cta = findPressableByLabel(tree!.root, '看上传队列');
+    expect(cta).toBeTruthy();
+
+    await ReactTestRenderer.act(async () => {
+      cta!.props.onPress();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Upload', undefined);
+  });
+
+  it('navigates to recent dispatch when tapping secondary runtime CTA', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<ProjectLibraryScreen />);
+    });
+
+    const cta = findPressableByLabel(tree!.root, '看最近调度');
+    expect(cta).toBeTruthy();
+
+    await ReactTestRenderer.act(async () => {
+      cta!.props.onPress();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('DispatchChain', {
+      focusDispatchId: 'dispatch-runtime-1',
+    });
   });
 
   it('navigates to non-tab route directly when tapping gateway CTA', async () => {

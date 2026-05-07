@@ -20,6 +20,18 @@
 
 type UploadType = 'image' | 'video' | 'document' | 'archive';
 
+type UploadTransferMode = 'direct' | 'chunked';
+
+type UploadQueueStage =
+  | 'queued'
+  | 'chunking'
+  | 'uploading'
+  | 'merging'
+  | 'processing'
+  | 'dispatched'
+  | 'done'
+  | 'error';
+
 interface UploadFile {
   id: string;
   name: string;
@@ -29,6 +41,11 @@ interface UploadFile {
   size: number; // bytes; 0 = unknown
   status: UploadStatus;
   progress: number; // 0-100
+  transferMode: UploadTransferMode;
+  resumable: boolean;
+  totalChunks?: number;
+  uploadedChunks?: number;
+  queueStage: UploadQueueStage;
   agent?: string;
   timestamp: string;
   error?: string;
@@ -39,7 +56,7 @@ type UploadStatus =
   | 'queued' | 'uploading' | 'processing' | 'dispatched' | 'done' | 'error';
 
 // Re-export for consumers
-export type {UploadType, UploadFile, UploadStatus};
+export type {UploadType, UploadFile, UploadStatus, UploadTransferMode, UploadQueueStage};
 
 // ─── Gateway config (lazy import to avoid circular dependency) ─────────────────
 function _getUploadConfig() {
@@ -75,6 +92,7 @@ interface UploadState {
 
 const _queue:      UploadFile[]   = [];
 const _uploadState = new Map<string, UploadState>(); // id → state
+const _selectedForDispatch = new Set<string>();
 let   _nextId      = 1;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -136,6 +154,11 @@ async function withRetry<T>(
 function buildFileEntry(
   name: string, uri: string, mimeType: string, size: number,
 ): UploadFile {
+  const transferMode: UploadTransferMode = size > 0 && size < LARGE_FILE_THRESHOLD ? 'direct' : 'chunked';
+  const totalChunks = transferMode === 'chunked'
+    ? Math.max(1, Math.ceil((size || LARGE_FILE_THRESHOLD) / CHUNK_SIZE))
+    : 1;
+
   return {
     id: genId(),
     name,
@@ -145,6 +168,11 @@ function buildFileEntry(
     size,
     status: 'queued',
     progress: 0,
+    transferMode,
+    resumable: transferMode === 'chunked',
+    totalChunks: transferMode === 'chunked' ? totalChunks : undefined,
+    uploadedChunks: transferMode === 'chunked' ? 0 : undefined,
+    queueStage: transferMode === 'chunked' ? 'chunking' : 'queued',
     timestamp: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit', minute: '2-digit',
     }),
@@ -219,8 +247,10 @@ async function _tryRealUpload(
       const json = await res.json() as Record<string, unknown>;
       const pct = typeof json.progress === 'number' ? json.progress : 90;
       onProgress(pct);
+      _updateFile(file.id, {queueStage: 'uploading'});
     } catch {
       onProgress(90);
+      _updateFile(file.id, {queueStage: 'uploading'});
     }
     return true;
   } catch (e) {
@@ -236,7 +266,7 @@ async function _tryRealUpload(
  */
 async function _directUpload(state: UploadState): Promise<void> {
   const realOk = await _tryRealUpload(state.file, (pct) => {
-    _updateFile(state.file.id, {status: 'uploading', progress: pct});
+    _updateFile(state.file.id, {status: 'uploading', progress: pct, queueStage: 'uploading'});
   });
   if (realOk) return;
 
@@ -245,7 +275,7 @@ async function _directUpload(state: UploadState): Promise<void> {
   for (let i = 1; i <= STEPS; i++) {
     await delay(120);
     const progress = Math.round((i / STEPS) * 90);
-    _updateFile(state.file.id, {status: 'uploading', progress});
+    _updateFile(state.file.id, {status: 'uploading', progress, queueStage: 'uploading'});
   }
 }
 
@@ -256,6 +286,14 @@ async function _directUpload(state: UploadState): Promise<void> {
  */
 async function _chunkedUpload(state: UploadState): Promise<void> {
   const {chunks, totalChunks, file} = state;
+
+  _updateFile(file.id, {
+    queueStage: 'chunking',
+    transferMode: 'chunked',
+    resumable: true,
+    totalChunks,
+    uploadedChunks: chunks.filter(chunk => chunk.uploaded).length,
+  });
 
   // Try to get real Gateway config once
   const cfg = _getUploadConfig();
@@ -325,7 +363,13 @@ async function _chunkedUpload(state: UploadState): Promise<void> {
 
     const uploadedChunks = chunks.filter(c => c.uploaded).length;
     const progress = Math.round((uploadedChunks / totalChunks) * 90);
-    _updateFile(state.file.id, {status: 'uploading', progress});
+    _updateFile(state.file.id, {
+      status: 'uploading',
+      progress,
+      uploadedChunks,
+      totalChunks,
+      queueStage: uploadedChunks >= totalChunks ? 'merging' : 'uploading',
+    });
   }
 }
 
@@ -333,13 +377,17 @@ async function processUpload(fileId: string): Promise<void> {
   const fileEntry = _queue.find(f => f.id === fileId);
   if (!fileEntry) return;
 
-  _updateFile(fileId, {status: 'uploading', progress: 0});
+  _updateFile(fileId, {
+    status: 'uploading',
+    progress: fileEntry.transferMode === 'chunked' ? fileEntry.progress : 0,
+    queueStage: fileEntry.transferMode === 'chunked' ? 'chunking' : 'uploading',
+  });
 
   // Initialize or resume chunk state
   if (!_uploadState.has(fileId)) {
-    const totalChunks = fileEntry.size > 0
-      ? Math.ceil(fileEntry.size / CHUNK_SIZE)
-      : 1;
+    const totalChunks = fileEntry.totalChunks ?? (fileEntry.size > 0
+      ? Math.max(1, Math.ceil(fileEntry.size / CHUNK_SIZE))
+      : 1);
     const chunks: ChunkState[] = Array.from(
       {length: totalChunks}, (_, i) => ({index: i, uploaded: false, retries: 0}),
     );
@@ -361,25 +409,25 @@ async function processUpload(fileId: string): Promise<void> {
     }
 
     // Upload complete — mark processing
-    _updateFile(fileId, {status: 'processing', progress: 100});
+    _updateFile(fileId, {status: 'processing', progress: 100, queueStage: 'processing'});
 
     // Simulate AI backend analysis (replace with real /analyze endpoint)
     await delay(800);
     const agent = _assignAgent(fileEntry.type);
-    _updateFile(fileId, {agent, status: 'processing'});
+    _updateFile(fileId, {agent, status: 'processing', queueStage: 'processing'});
 
     // Simulate agent dispatch
     await delay(fileEntry.type === 'video' || fileEntry.type === 'archive' ? 1400 : 900);
-    _updateFile(fileId, {status: 'dispatched', progress: 100});
+    _updateFile(fileId, {status: 'dispatched', progress: 100, queueStage: 'dispatched'});
 
     // Agent completes (in production: webhook or poll)
     await delay(600);
-    _updateFile(fileId, {status: 'done', progress: 100});
+    _updateFile(fileId, {status: 'done', progress: 100, queueStage: 'done'});
 
     _uploadState.delete(fileId); // clean up after successful completion only
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    _updateFile(fileId, {status: 'error', error: msg});
+    _updateFile(fileId, {status: 'error', error: msg, queueStage: 'error'});
   }
 }
 
@@ -436,6 +484,7 @@ export function removeFile(id: string): void {
   const idx = _queue.findIndex(f => f.id === id);
   if (idx !== -1) _queue.splice(idx, 1);
   _uploadState.delete(id);
+  _selectedForDispatch.delete(id);
 }
 
 /**
@@ -451,6 +500,7 @@ export function retryUpload(id: string): void {
 
   file.status = 'queued';
   file.error = undefined;
+  file.queueStage = file.transferMode === 'chunked' ? 'chunking' : 'queued';
 
   const existingState = _uploadState.get(id);
   if (existingState) {
@@ -469,11 +519,41 @@ export function retryUpload(id: string): void {
       }
     });
     file.progress = resumedProgress;
+    file.uploadedChunks = uploadedChunks;
+    file.totalChunks = existingState.totalChunks;
   } else {
     file.progress = 0;
+    file.uploadedChunks = file.transferMode === 'chunked' ? 0 : undefined;
   }
 
   void processUpload(file.id);
+}
+
+export function markFileForNextDispatch(id: string): void {
+  const file = _queue.find(item => item.id === id);
+  if (!file) return;
+  _selectedForDispatch.add(id);
+}
+
+export function unmarkFileForNextDispatch(id: string): void {
+  _selectedForDispatch.delete(id);
+}
+
+export function clearFilesForNextDispatch(ids?: string[]): void {
+  if (!ids || ids.length === 0) {
+    _selectedForDispatch.clear();
+    return;
+  }
+
+  ids.forEach(id => _selectedForDispatch.delete(id));
+}
+
+export function getFilesForNextDispatch(): UploadFile[] {
+  return _queue.filter(file => _selectedForDispatch.has(file.id));
+}
+
+export function isFileMarkedForNextDispatch(id: string): boolean {
+  return _selectedForDispatch.has(id);
 }
 
 // ─── Demo / Testing helpers ────────────────────────────────────────────────────
@@ -492,6 +572,11 @@ const DEMO_FILES: Array<{name: string; mimeType: string; size: number; type: Upl
  */
 export function enqueueDemoUpload(index?: number): UploadFile {
   const demo = DEMO_FILES[index ?? Math.floor(Math.random() * DEMO_FILES.length)];
+  const transferMode: UploadTransferMode = demo.size > 0 && demo.size < LARGE_FILE_THRESHOLD ? 'direct' : 'chunked';
+  const totalChunks = transferMode === 'chunked'
+    ? Math.max(1, Math.ceil((demo.size || LARGE_FILE_THRESHOLD) / CHUNK_SIZE))
+    : 1;
+
   const file: UploadFile = {
     id: genId(),
     name: demo.name,
@@ -501,6 +586,11 @@ export function enqueueDemoUpload(index?: number): UploadFile {
     size: demo.size,
     status: 'queued',
     progress: 0,
+    transferMode,
+    resumable: transferMode === 'chunked',
+    totalChunks: transferMode === 'chunked' ? totalChunks : undefined,
+    uploadedChunks: transferMode === 'chunked' ? 0 : undefined,
+    queueStage: transferMode === 'chunked' ? 'chunking' : 'queued',
     timestamp: new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}),
   };
   _queue.push(file);
@@ -523,5 +613,10 @@ export const uploadService = {
   clearQueue,
   removeFile,
   retryUpload,
+  markFileForNextDispatch,
+  unmarkFileForNextDispatch,
+  clearFilesForNextDispatch,
+  getFilesForNextDispatch,
+  isFileMarkedForNextDispatch,
   formatBytes,
 };

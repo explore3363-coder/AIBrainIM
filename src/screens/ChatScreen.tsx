@@ -26,7 +26,11 @@ import DocumentPicker, {
 } from 'react-native-document-picker';
 import {C} from '../data/mockData';
 import {sendMessage} from '../data/api';
-import {enqueueUpload, uploadService, retryUpload as retryUploadFn} from '../services/uploadService';
+import {
+  enqueueUpload,
+  uploadService,
+  retryUpload as retryUploadFn,
+} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
 interface Message {
@@ -61,7 +65,7 @@ const DISPATCH_STATUS_LABEL = {
 } as const;
 
 const CHAT_HISTORY_KEY = '@AIBrainIM:chatHistory';
-// 不做产品层硬限制；长上下文+分层记忆+按需回补在后端处理，前端保留足够历史用于展示
+// 不做产品层硬限制;长上下文+分层记忆+按需回补在后端处理,前端保留足够历史用于展示
 const MAX_HISTORY = 300;
 
 export function ChatScreen() {
@@ -71,14 +75,14 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    {role: 'in', name: '助理', text: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。'},
+    {role: 'in', name: '助理', text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。'},
   ]);
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
   const [queuedAttachmentIds, setQueuedAttachmentIds] = useState<string[]>([]);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollRef   = useRef<ScrollView>(null);
   const lastDispatchIdRef = useRef<string | undefined>(undefined);
-  // Animated typing indicator — three dots pulse in sequence
+  // Animated typing indicator - three dots pulse in sequence
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -165,7 +169,7 @@ export function ChatScreen() {
         : '等待后端继续回填';
 
     setMessages(messagesNow => {
-      const text = `🛰 调度状态更新：${statusText} · ${detail}`;
+      const text = `🛰 调度状态更新:${statusText} · ${detail}`;
       const alreadyExists = messagesNow.some(msg => msg.role === 'in' && msg.text === text);
       if (alreadyExists) {
         return messagesNow;
@@ -179,6 +183,7 @@ export function ChatScreen() {
   // Sync attachment previews from upload queue
   const syncAttachments = useCallback(() => {
     const files = uploadService.getQueue();
+    const selectedIds = new Set(uploadService.getFilesForNextDispatch().map(file => file.id));
     const preview = files.map(f => ({
       id: f.id,
       name: f.name,
@@ -188,6 +193,7 @@ export function ChatScreen() {
       status: f.status,
     }));
     setAttachments(preview);
+    setQueuedAttachmentIds(Array.from(selectedIds));
   }, []);
 
   const queuedAttachmentSummaries = useMemo(
@@ -196,12 +202,25 @@ export function ChatScreen() {
   );
 
   const clearQueuedAttachment = useCallback((id: string) => {
+    uploadService.unmarkFileForNextDispatch(id);
     setQueuedAttachmentIds(ids => ids.filter(item => item !== id));
   }, []);
 
-  const trackAttachment = useCallback((fileId: string) => {
-    setQueuedAttachmentIds(ids => Array.from(new Set([...ids, fileId])));
+  const trackAttachment = useCallback((fileId: string, autoSelect = false) => {
+    if (autoSelect) {
+      uploadService.markFileForNextDispatch(fileId);
+    }
+    setQueuedAttachmentIds(ids => {
+      if (!autoSelect) {
+        return ids;
+      }
+      return Array.from(new Set([...ids, fileId]));
+    });
   }, []);
+
+  useEffect(() => {
+    syncAttachments();
+  }, [syncAttachments]);
 
   // ── File picking handlers ───────────────────────────────────────────────
 
@@ -217,14 +236,14 @@ export function ChatScreen() {
           const mime = asset.type ?? 'image/jpeg';
           void enqueueUpload(name, asset.uri, mime, size).then(_f => {
             const fileId = _f.id;
-            trackAttachment(fileId);
+            trackAttachment(fileId, true);
             syncAttachments();
             setMessages(m => [
               ...m,
               {
                 role: 'in',
                 name: '助理',
-                text: `📎 已收到附件「${name}」（${uploadService.formatBytes(size)}），正在上传处理中…`,
+                text: `📎 已收到附件「${name}」(${uploadService.formatBytes(size)}),正在上传处理中...`,
               },
             ]);
             // Poll for attachment status update and notify user
@@ -249,7 +268,7 @@ export function ChatScreen() {
                     {
                       role: 'in',
                       name: '助理',
-                      text: `⚠️ 附件「${updated.name}」上传失败：${updated.error}`,
+                      text: `⚠️ 附件「${updated.name}」上传失败:${updated.error}`,
                     },
                   ]);
                 }
@@ -271,14 +290,14 @@ export function ChatScreen() {
           const size = asset.fileSize ?? 0;
           const mime = asset.type ?? 'image/jpeg';
           void enqueueUpload(name, asset.uri, mime, size).then(_f => {
-            trackAttachment(_f.id);
+            trackAttachment(_f.id, true);
             syncAttachments();
             setMessages(m => [
               ...m,
               {
                 role: 'in',
                 name: '助理',
-                text: `📷 已拍摄「${name}」，正在上传处理…`,
+                text: `📷 已拍摄「${name}」,正在上传处理...`,
               },
             ]);
           });
@@ -293,14 +312,14 @@ export function ChatScreen() {
         results.forEach(doc => {
           if (!doc.uri) return;
           void enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0).then(_f => {
-            trackAttachment(_f.id);
+            trackAttachment(_f.id, true);
             syncAttachments();
             setMessages(m => [
               ...m,
               {
                 role: 'in',
                 name: '助理',
-                text: `📄 文档「${doc.name}」已加入上传队列（${uploadService.formatBytes(doc.size ?? 0)}）。`,
+                text: `📄 文档「${doc.name}」已加入上传队列(${uploadService.formatBytes(doc.size ?? 0)})。`,
               },
             ]);
           });
@@ -320,7 +339,7 @@ export function ChatScreen() {
       {
         role: 'in',
         name: '助理',
-        text: '↻ 正在重试上传，请稍候…',
+        text: '↻ 正在重试上传,请稍候...',
       },
     ]);
   }, [syncAttachments]);
@@ -349,9 +368,12 @@ export function ChatScreen() {
   }, [safeAttachments, queuedAttachmentIds]);
 
   const handleSend = useCallback(async () => {
-    if (!draft.trim() || sending) return;
-    const userText = draft.trim();
-    const attachmentContext = queuedAttachmentSummaries.length > 0
+    const trimmedDraft = draft.trim();
+    const hasAttachmentContext = queuedAttachmentSummaries.length > 0;
+
+    if ((!trimmedDraft && !hasAttachmentContext) || sending) return;
+    const userText = trimmedDraft || '请先分析我刚上传的附件,提取关键信息、给出结论,并把需要我确认的事项单独列出来。';
+    const attachmentContext = hasAttachmentContext
       ? `\n\n[附件上下文]\n${queuedAttachmentSummaries.map(att => `- ${att.name} · ${att.sizeLabel} · ${att.status}`).join('\n')}`
       : '';
     const outboundText = `${userText}${attachmentContext}`;
@@ -366,23 +388,29 @@ export function ChatScreen() {
     try {
       const {reply, sent, taskId, dispatchId, sessionKey} = await sendMessage(outboundText);
 
+      const attachedIds = queuedAttachmentSummaries.map(att => att.id);
+      const attachedFiles = attachedIds
+        .map(id => uploadService.getFile(id))
+        .filter((f): f is NonNullable<typeof f> => f != null);
+
       registerDispatch({
-        userText: queuedAttachmentSummaries.length > 0
-          ? `${userText}（携带 ${queuedAttachmentSummaries.length} 个附件）`
+        userText: hasAttachmentContext
+          ? `${userText}(携带 ${queuedAttachmentSummaries.length} 个附件)`
           : userText,
         reply,
         taskId,
         dispatchId,
         sessionKey,
         sent,
-        source: 'chat',
+        source: hasAttachmentContext ? 'upload' : 'chat',
+        attachmentFiles: attachedFiles.length > 0 ? attachedFiles : undefined,
       });
 
       // Sync the rest of the app (Dashboard AI feed, Agent status, Task/Kanban)
       // so the send action immediately reflects everywhere without requiring pull-to-refresh.
       void refresh();
 
-      if (sent && queuedAttachmentSummaries.length > 0) {
+      if (sent && hasAttachmentContext) {
         setMessages(m => [
           ...m,
           {
@@ -391,7 +419,9 @@ export function ChatScreen() {
             text: `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。`,
           },
         ]);
+        uploadService.clearFilesForNextDispatch(queuedAttachmentSummaries.map(att => att.id));
         queuedAttachmentSummaries.forEach(att => clearQueuedAttachment(att.id));
+        syncAttachments();
       }
 
       setMessages(m => [...m, {role: 'in', name: '助理', text: reply}]);
@@ -401,7 +431,7 @@ export function ChatScreen() {
         {
           role: 'in',
           name: '助理',
-          text: `⚠️ 发送失败：${err instanceof Error ? err.message : String(err)}`,
+          text: `⚠️ 发送失败:${err instanceof Error ? err.message : String(err)}`,
         },
       ]);
     } finally {
@@ -416,6 +446,7 @@ export function ChatScreen() {
     registerDispatch,
     refresh,
     sending,
+    syncAttachments,
   ]);
 
   return (
@@ -433,14 +464,14 @@ export function ChatScreen() {
               onPress={() => {
                 Alert.alert(
                   '清空对话历史',
-                  '确定清空所有对话记录？此操作不可撤销。',
+                  '确定清空所有对话记录?此操作不可撤销。',
                   [
                     {text: '取消', style: 'cancel'},
                     {
                       text: '清空',
                       style: 'destructive',
                       onPress: () => {
-                        const welcome: Message = {role: 'in', name: '助理', text: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。'};
+                        const welcome: Message = {role: 'in', name: '助理', text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。'};
                         setMessages([welcome]);
                         AsyncStorage.removeItem(CHAT_HISTORY_KEY).catch(() => {});
                       },
@@ -468,7 +499,7 @@ export function ChatScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 上下文策略说明 — 长上下文 + 分层记忆 + 按需回补 */}
+        {/* 上下文策略说明 - 长上下文 + 分层记忆 + 按需回补 */}
         <View style={styles.contextBanner}>
           <View style={styles.contextBannerLeft}>
             <Text style={styles.contextBannerTitle}>📡 上下文策略</Text>
@@ -487,7 +518,7 @@ export function ChatScreen() {
         {runtimeMode === 'fallback' && (
           <View style={styles.gatewayBanner}>
             <Text style={styles.gatewayBannerText}>
-              ⚠️ Gateway 不可用 · 消息暂存本地 · {runtimeError ? `原因：${runtimeError}` : '检查网络后自动重连'}
+              ⚠️ Gateway 不可用 · 消息暂存本地 · {runtimeError ? `原因:${runtimeError}` : '检查网络后自动重连'}
             </Text>
           </View>
         )}
@@ -526,14 +557,14 @@ export function ChatScreen() {
             </View>
             <Text style={styles.dispatchStatusSummary}>
               {sending
-                ? '指令提交中…'
+                ? '指令提交中...'
                 : latestDispatch
-                  ? `调度状态：${DISPATCH_STATUS_LABEL[latestDispatch.status]} · ${latestDispatch.taskId ?? 'taskId 回填中'}`
+                  ? `调度状态:${DISPATCH_STATUS_LABEL[latestDispatch.status]} · ${latestDispatch.taskId ?? 'taskId 回填中'}`
                   : '暂无调度记录'}
             </Text>
             {queuedAttachmentSummaries.length > 0 ? (
               <Text style={styles.dispatchAttachmentHint}>
-                当前待随消息一并进入调度链的附件：{queuedAttachmentSummaries.length} 个
+                当前待随消息一并进入调度链的附件:{queuedAttachmentSummaries.length} 个
               </Text>
             ) : null}
             {latestDispatch ? (
@@ -562,7 +593,7 @@ export function ChatScreen() {
             </View>
           )}
 
-          {/* Typing indicator — animated bounce dots */}
+          {/* Typing indicator - animated bounce dots */}
           {typing && (
             <View style={styles.msgIn}>
               <Text style={styles.msgName}>助理</Text>
@@ -608,7 +639,7 @@ export function ChatScreen() {
                 <Text style={styles.attachmentListTitle}>上传队列</Text>
                 {queuedAttachmentSummaries.length > 0 ? (
                   <Text style={styles.attachmentQueueHint}>
-                    已选 {queuedAttachmentSummaries.length} 个附件，将在下一条消息发送时一并携带上下文
+                    已选 {queuedAttachmentSummaries.length} 个附件,将在下一条消息发送时一并携带上下文
                   </Text>
                 ) : null}
                 {attachments.map(att => {
@@ -639,17 +670,22 @@ export function ChatScreen() {
                             </View>
                           )}
                         </View>
-                        <Text style={[styles.attachmentMeta, {color: statusColor}]}>
+                        <Text style={[styles.attachmentMeta, {color: statusColor}]}> 
                           {att.sizeLabel} · {statusLabel}
                         </Text>
+                        {queuedAttachmentIds.includes(att.id) ? (
+                          <Text style={styles.selectedAttachmentHint}>
+                            本文件已加入下一条消息的分析上下文
+                          </Text>
+                        ) : null}
                         {att.status === 'uploading' && isLargeFile && (
                           <Text style={styles.chunkHint}>
-                            ≥10MB 文件自动分片上传，断点续传
+                            ≥10MB 文件自动分片上传,断点续传
                           </Text>
                         )}
                         {att.status === 'processing' && isLargeFile && (
                           <Text style={styles.chunkHint}>
-                            后台 AI 分析中，结果自动回流
+                            后台 AI 分析中,结果自动回流
                           </Text>
                         )}
                       </View>
@@ -696,7 +732,7 @@ export function ChatScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="输入 AI 调度指令…"
+              placeholder="输入 AI 调度指令..."
               placeholderTextColor={C.textMuted}
               style={[styles.input, {borderColor: 'rgba(255,255,255,0.08)'}]}
               multiline
@@ -705,16 +741,25 @@ export function ChatScreen() {
               onBlur={e => { (e.nativeEvent as any); }}
             />
             <Text style={styles.inputHint}>
-              {sending ? '正在提交到 OpenClaw 调度链…' : '消息直接发送至 OpenClaw Gateway'}
+              {sending
+                ? '正在提交到 OpenClaw 调度链...'
+                : queuedAttachmentSummaries.length > 0 && !draft.trim()
+                  ? `已选 ${queuedAttachmentSummaries.length} 个附件,可直接发送给 AI 自动分析`
+                  : '消息直接发送至 OpenClaw Gateway'}
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
+            style={[
+              styles.sendBtn,
+              (!draft.trim() && queuedAttachmentSummaries.length === 0 || sending) && styles.sendBtnDisabled,
+            ]}
             onPress={handleSend}
             activeOpacity={0.8}
-            disabled={!draft.trim() || sending}
+            disabled={(!draft.trim() && queuedAttachmentSummaries.length === 0) || sending}
           >
-            <Text style={styles.sendText}>{sending ? '发送中' : '发送'}</Text>
+            <Text style={styles.sendText}>
+              {sending ? '发送中' : queuedAttachmentSummaries.length > 0 && !draft.trim() ? '分析附件' : '发送'}
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -772,7 +817,7 @@ const styles = StyleSheet.create({
   historyRestoredText: {color: '#34d399', fontSize: 11, fontWeight: '800'},
   gatewayBannerText: {color: '#f87171', fontSize: 11, fontWeight: '700'},
 
-  // 上下文策略说明 — 压缩为一行 mini indicator
+  // 上下文策略说明 - 压缩为一行 mini indicator
   contextBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -934,6 +979,7 @@ const styles = StyleSheet.create({
   attachmentNameRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
   attachmentName: {color: C.textBody, fontSize: 13, fontWeight: '700', flex: 1},
   attachmentMeta: {color: C.textMuted, fontSize: 11, marginTop: 3},
+  selectedAttachmentHint: {color: '#34d399', fontSize: 10, marginTop: 4, fontWeight: '700'},
   largeFileBadge: {
     paddingHorizontal: 5,
     paddingVertical: 1,

@@ -32,6 +32,7 @@ export interface Task {
   updatedAt?: number;
   sourceType?: 'subagent' | 'cron' | 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system' | 'fallback';
   traceSummary?: string;
+  attachmentCount?: number;
 }
 
 export interface BrainStore {

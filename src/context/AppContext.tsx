@@ -67,6 +67,7 @@ interface AppContextValue {
     sessionKey?: string;
     sent: boolean;
     source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system';
+    attachmentFiles?: Array<{id: string; name: string; type: string; size: number; status: string; dispatchId?: string}>;
   }) => void;
   markLatestDispatchActive: (label?: string, agentId?: string, sessionKey?: string, runtimeMs?: number, updatedAt?: number) => void;
   finalizeLatestDispatch: (payload: {
@@ -573,6 +574,7 @@ export function AppProvider({children}: {children: ReactNode}) {
     sessionKey?: string;
     sent: boolean;
     source?: 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system';
+    attachmentFiles?: Array<{id: string; name: string; type: string; size: number; status: string; dispatchId?: string}>;
   }) => {
     const createdAt = Date.now();
     const record: DispatchRecord = {
@@ -585,16 +587,25 @@ export function AppProvider({children}: {children: ReactNode}) {
       createdAt,
       updatedAt: createdAt,
       status: payload.sent ? 'submitted' : 'failed',
-      source: payload.source ?? 'chat',
+      source: payload.source ?? (payload.attachmentFiles && payload.attachmentFiles.length > 0 ? 'upload' : 'chat'),
     };
 
     setDispatches(items => [record, ...items].slice(0, 20));
 
+    // Back-link uploaded files to this dispatch so the UploadScreen and
+    // DispatchChainScreen can show which files were involved.
+    if (payload.attachmentFiles) {
+      payload.attachmentFiles.forEach(file => {
+        uploadService.updateFileDispatchId(file.id, record.id);
+      });
+    }
+
     if (payload.taskId) {
+      const attachmentCount = payload.attachmentFiles?.length ?? 0;
       const nextTask: Task = {
         id: payload.taskId,
         title: payload.userText.length > 42 ? `${payload.userText.slice(0, 42)}…` : payload.userText,
-        owner: payload.source === 'upload'
+        owner: payload.source === 'upload' || attachmentCount > 0
           ? '附件入口 / 调度链'
           : payload.source === 'knowledge'
             ? '知识库 / 调度链'
@@ -611,8 +622,11 @@ export function AppProvider({children}: {children: ReactNode}) {
         priority: payload.source === 'confirmation' ? 'P0' : payload.source === 'system' ? 'P2' : 'P1',
         sessionKey: payload.sessionKey,
         updatedAt: createdAt,
-        sourceType: payload.source ?? 'chat',
-        traceSummary: payload.sent ? '移动端已生成调度单，等待状态继续回流' : '发送失败，等待重试',
+        sourceType: payload.source ?? (attachmentCount > 0 ? 'upload' : 'chat'),
+        traceSummary: payload.sent
+          ? `移动端已生成调度单${attachmentCount > 0 ? `，含 ${attachmentCount} 个附件` : ''}，等待状态继续回流`
+          : '发送失败，等待重试',
+        attachmentCount,
       };
       setTasks(items => [nextTask, ...items].slice(0, 20));
     }
