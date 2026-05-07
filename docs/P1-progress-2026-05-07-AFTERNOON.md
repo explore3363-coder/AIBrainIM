@@ -1,6 +1,29 @@
 # AIBrainIM P1 进展记录（2026-05-07 下午）
 
-## 本轮完成
+## 本轮第二部分完成（本轮第二笔 commit）
+
+### 9. 导航类型安全补齐（ConfirmationsScreen / DispatchChainScreen / UploadScreen）
+
+本轮 session 开始时发现三个屏幕存在 `(navigation as any)` 类型cast和 `typeof useRoute === 'function'` defensive pattern，但类型安全不完整。
+
+改造内容：
+- `ConfirmationsScreen`：将 `useNavigation` 升级为 `NativeStackNavigationProp<RootStackParamList>`，移除 4 处 `(navigation as any)` cast；将 `useRoute` 防御式调用升级为 `RouteProp<RootStackParamList, 'Confirmations'>` 正确类型，同时保留测试环境兼容的 guard
+- `DispatchChainScreen`：将 `useNavigation<NativeStackNavigationProp<any>>` 升级为 `NativeStackNavigationProp<RootStackParamList>`，将 `useRoute` 防御式调用升级为 `RouteProp<RootStackParamList, 'DispatchChain'>` 正确类型
+- `UploadScreen`：将 `useRoute` 防御式调用升级为 `RouteProp<RootStackParamList, 'Upload'>` 正确类型，同时保留测试环境兼容的 guard
+
+关键文件：
+- `src/screens/ConfirmationsScreen.tsx`：导航类型升级 + 4× `as any` 移除
+- `src/screens/DispatchChainScreen.tsx`：导航类型升级
+- `src/screens/UploadScreen.tsx`：route 类型升级
+
+验证通过：
+- `npm run typecheck` ✅ 通过
+- `npm test -- --runInBand` ✅ 5 suites, 55 tests 全部通过
+- iOS Simulator build ✅ BUILD SUCCEEDED
+
+---
+
+## 本轮第一部分完成（第一笔 commit）
 
 ### 1. Dashboard Fallback Banner 增强：注入 Demo 按钮
 之前 Fallback Banner 只提供跳转到 Gateway Settings 的入口，用户在没有真实 Gateway 时无法快速体验完整闭环。
@@ -22,10 +45,72 @@
 关键文件：
 - `src/data/api.ts`：移除 2 处 console.warn 调用
 
-### 3. 验证通过
+### 3. 需确认项闭环增强：确认/延后结果真正回流
+之前“需确认项”虽然支持 pending / confirmed / deferred 状态切换，但用户点完后更像本地 UI 状态变化，闭环感不够强。
+
+本轮改造：
+- `ConfirmationItem` 新增 `resolvedAt / followUpTaskId / followUpDispatchId`，把人工决策和后续任务链正式挂上关系
+- `confirmItem()` 现在在更新状态的同时，会把 follow-up task / dispatch id 写回确认项本身
+- `deferItem()` 同样会保留延后动作对应的 follow-up task / dispatch id，确保“延后”不是静默消失，而是明确进入待后续处理状态
+- `ConfirmationsScreen` 新增「闭环回流」信息块，可直接看到该确认动作已经生成的任务号、调度号和处理时间
+
+关键文件：
+- `src/types/index.ts`
+- `src/context/AppContext.tsx`
+- `src/screens/ConfirmationsScreen.tsx`
+- `__tests__/AppContext.confirm.test.tsx`
+
+### 4. UploadScreen 运行时态一致性补全
+UploadScreen 之前对 runtimeMode 完全无感知，用户在非 LIVE 模式下上传文件时得不到任何提示，不知道这些上传可能无法完成后续 AI 处理闭环。
+
+本轮改造：
+- UploadScreen 引入 `useAppContext`，获取 `runtimeMode / runtimeError / gatewayConfigValid`
+- 新增运行时态 Banner：当 `runtimeMode !== 'live'` 时显示橙色提示框，包含模式说明、配置状态提示，以及「去配置」导航按钮
+- 与 DashboardScreen / TaskScreen / ProfileScreen 的运行时态提示保持同一口径
+
+关键文件：
+- `src/screens/UploadScreen.tsx`：新增 `runtimeBanner` 样式、fallback 条件渲染、导航跳转
+
+### 5. 上传 → 调度链 backlink：dispatchId 双向追溯
+上传进入 `dispatched` 状态后，UploadScreen 之前没有路径追溯到对应的调度单，用户无法从上传结果跳转回调度链看后续处理。
+
+本轮改造：
+- `UploadFile` 接口新增 `dispatchId?: string` 字段（已有类型的自然延伸，不改任何核心结构）
+- `uploadService` 新增 `updateFileDispatchId(fileId, dispatchId)` 公开方法，并加入 namespace 导出
+- AppContext 在检测到文件从 processing → dispatched 状态跃迁时，主动调用 `uploadService.updateFileDispatchId(file.id, dispatchId)` 建立双向 link
+- UploadScreen 已完成列表中，已分派的文件（`dispatched`）底部显示「🔗 查看调度单 {dispatchId 截断}」链接，点击跳转到 DispatchChainScreen
+
+关键文件：
+- `src/services/uploadService.ts`：`UploadFile.dispatchId` 字段 + `updateFileDispatchId` 方法 + namespace
+- `src/context/AppContext.tsx`：状态跃迁处注入 backlink
+- `src/screens/UploadScreen.tsx`：dispatchId 链路追溯 UI
+
+### 6. 验证通过
 - `npm run typecheck` ✅ 通过
-- `npm test` ✅ 5 suites, 51 tests 全部通过
+- `npm test -- --runInBand` ✅ 5 suites, 54 tests 全部通过
+- 确认链路测试已覆盖 `followUpTaskId / followUpDispatchId / resolvedAt`
 - 测试输出中不再有 `console.warn` 泄漏
+
+### 7. 需确认项重新打开能力补齐
+之前一条确认项一旦被标记为 deferred，就只能停留在“已延后”状态；虽然链路没有丢，但用户无法把它明确重新放回待确认队列，人工决策闭环少了一步“重新打开”。
+
+本轮改造：
+- `ConfirmationItem` 新增 `reopenedAt / reopenCount`，记录这条确认项被重新打开的时间与次数
+- `AppContext` 新增 `reopenItem()`：可将 deferred 项重新恢复为 pending，并生成新的 follow-up dispatch，保留链路连续性
+- `ConfirmationsScreen` 对 deferred 项新增「重新打开」操作，同时保留「现在确认」按钮，不再把延后状态当作终局
+- 重新打开后，对应任务会回到 `blocked / 待再次拍板` 状态，调度链里也会新增一条“重新打开确认”的记录
+- 补充单测覆盖 reopen 场景，确保 deferred → pending → fresh dispatch 这条链路可重复验证
+
+关键文件：
+- `src/types/index.ts`
+- `src/context/AppContext.tsx`
+- `src/screens/ConfirmationsScreen.tsx`
+- `__tests__/AppContext.confirm.test.tsx`
+
+### 8. 验证更新
+- `npm run typecheck` ✅ 通过
+- `npm test -- --runInBand` ✅ 5 suites, 55 tests 全部通过
+- 新增 reopenItem 测试通过
 
 ## 当前 P1 可用版状态总览
 
@@ -35,6 +120,7 @@
 - [x] 记忆库 / 知识库 / 附件入口 / 调度链
 - [x] 附件上传（分片/直传/断点续传/指数退避/后台队列）
 - [x] 需确认项状态流转（pending/confirmed/deferred）
+- [x] 需确认项 → follow-up task / dispatch 回流可见化
 - [x] ChatScreen typing indicator bug fix
 - [x] ProfileScreen 实时 context 统计
 - [x] TaskScreen / DispatchChainScreen 下拉刷新
@@ -45,6 +131,7 @@
 - [x] LaunchScreen（LaunchBackgroundColor）已配置
 - [x] 协议映射层（sessions → agents/tasks/dispatches）已就绪
 - [x] 测试输出清理（无 console.warn 泄漏）
+- [x] 导航类型安全（ConfirmationsScreen / DispatchChainScreen / UploadScreen）
 
 ### Apple 侧 ⏳ 待处理
 - [ ] Apple Developer 账号 + Team ID 配置

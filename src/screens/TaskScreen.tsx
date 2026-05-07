@@ -7,15 +7,7 @@ import {C} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
 import {TaskBadge} from '../components/TaskBadge';
 import type {Task, TaskState} from '../types';
-
-type RootStackParamList = {
-  Tabs: undefined;
-  Confirmations: undefined;
-  DispatchChain: undefined;
-  Upload: undefined;
-  MemoryStore: undefined;
-  KnowledgeBase: undefined;
-};
+import type {RootStackParamList} from '../App';
 
 const COLUMNS: {label: string; key: TaskState; color: string}[] = [
   {label: '进行中', key: 'running', color: C.working},
@@ -127,18 +119,34 @@ function KanbanCol({
 
 export function TaskScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {tasks, refreshing, refresh} = useAppContext();
+  const {
+    tasks,
+    dispatches,
+    uploads,
+    pendingConfirmations,
+    runtimeMode,
+    runtimeError,
+    gatewayConfigValid,
+    refreshing,
+    refresh,
+  } = useAppContext();
 
   const onRefresh = useCallback(() => { refresh(); }, [refresh]);
 
   const handleTaskPress = useCallback((task: Task) => {
     if (task.state === 'blocked' || task.sourceType === 'confirmation') {
-      navigation.navigate('Confirmations');
+      const confirmationId = task.id.startsWith('confirm-') ? task.id.replace(/^confirm-/, '') : undefined;
+      navigation.navigate('Confirmations', {
+        focusConfirmationId: confirmationId,
+        focusTaskId: task.id,
+      });
       return;
     }
 
     if (task.sourceType === 'upload') {
-      navigation.navigate('Upload');
+      navigation.navigate('Upload', {
+        focusDispatchId: task.sessionKey,
+      });
       return;
     }
 
@@ -152,8 +160,14 @@ export function TaskScreen() {
       return;
     }
 
-    navigation.navigate('DispatchChain');
+    navigation.navigate('DispatchChain', {
+      focusTaskId: task.id,
+      focusSessionKey: task.sessionKey,
+    });
   }, [navigation]);
+
+  const safeDispatches = React.useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeUploads = React.useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
 
   const grouped = React.useMemo(() => {
     const g: Record<TaskState, Task[]> = {running: [], todo: [], done: [], blocked: []};
@@ -170,6 +184,13 @@ export function TaskScreen() {
     const sorted = sortTasksByPriority(tasks.filter(task => task.state !== 'done'));
     return sorted[0];
   }, [tasks]);
+
+  const latestDispatch = React.useMemo(() => safeDispatches[0], [safeDispatches]);
+  const activeUploads = React.useMemo(
+    () => safeUploads.filter(upload => upload.status === 'queued' || upload.status === 'uploading' || upload.status === 'processing'),
+    [safeUploads],
+  );
+  const latestUpload = React.useMemo(() => activeUploads[0] ?? safeUploads[0], [activeUploads, safeUploads]);
 
   const summaryItems = React.useMemo(() => ([
     {
@@ -192,6 +213,98 @@ export function TaskScreen() {
     },
   ]), [grouped]);
 
+  const actionQueue = React.useMemo(() => {
+    const queue: Array<{
+      id: string;
+      tag: string;
+      title: string;
+      detail: string;
+      accent: string;
+      onPress: () => void;
+    }> = [];
+
+    if (runtimeMode !== 'live') {
+      queue.push({
+        id: 'gateway-runtime',
+        tag: '运行态',
+        title: gatewayConfigValid ? '优先恢复真实 Gateway 连通' : '先补齐 Gateway 配置',
+        detail: runtimeError
+          ? `当前仍是回退模式：${runtimeError}`
+          : '没有 LIVE 网关，任务流和调度流只能展示本地回退状态。',
+        accent: '#f97316',
+        onPress: () => navigation.navigate('GatewaySettings'),
+      });
+    }
+
+    if (pendingConfirmations > 0) {
+      queue.push({
+        id: 'pending-confirmations',
+        tag: '需确认项',
+        title: `还有 ${pendingConfirmations} 条待拍板`,
+        detail: '这些项目不清掉，任务看板再完整也会卡在人工确认这一步。',
+        accent: '#f87171',
+        onPress: () => navigation.navigate('Confirmations', {focusTaskId: `confirm-${topPriorityTask?.id ?? ''}`}),
+      });
+    }
+
+    if (latestUpload && activeUploads.length > 0) {
+      queue.push({
+        id: `upload-${latestUpload.id}`,
+        tag: '附件链路',
+        title: `上传中的附件：${latestUpload.name}`,
+        detail: latestUpload.status === 'processing'
+          ? '文件已传完，正在进入后台 AI 处理队列。'
+          : latestUpload.status === 'uploading'
+            ? `当前上传进度 ${latestUpload.progress}% ，完成后会自动进入调度链。`
+            : '附件已入队，等待上传与处理继续推进。',
+        accent: '#34d399',
+        onPress: () => navigation.navigate('Upload', {
+          focusFileId: latestUpload.id,
+          focusDispatchId: latestUpload.dispatchId,
+        }),
+      });
+    }
+
+    if (latestDispatch && latestDispatch.status !== 'completed') {
+      queue.push({
+        id: `dispatch-${latestDispatch.id}`,
+        tag: '调度链',
+        title: latestDispatch.userText.length > 26 ? `${latestDispatch.userText.slice(0, 26)}…` : latestDispatch.userText,
+        detail: latestDispatch.reply,
+        accent: latestDispatch.status === 'failed' ? '#f87171' : C.primary,
+        onPress: () => navigation.navigate('DispatchChain', {
+          focusDispatchId: latestDispatch.dispatchId,
+          focusTaskId: latestDispatch.taskId,
+          focusSessionKey: latestDispatch.sessionKey,
+        }),
+      });
+    }
+
+    if (topPriorityTask) {
+      queue.push({
+        id: `task-${topPriorityTask.id}`,
+        tag: '任务焦点',
+        title: topPriorityTask.title,
+        detail: topPriorityTask.next,
+        accent: topPriorityTask.state === 'blocked' ? '#f87171' : C.working,
+        onPress: () => handleTaskPress(topPriorityTask),
+      });
+    }
+
+    return queue.slice(0, 4);
+  }, [
+    activeUploads.length,
+    gatewayConfigValid,
+    handleTaskPress,
+    latestDispatch,
+    latestUpload,
+    navigation,
+    pendingConfirmations,
+    runtimeError,
+    runtimeMode,
+    topPriorityTask,
+  ]);
+
   const hasNoTasks = tasks.length === 0;
   const allDone = !hasNoTasks && grouped.running.length === 0 && grouped.todo.length === 0 && grouped.blocked.length === 0;
 
@@ -213,13 +326,40 @@ export function TaskScreen() {
             <TouchableOpacity style={styles.focusActionBtn} activeOpacity={0.8} onPress={() => handleTaskPress(topPriorityTask)}>
               <Text style={styles.focusActionBtnText}>{topPriorityTask.state === 'blocked' ? '去确认' : '继续推进'}</Text>
             </TouchableOpacity>
+          ) : runtimeMode !== 'live' ? (
+            <TouchableOpacity style={styles.focusActionBtn} activeOpacity={0.8} onPress={() => navigation.navigate('GatewaySettings')}>
+              <Text style={styles.focusActionBtnText}>去连 Gateway</Text>
+            </TouchableOpacity>
           ) : null}
         </View>
 
         <Text style={styles.focusDesc}>
           {topPriorityTask
             ? `当前最值得盯住的是「${topPriorityTask.title}」，下一步：${topPriorityTask.next}`
-            : '暂无未完成任务'}</Text>
+            : runtimeMode !== 'live'
+              ? '当前没有真正接入 LIVE 网关，优先把真实运行态连上，否则这里只能展示本地回退数据。'
+              : '暂无未完成任务'}</Text>
+
+        {actionQueue.length > 0 && (
+          <View style={styles.actionQueueList}>
+            {actionQueue.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.actionQueueCard}
+                activeOpacity={0.82}
+                onPress={item.onPress}
+              >
+                <View style={[styles.actionQueueAccent, {backgroundColor: item.accent}]} />
+                <View style={styles.actionQueueBody}>
+                  <Text style={[styles.actionQueueTag, {color: item.accent}]}>{item.tag}</Text>
+                  <Text style={styles.actionQueueTitle}>{item.title}</Text>
+                  <Text style={styles.actionQueueDetail}>{item.detail}</Text>
+                </View>
+                <Text style={styles.actionQueueArrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         <View style={styles.summaryRow}>
           {summaryItems.map(item => (
@@ -328,6 +468,23 @@ const styles = StyleSheet.create({
     borderColor: '#f87171',
   },
   focusActionBtnText: {color: '#f87171', fontSize: 12, fontWeight: '900'},
+  actionQueueList: {gap: 10, marginTop: 14},
+  actionQueueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(8,18,36,0.62)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  actionQueueAccent: {width: 4, alignSelf: 'stretch', borderRadius: 999},
+  actionQueueBody: {flex: 1},
+  actionQueueTag: {fontSize: 10, fontWeight: '900', letterSpacing: 0.5},
+  actionQueueTitle: {color: C.textTitle, fontSize: 13, fontWeight: '900', marginTop: 4},
+  actionQueueDetail: {color: C.textBody, fontSize: 11, lineHeight: 17, marginTop: 5},
+  actionQueueArrow: {color: C.textMuted, fontSize: 22, fontWeight: '300'},
   summaryRow: {flexDirection: 'row', gap: 10, marginTop: 14},
   summaryCard: {
     flex: 1,

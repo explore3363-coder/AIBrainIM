@@ -125,6 +125,11 @@ export interface ConfirmationItem {
   timestamp: string;
   status?: 'pending' | 'confirmed' | 'deferred';
   resolutionNote?: string;
+  resolvedAt?: number;
+  followUpTaskId?: string;
+  followUpDispatchId?: string;
+  reopenedAt?: number;
+  reopenCount?: number;
 }
 
 export interface ProfileStats {

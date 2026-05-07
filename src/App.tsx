@@ -5,6 +5,18 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 
+export type RootStackParamList = {
+  Tabs: {screen?: 'Dashboard' | 'Chat' | 'Agent' | 'Tasks' | 'Profile'} | undefined;
+  MemoryStore: undefined;
+  KnowledgeBase: undefined;
+  FileLibrary: undefined;
+  ProjectLibrary: undefined;
+  DispatchChain: {focusDispatchId?: string; focusTaskId?: string; focusSessionKey?: string} | undefined;
+  Confirmations: {focusConfirmationId?: string; focusTaskId?: string; focusDispatchId?: string} | undefined;
+  Upload: {focusFileId?: string; focusDispatchId?: string} | undefined;
+  GatewaySettings: undefined;
+};
+
 import {C} from './data/mockData';
 import {AppProvider} from './context/AppContext';
 import {TabBarIcon} from './components/TabBarIcon';
@@ -26,7 +38,7 @@ import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function TabNavigator() {
   return (

@@ -1,11 +1,13 @@
 import React, {useCallback, useMemo} from 'react';
 import {Text, View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
 import type {CommandTrace, DispatchRecord} from '../types';
+import type {RootStackParamList} from '../App';
 
 // User-friendly fallback when no dispatches exist yet — no developer noise
 const EMPTY_TRACES: CommandTrace[] = [
@@ -24,12 +26,34 @@ const STATUS_META: Record<DispatchRecord['status'], {label: string; accent: stri
 };
 
 export function DispatchChainScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Defensive: useRoute is a React Navigation hook that may not be available in test environments
+  const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
+  const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'DispatchChain'> | {params: undefined};
   const {dispatches, refreshing, refresh} = useAppContext();
 
   const onRefresh = useCallback(() => { refresh(); }, [refresh]);
 
-  const latestDispatch = dispatches[0];
+  const focusDispatchId = route.params && 'focusDispatchId' in route.params ? route.params.focusDispatchId : undefined;
+  const focusTaskId = route.params && 'focusTaskId' in route.params ? route.params.focusTaskId : undefined;
+  const focusSessionKey = route.params && 'focusSessionKey' in route.params ? route.params.focusSessionKey : undefined;
+
+  const rankedDispatches = useMemo(() => {
+    if (!focusDispatchId && !focusTaskId && !focusSessionKey) {
+      return dispatches;
+    }
+
+    const score = (item: DispatchRecord) => {
+      if (focusDispatchId && item.dispatchId === focusDispatchId) return 0;
+      if (focusTaskId && item.taskId === focusTaskId) return 1;
+      if (focusSessionKey && item.sessionKey === focusSessionKey) return 2;
+      return 9;
+    };
+
+    return [...dispatches].sort((a, b) => score(a) - score(b));
+  }, [dispatches, focusDispatchId, focusSessionKey, focusTaskId]);
+
+  const latestDispatch = rankedDispatches[0];
   const latestMeta = latestDispatch ? STATUS_META[latestDispatch.status] : null;
 
   const traces = useMemo<CommandTrace[]>(() => {
@@ -119,7 +143,7 @@ export function DispatchChainScreen() {
           ))}
         </View>
 
-        {dispatches.length === 0 && (
+        {rankedDispatches.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🔗</Text>
             <Text style={styles.emptyTitle}>调度链暂无记录</Text>
@@ -136,13 +160,13 @@ export function DispatchChainScreen() {
           </View>
         )}
 
-        {dispatches.length > 0 ? (
+        {rankedDispatches.length > 0 ? (
           <View style={styles.historySection}>
             <Text style={styles.historyTitle}>最近调度记录</Text>
-            {dispatches.slice(0, 6).map(item => {
+            {rankedDispatches.slice(0, 6).map(item => {
               const meta = STATUS_META[item.status];
               return (
-                <View key={item.id} style={styles.historyCard}>
+                <View key={item.id} style={[styles.historyCard, ((focusDispatchId && item.dispatchId === focusDispatchId) || (focusTaskId && item.taskId === focusTaskId) || (focusSessionKey && item.sessionKey === focusSessionKey)) && styles.focusCard]}>
                   <View style={styles.historyTop}>
                     <Text style={styles.historyText} numberOfLines={2}>{item.userText}</Text>
                     <View style={[styles.historyBadge, {borderColor: meta.accent, backgroundColor: `${meta.accent}22`}]}>
@@ -220,6 +244,13 @@ const styles = StyleSheet.create({
     padding: 12, borderRadius: 16,
     backgroundColor: 'rgba(16,31,51,0.48)',
     borderWidth: 1, borderColor: C.borderSubtle,
+  },
+  focusCard: {
+    borderColor: C.primary,
+    shadowColor: C.primary,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: {width: 0, height: 4},
   },
   historyTop: {
     flexDirection: 'row', alignItems: 'flex-start',

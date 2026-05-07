@@ -32,6 +32,7 @@ interface UploadFile {
   agent?: string;
   timestamp: string;
   error?: string;
+  dispatchId?: string; // set when upload transitions to dispatched → links to DispatchRecord
 }
 
 type UploadStatus =
@@ -416,6 +417,14 @@ export function getFile(id: string): UploadFile | undefined {
   return _queue.find(f => f.id === id);
 }
 
+/**
+ * Back-link a dispatched upload to its DispatchRecord id.
+ * Called by AppContext when `registerDispatch` is invoked with `source: 'upload'`.
+ */
+export function updateFileDispatchId(fileId: string, dispatchId: string): void {
+  _updateFile(fileId, {dispatchId});
+}
+
 /** Clear the entire queue */
 export function clearQueue(): void {
   _queue.length = 0;
@@ -510,6 +519,7 @@ export const uploadService = {
   enqueueDemoUpload,
   getQueue,
   getFile,
+  updateFileDispatchId,
   clearQueue,
   removeFile,
   retryUpload,

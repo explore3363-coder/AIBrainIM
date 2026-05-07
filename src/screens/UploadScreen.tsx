@@ -1,13 +1,18 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
   Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import type {RouteProp} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C} from '../data/mockData';
+import {useAppContext} from '../context/AppContext';
 import {uploadService, enqueueUpload, type UploadFile} from '../services/uploadService';
 import {launchImageLibrary, type ImagePickerResponse} from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
+import type {RootStackParamList} from '../App';
 
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
@@ -31,7 +36,15 @@ function FileTypeIcon(mime: string): string {
 }
 
 export function UploadScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Defensive: useRoute is a React Navigation hook that may not be available in test environments
+  const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
+  const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'Upload'> | {params: undefined};
+  const {runtimeMode, runtimeError, gatewayConfigValid} = useAppContext();
   const [files, setFiles] = useState<UploadFile[]>([]);
+
+  const focusFileId = route.params && 'focusFileId' in (route.params as any) ? (route.params as any).focusFileId : undefined;
+  const focusDispatchId = route.params && 'focusDispatchId' in (route.params as any) ? (route.params as any).focusDispatchId : undefined;
 
   useEffect(() => {
     setFiles([...uploadService.getQueue()]);
@@ -115,9 +128,23 @@ export function UploadScreen() {
     ]);
   };
 
-  const completed = files.filter(f => f.status === 'done' || f.status === 'dispatched');
-  const active    = files.filter(f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing');
-  const failed    = files.filter(f => f.status === 'error');
+  const rankedFiles = useMemo(() => {
+    if (!focusFileId && !focusDispatchId) {
+      return files;
+    }
+
+    const score = (file: UploadFile) => {
+      if (focusFileId && file.id === focusFileId) return 0;
+      if (focusDispatchId && file.dispatchId === focusDispatchId) return 1;
+      return 9;
+    };
+
+    return [...files].sort((a, b) => score(a) - score(b));
+  }, [files, focusDispatchId, focusFileId]);
+
+  const completed = rankedFiles.filter(f => f.status === 'done' || f.status === 'dispatched');
+  const active    = rankedFiles.filter(f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing');
+  const failed    = rankedFiles.filter(f => f.status === 'error');
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -136,6 +163,29 @@ export function UploadScreen() {
           </View>
         </View>
       </View>
+
+      {runtimeMode !== 'live' && (
+        <View style={styles.runtimeBanner}>
+          <Text style={styles.runtimeBannerIcon}>🛰️</Text>
+          <View style={styles.runtimeBannerText}>
+            <Text style={styles.runtimeBannerTitle}>当前为回退模式</Text>
+            <Text style={styles.runtimeBannerSub}>
+              {runtimeError
+                ? runtimeError
+                : gatewayConfigValid
+                  ? 'Gateway 配置已就绪，可尝试切换至 LIVE 模式'
+                  : '附件上传后需真实 Gateway 才能完成后续 AI 处理'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.runtimeBannerBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('GatewaySettings')}
+          >
+            <Text style={styles.runtimeBannerBtnText}>去配置</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Active uploads — always visible at top when any are running */}
@@ -181,8 +231,9 @@ export function UploadScreen() {
                 <Text style={styles.sectionTitle}>❌ 失败 ({failed.length})</Text>
                 {failed.map(f => {
                   const meta = STATUS_META[f.status] ?? STATUS_META.error;
+                  const isFocused = focusFileId === f.id || (focusDispatchId && focusDispatchId === f.dispatchId);
                   return (
-                    <View key={f.id} style={styles.card}>
+                    <View key={f.id} style={[styles.card, isFocused && styles.focusCard]}>
                       <View style={styles.cardTop}>
                         <View style={styles.cardLeft}>
                           <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
@@ -225,8 +276,9 @@ export function UploadScreen() {
                 <Text style={styles.sectionTitle}>⏳ 进行中 ({active.length})</Text>
                 {active.map(f => {
                   const meta = STATUS_META[f.status] ?? STATUS_META.uploading;
+                  const isFocused = focusFileId === f.id || (focusDispatchId && focusDispatchId === f.dispatchId);
                   return (
-                    <View key={f.id} style={styles.card}>
+                    <View key={f.id} style={[styles.card, isFocused && styles.focusCard]}>
                       <View style={styles.cardTop}>
                         <View style={styles.cardLeft}>
                           <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
@@ -257,8 +309,9 @@ export function UploadScreen() {
                 <Text style={styles.sectionTitle}>✅ 已完成 ({completed.length})</Text>
                 {completed.map(f => {
                   const meta = STATUS_META[f.status] ?? STATUS_META.done;
+                  const isFocused = focusFileId === f.id || (focusDispatchId && focusDispatchId === f.dispatchId);
                   return (
-                    <View key={f.id} style={styles.card}>
+                    <View key={f.id} style={[styles.card, isFocused && styles.focusCard]}>
                       <View style={styles.cardTop}>
                         <View style={styles.cardLeft}>
                           <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
@@ -268,6 +321,17 @@ export function UploadScreen() {
                           <Text style={styles.fileMeta}>
                             {uploadService.formatBytes(f.size)} · {f.agent ? `分派给 ${f.agent}` : meta.label}
                           </Text>
+                          {f.dispatchId ? (
+                            <TouchableOpacity
+                              style={styles.dispatchLink}
+                              activeOpacity={0.7}
+                              onPress={() => navigation.navigate('DispatchChain', {focusDispatchId: f.dispatchId})}
+                            >
+                              <Text style={styles.dispatchLinkText}>
+                                🔗 查看调度单 {f.dispatchId.length > 18 ? `…${f.dispatchId.slice(-14)}` : f.dispatchId}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
                         </View>
                         <TouchableOpacity onPress={() => handleDelete(f.id)}>
                           <Text style={styles.doneIcon}>✓</Text>
@@ -338,6 +402,13 @@ const styles = StyleSheet.create({
     backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle,
     marginBottom: 10,
   },
+  focusCard: {
+    borderColor: C.primary,
+    shadowColor: C.primary,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: {width: 0, height: 4},
+  },
   cardTop: {flexDirection: 'row', alignItems: 'center', gap: 12},
   cardLeft: {
     width: 44, height: 44, borderRadius: 12,
@@ -375,4 +446,38 @@ const styles = StyleSheet.create({
   deleteBtnText: {color: '#f87171', fontSize: 13, fontWeight: '800'},
 
   footer: {height: 24},
+
+  dispatchLink: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56,100,200,0.1)',
+    alignSelf: 'flex-start',
+  },
+  dispatchLinkText: {
+    color: C.primary,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  runtimeBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 16, marginBottom: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(249,115,22,0.1)',
+    borderWidth: 1, borderColor: 'rgba(249,115,22,0.3)',
+  },
+  runtimeBannerIcon: {fontSize: 20},
+  runtimeBannerText: {flex: 1},
+  runtimeBannerTitle: {color: '#f97316', fontSize: 13, fontWeight: '800'},
+  runtimeBannerSub: {color: C.textMuted, fontSize: 11, marginTop: 3, lineHeight: 16},
+  runtimeBannerBtn: {
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(249,115,22,0.15)',
+    borderWidth: 1, borderColor: 'rgba(249,115,22,0.4)',
+  },
+  runtimeBannerBtnText: {color: '#f97316', fontSize: 12, fontWeight: '800'},
 });

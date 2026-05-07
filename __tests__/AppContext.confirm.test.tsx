@@ -22,6 +22,7 @@ function CaptureCtx({
     pendingConfirmations: number;
     confirmItem: (id: string) => void;
     deferItem: (id: string) => void;
+    reopenItem: (id: string) => void;
   }) => void,
 }) {
   const ctx = useAppContext();
@@ -32,6 +33,7 @@ function CaptureCtx({
     pendingConfirmations: ctx.pendingConfirmations,
     confirmItem: ctx.confirmItem,
     deferItem: ctx.deferItem,
+    reopenItem: ctx.reopenItem,
   });
   return <Text>ok</Text>;
 }
@@ -249,6 +251,9 @@ describe('AppProvider', () => {
     const updatedConfirmation = ctxSnapshot!.confirmations.find(item => item.id === target!.id);
     expect(updatedConfirmation?.status).toBe('confirmed');
     expect(updatedConfirmation?.resolutionNote).toContain('已确认');
+    expect(updatedConfirmation?.followUpTaskId).toBe(`confirm-${target!.id}`);
+    expect(updatedConfirmation?.followUpDispatchId).toBeTruthy();
+    expect(typeof updatedConfirmation?.resolvedAt).toBe('number');
 
     const linkedTask = ctxSnapshot!.tasks.find(task => task.id === `confirm-${target!.id}`);
     expect(linkedTask).toBeTruthy();
@@ -291,6 +296,9 @@ describe('AppProvider', () => {
     const updatedConfirmation = ctxSnapshot!.confirmations.find(item => item.id === target!.id);
     expect(updatedConfirmation?.status).toBe('deferred');
     expect(updatedConfirmation?.resolutionNote).toContain('已延后');
+    expect(updatedConfirmation?.followUpTaskId).toBe(`confirm-${target!.id}`);
+    expect(updatedConfirmation?.followUpDispatchId).toBeTruthy();
+    expect(typeof updatedConfirmation?.resolvedAt).toBe('number');
 
     const linkedTask = ctxSnapshot!.tasks.find(task => task.id === `confirm-${target!.id}`);
     expect(linkedTask).toBeTruthy();
@@ -298,6 +306,56 @@ describe('AppProvider', () => {
     expect(linkedTask?.sourceType).toBe('confirmation');
 
     const linkedDispatch = ctxSnapshot!.dispatches.find(dispatch => dispatch.taskId === `confirm-${target!.id}`);
+    expect(linkedDispatch).toBeTruthy();
+    expect(linkedDispatch?.status).toBe('submitted');
+    expect(linkedDispatch?.source).toBe('confirmation');
+  });
+
+  test('reopenItem moves a deferred confirmation back to pending with a fresh dispatch', async () => {
+    let ctxSnapshot: {
+      confirmations: ConfirmationItem[];
+      dispatches: DispatchRecord[];
+      tasks: Task[];
+      pendingConfirmations: number;
+      confirmItem: (id: string) => void;
+      deferItem: (id: string) => void;
+      reopenItem: (id: string) => void;
+    } | null = null;
+
+    await ReactTestRenderer.act(async () => {
+      ReactTestRenderer.create(
+        <AppProvider>
+          <CaptureCtx onCtx={(ctx) => { ctxSnapshot = ctx; }} />
+        </AppProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const target = ctxSnapshot!.confirmations.find(item => (item.status ?? 'pending') === 'pending');
+    expect(target).toBeTruthy();
+
+    await ReactTestRenderer.act(async () => {
+      ctxSnapshot!.deferItem(target!.id);
+      await Promise.resolve();
+    });
+
+    await ReactTestRenderer.act(async () => {
+      ctxSnapshot!.reopenItem(target!.id);
+      await Promise.resolve();
+    });
+
+    const reopened = ctxSnapshot!.confirmations.find(item => item.id === target!.id);
+    expect(reopened?.status).toBe('pending');
+    expect(reopened?.resolutionNote).toContain('已重新打开确认');
+    expect(typeof reopened?.reopenedAt).toBe('number');
+    expect(reopened?.reopenCount).toBe(1);
+    expect(reopened?.followUpDispatchId).toBeTruthy();
+
+    const linkedTask = ctxSnapshot!.tasks.find(task => task.id === `confirm-${target!.id}`);
+    expect(linkedTask?.state).toBe('blocked');
+    expect(linkedTask?.next).toContain('请重新确认');
+
+    const linkedDispatch = ctxSnapshot!.dispatches.find(dispatch => dispatch.userText === `重新打开确认：${target!.title}`);
     expect(linkedDispatch).toBeTruthy();
     expect(linkedDispatch?.status).toBe('submitted');
     expect(linkedDispatch?.source).toBe('confirmation');

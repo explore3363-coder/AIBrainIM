@@ -26,27 +26,38 @@
 - [x] Gateway 配置页（URL/Token/通道/账号配置 + 连通性测试）
 - [x] CI/CD：GitHub Actions TypeScript + iOS Simulator Build
 - [x] Fastlane：sim / tf / appstore lanes
-- [x] npm test 通过（5 suites, 51 tests，测试输出无 console.warn 泄漏）
+- [x] npm test 通过（3 suites, 9 tests，测试输出无 console.warn 泄漏）
 - [x] npm run typecheck 通过
+- [x] iOS Simulator Build ✅ 成功
 - [x] Demo 模式双入口（Profile 页 + Dashboard Fallback Banner 注入按钮）
-- [x] PrivacyInfo.xcprivacy 已配置（NSPrivacyAccessedAPI + NSPrivacyTracking=false）
+- [x] PrivacyInfo.xcprivacy 已配置
 - [x] LaunchScreen 已配置（LaunchBackgroundColor，#050d1a 背景）
 - [x] App Icon 1024×1024 已就位（AppIcon-1024.png）
+- [x] fastlane metadata name.txt 已补全（zh-CN / en-US）
 - [x] 上线文档完整（APPSTORE_LISTING.md / TESTFLIGHT.md / RELEASE_CHECKLIST.md / PRIVACY.md / DEPLOY.md）
-- [x] Dashboard Fallback Banner 始终可见，含 Demo 注入按钮
 
-### ⬜ 待完成（Apple 侧 — 需人工处理）
-- [ ] Apple Developer 账号 + Team ID 配置
+### ⬜ 待完成（Apple 侧 — 需人工处理，是当前唯一阻塞）
+**核心依赖：Apple Developer 账号 + GitHub Secrets 配置**
+
+GitHub Secrets（Settings → Secrets and variables → Actions）需要配置：
+- `APPLE_API_KEY_ID` — App Store Connect API Key ID
+- `APPLE_API_KEY_CONTENT` — .p8 文件原始内容（base64 解码后的内容）
+- `APPLE_APP_PASSWORD` — App 专用密码
+
+GitHub Vars（Settings → Secrets and variables → Actions → Variables）需要配置：
+- `APPLE_TEAM_ID` — Apple Team ID（如 DRBZA8XXXX）
+- `APPLE_DEV_EMAIL` — Apple Developer 邮箱
+
+待完成清单：
+- [ ] Apple Developer 账号（$99/年） + Team ID 获取
 - [ ] App Store Connect 创建 App 记录（Bundle ID: com.openclaw.aibrainim）
-- [ ] 隐私清单（PrivacyInfo.xcprivacy）
-- [ ] Launch Screen 配置
 - [ ] 权限文案（相册/相机如后续启用）
 - [ ] 第一个 TestFlight Build 上传 + 验证可安装
 - [ ] iPhone 截图（6.7" / 6.5" / 5.5"）
 - [ ] App Store 填写内容（描述/关键词/隐私政策/支持链接）
 
 ### ⬜ 待完成（非阻塞，可并行）
-- [ ] 真实 Gateway API 接入（协议映射层已就位）
+- [ ] 真实 Gateway API 接入（协议映射层已就绪）
 - [ ] 消息发送 + 调度状态真实闭环验证
 - [ ] memory/knowledge 真实向量检索接入
 
@@ -61,13 +72,11 @@
 ## iOS 发布准备
 - [x] Bundle ID: `com.openclaw.aibrainim`
 - [x] App 名称: AI协作平台
-- [x] App Icon: 1024×1024 PNG 已备（需确认最终版）
-- [ ] Launch Screen
-- [ ] 隐私清单（PrivacyInfo.xcprivacy）
-- [ ] 权限文案（相册、相机如后续启用）
-- [x] Release 配置可编译
+- [x] App Icon: 1024×1024 PNG
+- [x] PrivacyInfo.xcprivacy 已配置
+- [x] Launch Screen 已配置
+- [x] Release 配置可编译（xcodebuild archive 成功）
 - [ ] Archive + TestFlight 验证
-- [ ] TestFlight 内测文案
 
 ## App Store 素材
 - [ ] 6.7-inch 截图（1290×2796）
@@ -82,25 +91,24 @@
 ## TestFlight 提交流程
 
 ```bash
-# 1. 本地验证 Simulator build
-npm run build:sim
-
-# 2. Tag 发布（触发 GitHub Actions tf-build）
+# 1. 配置 GitHub Secrets 后，打 tag 触发 GitHub Actions
 git tag v0.1.0 && git push origin v0.1.0
 
-# 3. GitHub Actions 自动触发 tf-build job
-# 或本地执行：
-cd ios/fastlane && bundle exec fastlane tf
+# 2. GitHub Actions 自动构建并上传到 App Store Connect
+# 等待处理（约 5-30 分钟）
 
-# 4. App Store Connect 等待处理（约 5-30 分钟）
-# → TestFlight → Builds → 添加测试信息 → 外部测试
+# 3. App Store Connect → TestFlight → Builds → 添加测试信息
+# → 外部测试 → 添加测试人员
+
+# 本地备选：
+cd ios/fastlane && bundle exec fastlane tf
 ```
 
 ## 近期建议顺序
 ```
-1. 配置 Apple Developer 账号 + App Store Connect App 记录
-2. 验证 Simulator Build 成功（npm run build:sim）
-3. 打 tag → GitHub Actions 自动 TestFlight 上传
+1. Apple Developer 账号注册/登录
+2. GitHub Secrets + Vars 配置（见上文）
+3. 打 tag v0.1.0 → GitHub Actions 自动 TestFlight 上传
 4. 验证 TestFlight 可安装
 5. 准备 App Store 截图，提审
 ```

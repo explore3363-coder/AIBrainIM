@@ -58,6 +58,7 @@ interface AppContextValue {
   refreshGatewayStatus: () => Promise<void>;
   confirmItem: (id: string) => void;
   deferItem: (id: string) => void;
+  reopenItem: (id: string) => void;
   registerDispatch: (payload: {
     userText: string;
     reply: string;
@@ -261,6 +262,7 @@ const AppContext = createContext<AppContextValue>({
   refreshGatewayStatus: async () => {},
   confirmItem: () => {},
   deferItem: () => {},
+  reopenItem: () => {},
   registerDispatch: () => {},
   markLatestDispatchActive: () => {},
   finalizeLatestDispatch: () => {},
@@ -382,43 +384,59 @@ export function AppProvider({children}: {children: ReactNode}) {
     const target = confirmations.find(item => item.id === id);
     const updatedAt = Date.now();
 
-    setConfirmations(items => updateConfirmationStatus(items, id, 'confirmed', '已确认，等待执行链继续推进'));
-
-    if (target) {
-      const taskId = `confirm-${id}`;
-      setTasks(items => {
-        const nextTask: Task = {
-          id: taskId,
-          title: `确认执行：${target.title}`,
-          owner: `${target.agent} / 确认链路`,
-          state: 'running',
-          eta: '已确认',
-          next: '确认结果已回流，等待对应 Agent 继续推进',
-          priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
-          updatedAt,
-          sourceType: 'confirmation',
-          traceSummary: '确认链路已拍板，执行重新进入推进态',
-        };
-        return [nextTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
-      });
-
-      const confirmDispatch: DispatchRecord = {
-        id: `confirm-dispatch-${id}-${updatedAt}`,
-        userText: `确认：${target.title}`,
-        reply: `✓ 你已确认「${target.title}」，结果已回流到任务流，后续执行会继续沿调度链推进。`,
-        taskId,
-        dispatchId: `confirm-dp-${updatedAt.toString(36)}`,
-        createdAt: updatedAt,
-        updatedAt,
-        status: 'processing',
-        source: 'confirmation',
-        agentId: target.agent,
-        label: '确认链路继续推进',
-        stageText: '已确认，等待对应 Agent 继续执行',
-      };
-
-      setDispatches(items => [confirmDispatch, ...items].slice(0, 20));
+    if (!target) {
+      return;
     }
+
+    const taskId = `confirm-${id}`;
+    const dispatchId = `confirm-dp-${updatedAt.toString(36)}`;
+    const resolutionNote = '已确认，等待执行链继续推进';
+
+    setConfirmations(items => items.map(item =>
+      item.id === id
+        ? {
+            ...item,
+            status: 'confirmed',
+            resolutionNote,
+            resolvedAt: updatedAt,
+            followUpTaskId: taskId,
+            followUpDispatchId: dispatchId,
+          }
+        : item,
+    ));
+
+    setTasks(items => {
+      const nextTask: Task = {
+        id: taskId,
+        title: `确认执行：${target.title}`,
+        owner: `${target.agent} / 确认链路`,
+        state: 'running',
+        eta: '已确认',
+        next: '确认结果已回流，等待对应 Agent 继续推进',
+        priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
+        updatedAt,
+        sourceType: 'confirmation',
+        traceSummary: '确认链路已拍板，执行重新进入推进态',
+      };
+      return [nextTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
+    });
+
+    const confirmDispatch: DispatchRecord = {
+      id: `confirm-dispatch-${id}-${updatedAt}`,
+      userText: `确认：${target.title}`,
+      reply: `✓ 你已确认「${target.title}」，结果已回流到任务流，后续执行会继续沿调度链推进。`,
+      taskId,
+      dispatchId,
+      createdAt: updatedAt,
+      updatedAt,
+      status: 'processing',
+      source: 'confirmation',
+      agentId: target.agent,
+      label: '确认链路继续推进',
+      stageText: '已确认，等待对应 Agent 继续执行',
+    };
+
+    setDispatches(items => [confirmDispatch, ...items].slice(0, 20));
 
     resolveConfirmation(id, 'confirmed').catch(() => {});
   }, [confirmations]);
@@ -427,46 +445,124 @@ export function AppProvider({children}: {children: ReactNode}) {
     const target = confirmations.find(item => item.id === id);
     const updatedAt = Date.now();
 
-    setConfirmations(items => updateConfirmationStatus(items, id, 'deferred', '已延后，保留在确认队列中待后续处理'));
-
-    if (target) {
-      const taskId = `confirm-${id}`;
-
-      setTasks(items => {
-        const deferredTask: Task = {
-          id: taskId,
-          title: `确认待处理：${target.title}`,
-          owner: `${target.agent} / 确认链路`,
-          state: 'blocked',
-          eta: '已延后',
-          next: '等待你稍后重新拍板，再继续推进对应执行链',
-          priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
-          updatedAt,
-          sourceType: 'confirmation',
-          traceSummary: '确认链路已延后，保留人工决策入口',
-        };
-        return [deferredTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
-      });
-
-      const deferDispatch: DispatchRecord = {
-        id: `defer-dispatch-${id}-${updatedAt}`,
-        userText: `延后：${target.title}`,
-        reply: `🕒 你已将「${target.title}」标记为稍后处理，系统会保留这条决策入口，不会直接丢失。`,
-        taskId,
-        dispatchId: `defer-dp-${updatedAt.toString(36)}`,
-        createdAt: updatedAt,
-        updatedAt,
-        status: 'submitted',
-        source: 'confirmation',
-        agentId: target.agent,
-        label: '确认链路暂缓',
-        stageText: '已延后，等待重新确认',
-      };
-
-      setDispatches(items => [deferDispatch, ...items].slice(0, 20));
+    if (!target) {
+      return;
     }
 
+    const taskId = `confirm-${id}`;
+    const dispatchId = `defer-dp-${updatedAt.toString(36)}`;
+    const resolutionNote = '已延后，保留在确认队列中待后续处理';
+
+    setConfirmations(items => items.map(item =>
+      item.id === id
+        ? {
+            ...item,
+            status: 'deferred',
+            resolutionNote,
+            resolvedAt: updatedAt,
+            followUpTaskId: taskId,
+            followUpDispatchId: dispatchId,
+          }
+        : item,
+    ));
+
+    setTasks(items => {
+      const deferredTask: Task = {
+        id: taskId,
+        title: `确认待处理：${target.title}`,
+        owner: `${target.agent} / 确认链路`,
+        state: 'blocked',
+        eta: '已延后',
+        next: '等待你稍后重新拍板，再继续推进对应执行链',
+        priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
+        updatedAt,
+        sourceType: 'confirmation',
+        traceSummary: '确认链路已延后，保留人工决策入口',
+      };
+      return [deferredTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
+    });
+
+    const deferDispatch: DispatchRecord = {
+      id: `defer-dispatch-${id}-${updatedAt}`,
+      userText: `延后：${target.title}`,
+      reply: `🕒 你已将「${target.title}」标记为稍后处理，系统会保留这条决策入口，不会直接丢失。`,
+      taskId,
+      dispatchId,
+      createdAt: updatedAt,
+      updatedAt,
+      status: 'submitted',
+      source: 'confirmation',
+      agentId: target.agent,
+      label: '确认链路暂缓',
+      stageText: '已延后，等待重新确认',
+    };
+
+    setDispatches(items => [deferDispatch, ...items].slice(0, 20));
+
     resolveConfirmation(id, 'deferred').catch(() => {});
+  }, [confirmations]);
+
+  const reopenItem = useCallback((id: string) => {
+    const target = confirmations.find(item => item.id === id);
+    const updatedAt = Date.now();
+
+    if (!target || (target.status ?? 'pending') !== 'deferred') {
+      return;
+    }
+
+    const taskId = target.followUpTaskId ?? `confirm-${id}`;
+    const dispatchId = `reopen-dp-${updatedAt.toString(36)}`;
+    const nextReopenCount = (target.reopenCount ?? 0) + 1;
+    const resolutionNote = nextReopenCount > 1
+      ? `已重新打开确认（第 ${nextReopenCount} 次），等待你再次拍板`
+      : '已重新打开确认，等待你再次拍板';
+
+    setConfirmations(items => items.map(item =>
+      item.id === id
+        ? {
+            ...item,
+            status: 'pending',
+            resolutionNote,
+            reopenedAt: updatedAt,
+            reopenCount: nextReopenCount,
+            followUpTaskId: taskId,
+            followUpDispatchId: dispatchId,
+          }
+        : item,
+    ));
+
+    setTasks(items => {
+      const reopenedTask: Task = {
+        id: taskId,
+        title: `等待确认：${target.title}`,
+        owner: `${target.agent} / 确认链路`,
+        state: 'blocked',
+        eta: '重新待确认',
+        next: '请重新确认或再次延后，决定后再继续推进执行链',
+        priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
+        updatedAt,
+        sourceType: 'confirmation',
+        traceSummary: '确认链路已重新打开，等待新的人工决策',
+      };
+      return [reopenedTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
+    });
+
+    const reopenDispatch: DispatchRecord = {
+      id: `reopen-dispatch-${id}-${updatedAt}`,
+      userText: `重新打开确认：${target.title}`,
+      reply: `↩️ 已重新打开「${target.title}」的确认入口，这条事项重新回到待拍板状态。`,
+      taskId,
+      dispatchId,
+      createdAt: updatedAt,
+      updatedAt,
+      status: 'submitted',
+      source: 'confirmation',
+      agentId: target.agent,
+      label: '确认链路重新打开',
+      stageText: '已重新打开，等待再次确认',
+    };
+
+    setDispatches(items => [reopenDispatch, ...items].slice(0, 20));
   }, [confirmations]);
 
   const registerDispatch = useCallback((payload: {
@@ -890,6 +986,9 @@ export function AppProvider({children}: {children: ReactNode}) {
           return [record, ...items].slice(0, 20);
         });
 
+        // Back-link the dispatchId into the upload file so UploadScreen can navigate to it
+        uploadService.updateFileDispatchId(file.id, dispatchId);
+
         setTasks(items => items.map(item => item.id === taskId ? {
           ...item,
           owner: file.agent ? `${file.agent} / 附件链路` : item.owner,
@@ -1029,6 +1128,7 @@ export function AppProvider({children}: {children: ReactNode}) {
         refreshGatewayStatus,
         confirmItem,
         deferItem,
+        reopenItem,
         registerDispatch,
         markLatestDispatchActive,
         finalizeLatestDispatch,
