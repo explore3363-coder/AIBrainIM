@@ -164,7 +164,7 @@ export function DashboardScreen() {
         title: '项目库',
         value: projectSignals > 0 ? `${Math.min(99, projectSignals)} 条项目信号` : 'AIBrainIM / 聚源三维',
         status: projectSignals > 0 ? 'active' as const : 'standby' as const,
-        detail: '移动端开发 · 智慧矿山 · OpenClaw',
+        detail: '智慧矿山 · 项目跟踪 · 产出管理',
         accent: '#34d399',
         screen: 'ProjectLibrary',
       },

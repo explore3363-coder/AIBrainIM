@@ -531,21 +531,27 @@ export function ProfileScreen() {
             title="AI 模型配置"
             subtitle="选择语言模型 · 调整生成参数"
             accent="#fbbf24"
-            onPress={() => Alert.alert('提示', '模型配置功能开发中')}
+            onPress={() => navigation.navigate('GatewaySettings')}
           />
           <MenuItem
             emoji="🔊"
             title="通知与提醒"
             subtitle="任务状态变更 · AI 产出提醒"
             accent={C.primary}
-            onPress={() => Alert.alert('提示', '通知设置功能开发中')}
+            onPress={() => Alert.alert('通知权限', 'iOS 系统设置 → 通知 → AIBrainIM\n\n应用内通知由系统统一管理，开启后可接收任务状态变更和 AI 产出提醒。')}
           />
           <MenuItem
             emoji="🔒"
             title="隐私与安全"
             subtitle="数据存储 · 权限管理"
             accent={C.accent}
-            onPress={() => Alert.alert('提示', '隐私设置功能开发中')}
+            onPress={() => {
+              Alert.alert(
+                '隐私与安全',
+                '· 聊天记录仅保存在本设备\n· 附件文件不上传至第三方\n· Gateway 连接加密传输\n· 退出登录后本地数据清除',
+                [{text: '知道了'}],
+              );
+            }}
           />
         </View>
 

@@ -54,6 +54,11 @@ function TaskCard({task, onPress}: {task: Task; onPress?: () => void}) {
       </View>
       <Text style={styles.taskId}>#{task.id}</Text>
       <View style={styles.metaBadgeRow}>
+        {task.attachmentCount ? (
+          <View style={[styles.sourceBadge, {backgroundColor: '#6366f1'}]}>
+            <Text style={styles.sourceBadgeText}>📎 {task.attachmentCount}</Text>
+          </View>
+        ) : null}
         {task.sourceType ? (
           <View style={styles.sourceBadge}>
             <Text style={styles.sourceBadgeText}>{SOURCE_TYPE_LABEL[task.sourceType] ?? task.sourceType}</Text>
