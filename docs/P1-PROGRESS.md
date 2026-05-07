@@ -1,18 +1,17 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-08 03:40 GMT+8
+> 最后更新：2026-05-08 03:49 GMT+8
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第十四轮深夜完成）
+## 当前状态：P1 可用版收口完毕 ✅（第十六轮凌晨确认）
 
-### 本轮（第十四轮）完成：全面质量确认 · ProjectLibrary 运行态投影 · 文档体系收口
-- ProjectLibraryScreen 运行态投影（runtime-mobile/juyuan/infra/agents/decision 五链路）
-- focusQueue 按阻塞压力自动排序最该推进的 3 条链路
-- 上传服务体系 8 个 queueStage 完整（queued/chunking/uploading/merging/processing/dispatched/done/error）
-- 全面质量确认：TypeScript ✅ · Jest 10 suites/82 tests ✅ · iOS Build ✅ · TODO/FIXME 零残留
-- 唯一阻塞：Apple Developer 账号 + GitHub Secrets/Vars 配置
-- GitHub push ✅ → origin/main（commit a7b590c）
+### 本轮（第十六轮）完成：深夜复检 · GatewaySettings 全链路验证 · 文档收口
+- TypeScript ✅ · Jest 10 suites/82 tests ✅ · iOS Simulator Build ✅ · Git clean ✅
+- 全面验证五主功能 + 信息层五入口 + 调度链 + 上传服务 + ProjectLibrary
+- GatewaySettingsScreen 完整实现：session 发现、连通性测试、直连会话测试、Feishu 回退测试
+- 测试记录写入 dispatch chain，测试结果合并到 AI 产出流
+- P1-PROGRESS.md 更新到最新状态
 
 ### 上轮（第十三轮）完成：截图自动化修复 + App Store 尺寸生成
 - `scripts/capture-screenshots.sh` 修复 iOS 26.4 兼容（`simctl io screenshot` 替换已移除的 `simctl screenshot`）
