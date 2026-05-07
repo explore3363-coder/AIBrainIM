@@ -61,8 +61,8 @@ jobs:
             -subj "/UID=7S96N8A32U/CN=iPhone Distribution: Hong Yang (7S96N8A32U)/OU=7S96N8A32U/O=Hong Yang/C=US"
           echo "Private key and CSR generated"
 
-      # ── Step 2: Download WWDR G3 ───────────────────────────────────────────
-      - name: Download and import WWDR G3 certificate
+      # ── Step 2: Download WWDR G3 and setup keychain ─────────────────────────
+      - name: Setup keychain and import WWDR G3
         run: |
           mkdir -p ~/Library/Keychains
           security create-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
@@ -76,102 +76,85 @@ jobs:
 
       # ── Step 3: Submit CSR to ASC API to get distribution certificate ────────
       - name: Create iOS Distribution certificate via ASC API
-        env:
-          APPLE_API_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
-          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-          APPLE_API_ISSUER_ID: ${{ vars.APPLE_API_ISSUER_ID }}
         run: |
+          pip3 install PyJWT cryptography 2>&1 | tail -3
+
           python3 << 'PYEOF'
-          import urllib.request, json, time, jwt, base64, os
+          import urllib.request, json, time, jwt as pyjwt, base64, os
 
-          # Get API key content from env (base64 encoded)
-          key_content = os.environ.get('APPLE_API_KEY_CONTENT', '')
-          if not key_content:
-            # Read directly from file if it's a path
-            with open('/Users/zz/Downloads/AuthKey_HWP45ALL8Y.p8', 'r') as f:
-              p8_content = f.read().strip()
-          else:
-            p8_content = key_content
-
-          kid = os.environ.get('APPLE_API_KEY_ID', 'HWP45ALL8Y')
-          iss = os.environ.get('APPLE_API_ISSUER_ID', '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a')
-
-          def apple_token():
-              payload = {"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 300, "aud": "appstoreconnect-v1"}
-              return jwt.encode(payload, p8_content, algorithm="ES256", headers={"kid": kid})
-
-          tok = apple_token()
-          headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "Accept": "application/json"}
-
-          # Read CSR
           with open(os.path.expanduser('~/cert_work/dist.csr'), 'rb') as f:
               csr_bytes = f.read()
           csr_b64 = base64.b64encode(csr_bytes).decode()
 
-          # Submit CSR to create new distribution certificate
+          with open('/Users/zz/Downloads/AuthKey_HWP45ALL8Y.p8', 'r') as f:
+              p8_content = f.read().strip()
+
+          kid = 'HWP45ALL8Y'
+          iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
+
+          def apple_token():
+              payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
+              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
+
+          tok = apple_token()
+          headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
+
           payload = json.dumps({
-              "data": {
-                  "type": "certificates",
-                  "attributes": {
-                      "certificateType": "IOS_DISTRIBUTION",
-                      "csrContent": csr_b64
+              'data': {
+                  'type': 'certificates',
+                  'attributes': {
+                      'certificateType': 'IOS_DISTRIBUTION',
+                      'csrContent': csr_b64
                   }
               }
           }).encode()
 
           req = urllib.request.Request(
-              "https://api.appstoreconnect.apple.com/v1/certificates",
-              data=payload, method="POST", headers=headers
+              'https://api.appstoreconnect.apple.com/v1/certificates',
+              data=payload, method='POST', headers=headers
           )
           try:
               with urllib.request.urlopen(req, timeout=15) as resp:
                   result = json.loads(resp.read().decode())
-              cert_data = result["data"]
-              cert_id = cert_data["id"]
-              print(f"Certificate created! ID: {cert_id}")
+              cert_id = result['data']['id']
+              print(f'Certificate created! ID: {cert_id}')
           except Exception as e:
               if hasattr(e, 'read'):
                   err_body = e.read()
                   if b'already have a current' in err_body:
-                      # Find existing pending cert
-                      print("Already has certificate, checking existing...")
                       req3 = urllib.request.Request(
-                          "https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION",
+                          'https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION',
                           headers=headers
                       )
                       with urllib.request.urlopen(req3, timeout=15) as resp:
                           certs_data = json.loads(resp.read().decode())
-                      existing = [c for c in certs_data["data"] if c["attributes"]["certificateType"] == "IOS_DISTRIBUTION"]
-                      cert_id = existing[0]["id"]
-                      print(f"Using existing cert: {cert_id}")
+                      cert_id = certs_data['data'][0]['id']
+                      print(f'Using existing cert: {cert_id}')
                   else:
-                    print(f"Error: {err_body[:300]}")
-                    raise
+                      print(f'Error: {err_body[:300]}')
+                      raise
               else:
                   raise
 
-          # Download the certificate
           req2 = urllib.request.Request(
-              f"https://api.appstoreconnect.apple.com/v1/certificates/{cert_id}",
-              headers={"Authorization": f"Bearer {tok}", "Accept": "application/json"}
+              f'https://api.appstoreconnect.apple.com/v1/certificates/{cert_id}',
+              headers={'Authorization': f'Bearer {tok}', 'Accept': 'application/json'}
           )
           with urllib.request.urlopen(req2, timeout=15) as resp:
               cert_resp = json.loads(resp.read().decode())
-          cert_b64 = cert_resp["data"]["attributes"]["certificateContent"]
+          cert_b64 = cert_resp['data']['attributes']['certificateContent']
           cert_bytes = base64.b64decode(cert_b64)
           with open(os.path.expanduser('~/cert_work/dist.cer'), 'wb') as f:
               f.write(cert_bytes)
-          print(f"Certificate downloaded, {len(cert_bytes)} bytes, serial: {cert_resp['data']['attributes']['serialNumber']}")
-          print(f"::set-output name=CERT_ID::{cert_id}")
+          print(f'Certificate saved, {len(cert_bytes)} bytes, serial: {cert_resp["data"]["attributes"]["serialNumber"]}')
+          print(f'CERT_ID={cert_id}')
           PYEOF
 
       # ── Step 4: Build .p12 from private key + certificate ─────────────────
       - name: Build .p12 from private key and certificate
         run: |
-          # Convert certificate to PEM
           openssl x509 -inform DER -in ~/cert_work/dist.cer -out ~/cert_work/dist.pem
 
-          # Create .p12 (combine private key + certificate + WWDR)
           OPENSSL_CONF=/dev/null openssl pkcs12 -export \
             -inkey ~/cert_work/dist_private.key \
             -in ~/cert_work/dist.pem \
@@ -192,138 +175,122 @@ jobs:
 
       # ── Step 6: Create provisioning profile via ASC API ────────────────────
       - name: Create provisioning profile via ASC API
-        env:
-          APPLE_API_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
-          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-          APPLE_API_ISSUER_ID: ${{ vars.APPLE_API_ISSUER_ID }}
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json, time, jwt, base64, os
+          import urllib.request, json, time, jwt as pyjwt, base64, plistlib
 
           with open('/Users/zz/Downloads/AuthKey_HWP45ALL8Y.p8', 'r') as f:
               p8_content = f.read().strip()
 
-          kid = os.environ.get('APPLE_API_KEY_ID', 'HWP45ALL8Y')
-          iss = os.environ.get('APPLE_API_ISSUER_ID', '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a')
+          kid = 'HWP45ALL8Y'
+          iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
           def apple_token():
-              payload = {"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 300, "aud": "appstoreconnect-v1"}
-              return jwt.encode(payload, p8_content, algorithm="ES256", headers={"kid": kid})
+              payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
+              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
 
           tok = apple_token()
-          headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "Accept": "application/json"}
+          headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-          # Check if bundle ID exists
+          # Get bundle ID
           bundle_id = "com.openclaw.aibrainim"
           req0 = urllib.request.Request(
-              f"https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}",
+              f'https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}',
               headers=headers
           )
           try:
               with urllib.request.urlopen(req0, timeout=15) as resp:
                   data = json.loads(resp.read().decode())
-              if data.get("data"):
-                  asc_bundle_id = data["data"][0]["id"]
-                  print(f"Bundle ID exists: {asc_bundle_id}")
+              if data.get('data'):
+                  asc_bundle_id = data['data'][0]['id']
+                  print(f'Bundle ID exists: {asc_bundle_id}')
               else:
-                  print("Bundle ID not found, creating...")
                   req_new = urllib.request.Request(
-                      "https://api.appstoreconnect.apple.com/v1/bundleIds",
-                      data=json.dumps({"data": {"type": "bundleIds", "attributes": {"identifier": bundle_id, "platforms": ["IOS"]}}}).encode(),
-                      method="POST", headers=headers
+                      'https://api.appstoreconnect.apple.com/v1/bundleIds',
+                      data=json.dumps({'data': {'type': 'bundleIds', 'attributes': {'identifier': bundle_id, 'platforms': ['IOS']}}}).encode(),
+                      method='POST', headers=headers
                   )
                   with urllib.request.urlopen(req_new, timeout=15) as resp:
                       result = json.loads(resp.read().decode())
-                  asc_bundle_id = result["data"]["id"]
-                  print(f"Bundle ID created: {asc_bundle_id}")
+                  asc_bundle_id = result['data']['id']
+                  print(f'Bundle ID created: {asc_bundle_id}')
           except Exception as e:
               if hasattr(e, 'read') and b'already exists' in (e.read() or b''):
                   req_find = urllib.request.Request(
-                      f"https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}",
+                      f'https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}',
                       headers=headers
                   )
                   with urllib.request.urlopen(req_find, timeout=15) as resp:
                       data = json.loads(resp.read().decode())
-                  asc_bundle_id = data["data"][0]["id"]
-                  print(f"Bundle ID found: {asc_bundle_id}")
+                  asc_bundle_id = data['data'][0]['id']
+                  print(f'Bundle ID found: {asc_bundle_id}')
               else:
-                  print(f"Bundle ID error: {e}")
                   raise
 
-          # Get the new distribution cert we just created (to include in profile)
+          # Get the distribution cert
           req_certs = urllib.request.Request(
-              "https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION",
+              'https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION',
               headers=headers
           )
           with urllib.request.urlopen(req_certs, timeout=15) as resp:
               certs_data = json.loads(resp.read().decode())
-          dist_certs = certs_data["data"]
-          print(f"Found {len(dist_certs)} distribution certs")
-          # Use the most recently created one
-          cert_id = dist_certs[0]["id"]
-          print(f"Using cert ID: {cert_id}")
+          cert_id = certs_data['data'][0]['id']
+          print(f'Using cert ID: {cert_id}')
 
           # Create ADHOC provisioning profile
           profile_payload = json.dumps({
-              "data": {
-                  "type": "profiles",
-                  "attributes": {
-                      "name": "AIBrainIM-CI-AdHoc",
-                      "profileType": "IOS_APP_ADHOC"
+              'data': {
+                  'type': 'profiles',
+                  'attributes': {
+                      'name': 'AIBrainIM-CI-AdHoc',
+                      'profileType': 'IOS_APP_ADHOC'
                   },
-                  "relationships": {
-                      "bundleId": {"data": {"id": asc_bundle_id, "type": "bundleIds"}},
-                      "certificates": {"data": [{"id": cert_id, "type": "certificates"}]}
+                  'relationships': {
+                      'bundleId': {'data': {'id': asc_bundle_id, 'type': 'bundleIds'}},
+                      'certificates': {'data': [{'id': cert_id, 'type': 'certificates'}]}
                   }
               }
           }).encode()
 
           req_profile = urllib.request.Request(
-              "https://api.appstoreconnect.apple.com/v1/profiles",
-              data=profile_payload, method="POST", headers=headers
+              'https://api.appstoreconnect.apple.com/v1/profiles',
+              data=profile_payload, method='POST', headers=headers
           )
           try:
               with urllib.request.urlopen(req_profile, timeout=15) as resp:
                   prof_result = json.loads(resp.read().decode())
-              profile_id = prof_result["data"]["id"]
-              print(f"Profile created! ID: {profile_id}")
+              profile_id = prof_result['data']['id']
+              print(f'Profile created! ID: {profile_id}')
           except Exception as e:
               if hasattr(e, 'read'):
                   err_body = e.read()
-                  print(f"Profile creation error: {err_body[:300]}")
-              # Check if already exists
+                  print(f'Profile creation error: {err_body[:300]}')
               req_pf_list = urllib.request.Request(
-                  "https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AdHoc",
+                  'https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AdHoc',
                   headers=headers
               )
-              try:
-                  with urllib.request.urlopen(req_pf_list, timeout=15) as resp:
-                      pf_data = json.loads(resp.read().decode())
-                  if pf_data.get("data"):
-                      profile_id = pf_data["data"][0]["id"]
-                      print(f"Using existing profile: {profile_id}")
-                  else:
-                      raise Exception("No profile found and can't create")
-              except:
-                  raise Exception("Profile creation failed")
+              with urllib.request.urlopen(req_pf_list, timeout=15) as resp:
+                  pf_data = json.loads(resp.read().decode())
+              if pf_data.get('data'):
+                  profile_id = pf_data['data'][0]['id']
+                  print(f'Using existing profile: {profile_id}')
+              else:
+                  raise Exception('No profile found')
 
           # Download the profile
           req_download = urllib.request.Request(
-              f"https://api.appstoreconnect.apple.com/v1/profiles/{profile_id}",
+              f'https://api.appstoreconnect.apple.com/v1/profiles/{profile_id}',
               headers=headers
           )
           with urllib.request.urlopen(req_download, timeout=15) as resp:
               pf_result = json.loads(resp.read().decode())
-          profile_b64 = pf_result["data"]["attributes"]["profileContent"]
+          profile_b64 = pf_result['data']['attributes']['profileContent']
           profile_bytes = base64.b64decode(profile_b64)
           with open(os.path.expanduser('~/cert_work/profile.mobileprovision'), 'wb') as f:
               f.write(profile_bytes)
-          print(f"Profile downloaded, {len(profile_bytes)} bytes")
-          import plistlib, sys
           pf_plist = plistlib.loads(profile_bytes)
-          print(f"UUID: {pf_plist.get('UUID')}")
-          print(f"TeamName: {pf_plist.get('TeamName')}")
-          print(f"AppIDName: {pf_plist.get('AppIDName')}")
+          print(f'Profile downloaded, {len(profile_bytes)} bytes, UUID: {pf_plist.get("UUID")}')
+          print(f'TeamName: {pf_plist.get("TeamName")}')
           PYEOF
 
       # ── Step 7: Install provisioning profile ─────────────────────────────────
