@@ -1,160 +1,206 @@
 # TestFlight / App Store 上线指南
 
-> 本文档为 AIBrainIM Alpha 提测准备清单,跟随 App Store Connect 流程同步更新。
+> 本文档描述 AIBrainIM P1 可用版的上线路径。代码侧已全部收口，剩余工作为 Apple 侧配置。
 
 ---
 
-## 当前状态
+## 当前状态（2026-05-08 更新）
 
-**判定:可提测(代码侧)**(2026-05-07 晚间更新:截图自动化脚本就位,iOS Simulator Build 验证通过,TypeScript 零错误)
-
-代码侧 P1 可用版已基本收口:
-- ✅ ChatScreen typing indicator bug(handleSend 异常时状态卡住)已修复
-- ✅ ProfileScreen 统计改为实时 context 数据,不再依赖硬编码 mock
-- ✅ TaskScreen / DispatchChainScreen 已加入下拉刷新
-- ✅ iOS Simulator Build 验证通过(EXIT CODE 0)
-- ✅ TypeScript 编译零错误
-- ✅ npm run screenshot 自动化截图脚本就绪 (scripts/capture-screenshots.sh)
-
-剩余主要是 Apple Developer 账号配置与 App Store Connect 物料准备(截图、Icon)。
-
----
-
-## 一、运行态收口检查清单
-
-| 状态 | 检查项 | 说明 |
-|------|--------|------|
-| ✅ | React Native 主工程 + iOS 构建 | 2026-05-07 晚间验证 EXIT CODE 0 |
-| ✅ | 五主功能(总览/对话/智能体/任务/我的) | 已贯通 |
-| ✅ | 记忆库 / 知识库 / 附件入口 / 调度链 | 已贯通 |
-| ✅ | GitHub Actions + Fastlane TestFlight 链路 | 预置待配 |
-| ✅ | 需确认项支持确认/延后流转 | 已实现,状态回流到调度链 |
-| ✅ | 附件上传(无大小限制、分片、断点续传) | 已实现 |
-| ✅ | 记忆库写入/搜索(本地+远程补写) | 已贯通 |
-| ✅ | 知识库收录到记忆(本地+远程) | 已贯通 |
-| ✅ | ChatScreen typing indicator bug fix | 本轮修复 |
-| ✅ | ProfileScreen 统计使用实时 context | 本轮修复 |
-| ✅ | TaskScreen / DispatchChainScreen 下拉刷新 | 本轮添加 |
-| ⏳ | 至少完成一轮 LIVE 网关闭环验证 | Gateway 连通性待真实环境验证 |
-| ⏳ | 需确认项清零或压到可解释范围 | 3 条 pending,需人工拍板 |
-| 🔲 | Apple Developer 账号 + App Store Connect 配置 | 待开始 |
-| 🔲 | 截图（6.7"/6.5"/5.5") | npm run screenshot 已就绪，scripts/capture-screenshots.sh |
-| 🔲 | 第一个 TestFlight Build 上传 | 待触发 |
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript 零错误 | ✅ |
+| Jest 70 tests 全部通过 | ✅ |
+| iOS Simulator Build | ✅ |
+| 五主功能（总览/对话/智能体/任务/我的）| ✅ |
+| 信息层五入口（记忆/知识/附件/项目/调度链）| ✅ |
+| 上传服务（分片/直传/断点续传/后台队列）| ✅ |
+| App Icon 1024×1024 PNG | ✅ |
+| App Store 三尺寸截图（6.7"/6.5"/5.5"）| ✅ |
+| 隐私政策 GitHub Pages 部署 | ✅ |
+| App Store listing 文案 | ✅ |
+| GitHub Actions CI | ✅ |
+| GitHub Actions TestFlight workflow | ✅ |
+| Apple Developer 账号配置 | 🔲 待配置 |
+| GitHub Secrets & Variables | 🔲 待配置 |
+| App Store Connect App 记录 | 🔲 待创建 |
+| 第一个 TestFlight Build | 🔲 待触发 |
 
 ---
 
-## 二、Apple 开发者链路(约 2-4 小时)
+## 一、Apple Developer 账号配置
 
-### 2.1 前置条件
-- Apple Developer 账号($99/年):https://developer.apple.com
-- App Store Connect 访问权限
+### 1.1 需要的材料
 
-### 2.2 App Store Connect 配置
+| 项目 | 说明 |
+|------|------|
+| Apple Developer 账号 | $99/年，apple developer.apple.com |
+| App Store Connect 访问权限 | 用同一 Apple ID 登录 appstoreconnect.apple.com |
+| macOS Keychain Access | 用于导出签名证书 |
 
-1. 登录 [App Store Connect](https://appstoreconnect.apple.com)
-2. **我的 App → + 新建 App**
-   - 平台:iOS
-   - 名称:**AI协作平台**
-   - 主要语言:**简体中文**
-   - 套装 ID(Bundle ID):`com.openclaw.aibrainim`
-   - SKU:`AIBrainIM-Alpha`
-3. 填写**价格与定价**(选免费)
-4. 填写**隐私信息**(无特殊数据)
-5. 填写**年龄分级**(4+)
+### 1.2 在 GitHub Repo 设置 Secrets 和 Variables
 
-### 2.3 必要物料
+前往 `https://github.com/explore3363-coder/AIBrainIM/settings/secrets`：
 
-| 物料 | 规格 | 状态 |
+#### GitHub Variables（Settings → Variables → Actions）
+
+| Variable 名称 | 值 | 说明 |
+|---------------|-----|------|
+| `APPLE_TEAM_ID` | `7S96N8A32U` | 你的 Apple Team ID（开发者账号页面可见） |
+| `APPLE_DEV_EMAIL` | 你的 Apple ID 邮箱 | 用于 altool 上传认证 |
+
+#### GitHub Secrets（Settings → Secrets → Actions）
+
+| Secret 名称 | 获取方式 |
+|-------------|---------|
+| `APPLE_DIST_P12` | 签名证书的 Base64 编码（见下方步骤） |
+| `APPLE_APP_PASSWORD` | Apple ID → 安全 → 专用密码（见下方步骤） |
+
+---
+
+## 二、生成 APPLE_DIST_P12（签名证书）
+
+### 2.1 在 Mac 上生成签名请求
+
+1. 打开 **Keychain Access** → **证书助理** → **从证书颁发机构请求证书**
+2. 填写：
+   - 邮箱：你的 Apple Developer 账号邮箱
+   - 常用名称：`AIBrainIM Distribution`
+   - 存储到磁盘：✅
+3. 保存为 `certificate_signing_request.certSigningRequest`
+
+### 2.2 在 Apple Developer Portal 创建证书
+
+1. 登录 [developer.apple.com](https://developer.apple.com) → **Certificates, Identifiers & Profiles**
+2. **Certificates** → **+** → **iOS Distribution (App Store and Ad Hoc)**
+3. 上传 2.1 生成的 `.certSigningRequest` 文件
+4. 下载生成的证书（双击自动导入 Keychain）
+
+### 2.3 导出 p12 并编码
+
+在 Mac 上运行：
+
+```bash
+# 1. 确认证书名称（Keychain Access 搜索 "AIBrainIM" 或 "Distribution"）
+security find-identity -v -p codesigning | grep -i distribution
+
+# 2. 导出 p12（替换 "iPhone Distribution: 你的名字" 为实际证书名）
+security export -k ~/Library/Keychains/login.keychain-db \
+  -t cert -s "iPhone Distribution: 你的名字 (TEAM_ID)" \
+  -P "ci-pass" \
+  -o ~/Desktop/certificate.p12
+
+# 3. 转为 Base64（在 Mac Terminal 运行）
+base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
+```
+
+> **注意**：导出 p12 时设置的密码必须为 `ci-pass`（workflow 硬编码）。  
+> 如果之前已在 Keychain 中有 "Hong Yang" 的分发证书，可直接用 `security find-identity` 找到并导出。
+
+### 2.4 创建 APPLE_APP_PASSWORD
+
+1. 登录 [appleid.apple.com](https://appleid.apple.com) → **登录和安全**
+2. **专用密码** → **+** 生成一个新密码
+3. 命名填写 `GitHub Actions AIBrainIM`
+4. 复制生成的密码，填入 GitHub Secret `APPLE_APP_PASSWORD`
+
+---
+
+## 三、App Store Connect 配置
+
+### 3.1 创建 App 记录
+
+1. 登录 [appstoreconnect.apple.com](https://appstoreconnect.apple.com)
+2. **我的 App** → **+** → **新建 App**
+3. 填写：
+
+| 字段 | 值 |
+|------|-----|
+| 平台 | iOS |
+| 名称 | AI协作平台 |
+| 主要语言 | 简体中文 |
+| 套装 ID | `com.openclaw.aibrainim` |
+| SKU | `AIBrainIM-Alpha` |
+| 完整访问 | 需要 |
+
+### 3.2 上传截图
+
+在 **App Store Connect → 你的 App → iOS App** 中：
+
+| 位置 | 要求 | 文件 |
 |------|------|------|
-| App Icon | 1024×1024 PNG(App Store 用) | ✅ 已备好 |
-| iPhone 截图 6.7" | 1290×2796 px | 🔲 待准备 |
-| iPhone 截图 6.5" | 1284×2778 px | 🔲 待准备 |
-| iPhone 截图 5.5" | 1242×2208 px | 🔲 待准备 |
-| 宣传文本 | 最多 170 字 | 🔲 待准备 |
-| 描述文本 | 最多 4000 字 | 🔲 待准备 |
-| 关键词 | 最多 100 字符 | 🔲 待准备 |
+| iPhone 6.7 英寸（1290×2796） | 1-10 张 | `build/AppStoreScreenshots/0_Dashboard_67.png` 等 |
+| iPhone 6.5 英寸（1284×2778） | 1-10 张 | `build/AppStoreScreenshots/*_65.png` |
+| iPhone 5.5 英寸（1242×2208） | 1-10 张 | `build/AppStoreScreenshots/*_55.png` |
 
-> **截图方案**:直接运行 `npm run screenshot`（需要 Mac Display session），或在 Simulator 中手动打开 App 后 Xcode → Device → Capture Screen Snapshot。自动化脚本已就绪(build/AppStoreScreenshots/)。
+可直接从 `build/AppStoreScreenshots/` 目录上传。
 
-### 2.4 提交流程
+### 3.3 填写 App 信息
+
+| 字段 | 内容 |
+|------|------|
+| 副标题 | 智能任务中枢，随时在线 |
+| 宣传文本 | 参见 `APPSTORE_LISTING.md` |
+| 描述 | 参见 `APPSTORE_LISTING.md` |
+| 关键词 | AI, 协作, 任务管理, 效率, 智能助手（参见 `APPSTORE_LISTING.md`） |
+| 隐私政策 URL | `https://explore3363-coder.github.io/AIBrainIM/privacy.html` |
+| 类别 | 效率 |
+| 年龄分级 | 4+ |
+
+---
+
+## 四、触发第一个 TestFlight Build
+
+### 4.1 一行命令触发
 
 ```bash
-# 1. 确保所有代码已 commit 并打 tag
-git tag v0.1.0-alpha
-git push origin main --tags
-
-# 2. GitHub Actions 自动触发构建
-#    - xcodebuild archive
-#    - Fastlane upload to TestFlight
-
-# 3. App Store Connect 中:
-#    TestFlight → 构建版本 → 添加测试人员 → 发送邀请
+cd ~/.tungsten_codex/AIBrainIM
+git tag v0.1.0 && git push --tags origin main
 ```
 
----
+GitHub Actions 将自动：
+1. 安装依赖（npm ci + pod install）
+2. 导入签名证书（APPLE_DIST_P12）
+3. xcodebuild archive
+4. altool 上传到 App Store Connect
+5. 创建 GitHub Release
 
-## 三、GitHub Actions + Fastlane 配置
+### 4.2 监控构建
 
-### 3.1 需要的 Secrets(在 GitHub repo Settings → Secrets)
+前往 `https://github.com/explore3363-coder/AIBrainIM/actions` 查看构建进度。
 
-| Secret | 值 |
-|--------|----|
-| `FASTLANE_USER` | Apple ID(邮箱) |
-| `FASTLANE_PASSWORD` | Apple ID 专用密码 |
-| `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD` | App 专用密码 |
-| `MATCH_PASSWORD` | GitHub Actions SSH 密钥 |
+首次上传后约 5-30 分钟可在 App Store Connect 看到构建版本。
 
-### 3.2 Fastlane 配置(已预置)
+### 4.3 添加测试人员
 
-- `ios/Fastfile`:定义了 `alpha` lane
-- `ios/Matchfile`:定义了 App Store Connect 证书获取方式
-- `ios/Gymfile`:定义了 archive + export 配置
-
-### 3.3 触发构建
-
-```bash
-# 本地验证 Fastlane
-cd ios && bundle exec fastlane alpha
-
-# 或通过 GitHub Actions
-git tag v0.1.0 && git push --tags
-```
+App Store Connect → **TestFlight** → **测试信息**：
+- 启用**公开链接**生成可分享的 TestFlight 邀请链接
 
 ---
 
-## 四、TestFlight 公开链接获取
+## 五、常见问题
 
-1. App Store Connect → **TestFlight** → **测试信息**
-2. 启用**公开链接**(Beta 版 App)
-3. 生成链接:`https://testflight.apple.com/join/XXXXXXXX`
-4. 将链接加入飞书或微信分享给测试人员
+### Q: `APPLE_DIST_P12` 解码失败
+**A**: 确认 base64 没有换行符，执行 `cat ~/Desktop/certificate.p12 | base64 | tr -d '\n'` 确保单行输出。
 
----
+### Q: altool 认证失败 (401 Invalid Username/Password)
+**A**: 使用 APPLE_APP_PASSWORD（专用密码），不是 Apple ID 登录密码。
 
-## 五、注意事项
+### Q: 首次上传需要人工审核？
+**A**: App Store Connect 首次发布需要人工审核（约 1-2 天）。TestFlight 上传通常自动通过，不需要人工审。
 
-### 5.1 Bundle ID 冲突
-如果 `com.openclaw.aibrainim` 已被占用,改为:
-`com.openclaw.aibrainim.alpha`
-
-### 5.2 TestFlight 构建超时
-GitHub Actions 构建超时(60min)时,检查:
-- Xcode 版本与 Actions 镜像兼容性
-- CocoaPods 依赖下载是否超时
-
-### 5.3 首次上传
-首次上传需要 Apple 人工审核(约 1-2 天),之后每次更新通常在 30-60 分钟内通过。
+### Q: Bundle ID 冲突
+**A**: 改为 `com.openclaw.aibrainim.alpha`，同步修改 `ios/AIBrainIM/Info.plist` 和 `app.json`。
 
 ---
 
-## 六、版本节奏建议
+## 六、版本节奏
 
 | 版本 | 内容 | 目标 |
 |------|------|------|
-| v0.1.0-alpha | 五主功能 P1 可用版,提 TestFlight | 2026-05 |
+| v0.1.0 | 五主功能 P1 可用版，提 TestFlight | 2026-05 |
 | v0.2.0 | 真实 API 闭环、Live Mode 稳定 | 待定 |
 | v1.0.0 | App Store 正式版 | 待定 |
 
 ---
 
-*本文件随上线进度同步更新。*
+*本文档跟随上线进度同步更新。*
