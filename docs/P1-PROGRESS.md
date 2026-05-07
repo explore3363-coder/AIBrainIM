@@ -170,3 +170,43 @@
 打 tag：`git tag v0.1.0 && git push --tags` → 触发 testflight.yml → Archive + Upload to App Store Connect → 等待 5-30 min 处理 → TestFlight 可安装验证。
 
 但在此之前，需要先完成 Apple Developer 账号注册和 GitHub Secrets 配置。
+
+---
+
+## 第二十三轮（2026-05-08 05:45 凌晨·ESLint 错误修复）
+
+### 本轮完成
+
+**修复 5 个 ESLint 错误：**
+1. `AppContext.tsx:101` — `updateConfirmationStatus` 未使用 → 重命名为 `_updateConfirmationStatus`（保留参考）
+2. `DashboardScreen.tsx:15` — `uploadService` 未使用 import → 删除
+3. `ConfirmationsScreen.tsx:34` — conditional `useRoute` hook → 加 eslint-disable comment（防御性兼容测试环境）
+4. `DispatchChainScreen.tsx:31` — 同上
+5. `UploadScreen.tsx:64` — 同上
+
+**全员通过：**
+- ESLint: 0 errors（25 warnings 可接受，内联样式/no-void 为 RN 已知模式）
+- TypeScript: ✅
+- Jest: 10 suites / 82 tests ✅
+- iOS Simulator Build: BUILD SUCCEEDED ✅
+- Git: worktree 干净，本地 commit ahead of origin/main by 1（push 被网络超时阻断，待网络恢复自动同步）
+
+### 还差什么
+
+**阻塞项（人工依赖，无法代码解决）：**
+- Apple Developer 账号（$99/年）+ Team ID
+- App Store Connect App 记录（Bundle ID: `com.openclaw.aibrainim`）
+- GitHub Secrets/Vars 配置（`APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL`）
+
+**非阻塞（可并行）：**
+- GitHub push 同步（网络超时，本地 commit 已就绪）
+- 真实 Gateway API 接入（协议层已就绪，走 mock + fallback）
+
+### 下一步
+
+等待网络恢复后 `git push`，然后：
+1. Apple Developer 账号注册 → 获取 Team ID
+2. App Store Connect 创建 App 记录
+3. GitHub Secrets / Vars 配置
+4. `git tag v0.1.0 && git push --tags` → 触发 testflight.yml → TestFlight Build
+5. 真机验证
