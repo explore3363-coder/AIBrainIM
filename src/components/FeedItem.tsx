@@ -13,6 +13,8 @@ const TYPE_ICONS: Record<string, string> = {
   confirmation: '⚠️',
   system: '⚙️',
   upload: '📤',
+  knowledge: '📖',
+  memory: '🧠',
 };
 
 export function FeedItem({item}: Props) {

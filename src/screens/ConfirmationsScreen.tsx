@@ -64,6 +64,34 @@ export function ConfirmationsScreen() {
         <Text style={styles.sub}>{pendingConfirmations} 项待你决策 · 已支持状态流转</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+        {sortedItems.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>✅</Text>
+            <Text style={styles.emptyTitle}>暂无待确认项</Text>
+            <Text style={styles.emptyDesc}>
+              所有确认项都已处理完毕。当前闭环中没有需要人工拍板的节点。
+            </Text>
+            <View style={styles.emptyActions}>
+              <TouchableOpacity
+                style={styles.emptyPrimaryBtn}
+                activeOpacity={0.8}
+                onPress={() => (navigation as any).navigate('Tabs', {screen: 'Chat'})}
+              >
+                <Text style={styles.emptyPrimaryBtnText}>去对话</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emptySecondaryBtn}
+                activeOpacity={0.8}
+                onPress={() => (navigation as any).navigate('DispatchChain')}
+              >
+                <Text style={styles.emptySecondaryBtnText}>看调度链</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.emptyNote}>
+              有新的需要决策事项时，会自动出现在这里。
+            </Text>
+          </View>
+        )}
         {sortedItems.map(item => {
           const currentStatus = item.status ?? 'pending';
           const isResolved = currentStatus !== 'pending';
@@ -160,4 +188,31 @@ const styles = StyleSheet.create({
   },
   deferBtnText: {color: C.primary, fontWeight: '700', fontSize: 14},
   actionBtnDisabled: {opacity: 0.45},
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 56,
+    paddingHorizontal: 24,
+    gap: 14,
+  },
+  emptyEmoji: {fontSize: 52},
+  emptyTitle: {color: C.textTitle, fontSize: 20, fontWeight: '900', textAlign: 'center'},
+  emptyDesc: {color: C.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center'},
+  emptyActions: {flexDirection: 'row', gap: 10, marginTop: 4},
+  emptyPrimaryBtn: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+    backgroundColor: C.primary,
+  },
+  emptyPrimaryBtnText: {color: C.bgRoot, fontWeight: '900', fontSize: 13},
+  emptySecondaryBtn: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.12)',
+    borderWidth: 1, borderColor: C.borderActive,
+  },
+  emptySecondaryBtnText: {color: C.primary, fontWeight: '800', fontSize: 13},
+  emptyNote: {
+    color: C.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center',
+    marginTop: 6, fontStyle: 'italic',
+  },
 });

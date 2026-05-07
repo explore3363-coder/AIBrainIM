@@ -8,11 +8,12 @@ import React, {
   useRef,
   type ReactNode,
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
 
-import type {Agent, Task, ConfirmationItem, DispatchRecord, RuntimeMode, TaskState} from '../types';
+import type {Agent, Task, ConfirmationItem, DispatchRecord, RuntimeMode, TaskState, CaptureEntry} from '../types';
 import {agentsMock, tasksMock, confirmationMock} from '../data/mockData';
 import {
   fetchRuntimeSnapshot,
@@ -29,6 +30,15 @@ import {
 } from '../services/gatewayConfig';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
+const APP_CONTEXT_STORAGE_KEY = '@AIBrainIM:appContext';
+
+interface PersistedAppContextState {
+  tasks: Task[];
+  confirmations: ConfirmationItem[];
+  dispatches: DispatchRecord[];
+  recentCaptures: CaptureEntry[];
+}
+
 interface AppContextValue {
   agents: Agent[];
   tasks: Task[];
@@ -81,6 +91,7 @@ interface AppContextValue {
     savedRemotely: boolean;
     mode: 'created' | 'updated' | 'resynced';
   }) => void;
+  recentCaptures: CaptureEntry[];
   /** Demo mode: injects sample dispatches and tasks for QA / showcase */
   injectDemoData: () => void;
 }
@@ -96,6 +107,41 @@ function updateConfirmationStatus(
       ? {...item, status, resolutionNote}
       : item
   );
+}
+
+function mergeConfirmations(
+  localItems: ConfirmationItem[],
+  liveItems: ConfirmationItem[],
+): ConfirmationItem[] {
+  const localMap = new Map(localItems.map(item => [item.id, item]));
+
+  return liveItems.map(item => {
+    const local = localMap.get(item.id);
+    if (!local) {
+      return item;
+    }
+
+    return {
+      ...item,
+      status: local.status ?? item.status,
+      resolutionNote: local.resolutionNote ?? item.resolutionNote,
+    };
+  });
+}
+
+function sanitizePersistedState(value: unknown): PersistedAppContextState | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const source = value as Partial<PersistedAppContextState>;
+
+  return {
+    tasks: Array.isArray(source.tasks) ? source.tasks : [],
+    confirmations: Array.isArray(source.confirmations) ? source.confirmations : [],
+    dispatches: Array.isArray(source.dispatches) ? source.dispatches : [],
+    recentCaptures: Array.isArray(source.recentCaptures) ? source.recentCaptures : [],
+  };
 }
 
 function getDispatchIdentity(record: DispatchRecord): string {
@@ -220,6 +266,7 @@ const AppContext = createContext<AppContextValue>({
   finalizeLatestDispatch: () => {},
   registerKnowledgeCapture: () => {},
   registerMemoryCapture: () => {},
+  recentCaptures: [],
   injectDemoData: () => {},
 });
 
@@ -238,7 +285,9 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [gatewaySummary, setGatewaySummary] = useState('配置读取中…');
   const [gatewayConfigValid, setGatewayConfigValid] = useState(false);
   const [gatewayWarningCount, setGatewayWarningCount] = useState(0);
+  const [recentCaptures, setRecentCaptures] = useState<CaptureEntry[]>([]);
   const uploadStatusRef = useRef<Record<string, UploadFile['status']>>({});
+  const hasHydratedRef = useRef(false);
 
   const latestDispatch = Array.isArray(dispatches) ? dispatches[0] : undefined;
 
@@ -255,6 +304,58 @@ export function AppProvider({children}: {children: ReactNode}) {
     setGatewayWarningCount(gatewayValidation.warnings.length);
   }, []);
 
+  useEffect(() => {
+    AsyncStorage.getItem(APP_CONTEXT_STORAGE_KEY)
+      .then(raw => {
+        if (!raw) {
+          hasHydratedRef.current = true;
+          return;
+        }
+
+        const parsed = sanitizePersistedState(JSON.parse(raw));
+        if (!parsed) {
+          hasHydratedRef.current = true;
+          return;
+        }
+
+        if (parsed.tasks.length > 0) {
+          setTasks(current => mergeTasks(current, parsed.tasks));
+        }
+        if (parsed.dispatches.length > 0) {
+          setDispatches(current => mergeDispatchRecords(current, parsed.dispatches));
+        }
+        if (parsed.confirmations.length > 0) {
+          setConfirmations(current => mergeConfirmations(parsed.confirmations, current));
+        }
+        if (parsed.recentCaptures.length > 0) {
+          setRecentCaptures(parsed.recentCaptures.slice(0, 10));
+        }
+      })
+      .catch(() => {
+        // Ignore corrupt local state and continue with fresh runtime data.
+      })
+      .finally(() => {
+        hasHydratedRef.current = true;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedRef.current) {
+      return;
+    }
+
+    const nextState: PersistedAppContextState = {
+      tasks: tasks.slice(0, 20),
+      confirmations,
+      dispatches: dispatches.slice(0, 20),
+      recentCaptures: recentCaptures.slice(0, 10),
+    };
+
+    AsyncStorage.setItem(APP_CONTEXT_STORAGE_KEY, JSON.stringify(nextState)).catch(() => {
+      // Ignore local persistence failures; runtime state should keep working.
+    });
+  }, [tasks, confirmations, dispatches, recentCaptures]);
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -269,7 +370,7 @@ export function AppProvider({children}: {children: ReactNode}) {
       setRuntimeError(snapshot.runtimeError);
       setLastSyncedAt(snapshot.lastSyncedAt);
       setSessionCount(typeof snapshot.sessionCount === 'number' ? snapshot.sessionCount : 0);
-      setConfirmations(c);
+      setConfirmations(current => mergeConfirmations(current, c));
       setUploads(uploadService.getQueue());
       await refreshGatewayStatus();
     } finally {
@@ -279,6 +380,7 @@ export function AppProvider({children}: {children: ReactNode}) {
 
   const confirmItem = useCallback((id: string) => {
     const target = confirmations.find(item => item.id === id);
+    const updatedAt = Date.now();
 
     setConfirmations(items => updateConfirmationStatus(items, id, 'confirmed', '已确认，等待执行链继续推进'));
 
@@ -293,18 +395,26 @@ export function AppProvider({children}: {children: ReactNode}) {
           eta: '已确认',
           next: '确认结果已回流，等待对应 Agent 继续推进',
           priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
+          updatedAt,
+          sourceType: 'confirmation',
+          traceSummary: '确认链路已拍板，执行重新进入推进态',
         };
         return [nextTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
       });
 
       const confirmDispatch: DispatchRecord = {
-        id: `confirm-dispatch-${id}-${Date.now()}`,
+        id: `confirm-dispatch-${id}-${updatedAt}`,
         userText: `确认：${target.title}`,
         reply: `✓ 你已确认「${target.title}」，结果已回流到任务流，后续执行会继续沿调度链推进。`,
         taskId,
-        dispatchId: `confirm-dp-${Date.now().toString(36)}`,
-        createdAt: Date.now(),
+        dispatchId: `confirm-dp-${updatedAt.toString(36)}`,
+        createdAt: updatedAt,
+        updatedAt,
         status: 'processing',
+        source: 'confirmation',
+        agentId: target.agent,
+        label: '确认链路继续推进',
+        stageText: '已确认，等待对应 Agent 继续执行',
       };
 
       setDispatches(items => [confirmDispatch, ...items].slice(0, 20));
@@ -315,17 +425,42 @@ export function AppProvider({children}: {children: ReactNode}) {
 
   const deferItem = useCallback((id: string) => {
     const target = confirmations.find(item => item.id === id);
+    const updatedAt = Date.now();
 
     setConfirmations(items => updateConfirmationStatus(items, id, 'deferred', '已延后，保留在确认队列中待后续处理'));
 
     if (target) {
+      const taskId = `confirm-${id}`;
+
+      setTasks(items => {
+        const deferredTask: Task = {
+          id: taskId,
+          title: `确认待处理：${target.title}`,
+          owner: `${target.agent} / 确认链路`,
+          state: 'blocked',
+          eta: '已延后',
+          next: '等待你稍后重新拍板，再继续推进对应执行链',
+          priority: target.urgency === 'high' ? 'P0' : target.urgency === 'normal' ? 'P1' : 'P2',
+          updatedAt,
+          sourceType: 'confirmation',
+          traceSummary: '确认链路已延后，保留人工决策入口',
+        };
+        return [deferredTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
+      });
+
       const deferDispatch: DispatchRecord = {
-        id: `defer-dispatch-${id}-${Date.now()}`,
+        id: `defer-dispatch-${id}-${updatedAt}`,
         userText: `延后：${target.title}`,
         reply: `🕒 你已将「${target.title}」标记为稍后处理，系统会保留这条决策入口，不会直接丢失。`,
-        dispatchId: `defer-dp-${Date.now().toString(36)}`,
-        createdAt: Date.now(),
+        taskId,
+        dispatchId: `defer-dp-${updatedAt.toString(36)}`,
+        createdAt: updatedAt,
+        updatedAt,
         status: 'submitted',
+        source: 'confirmation',
+        agentId: target.agent,
+        label: '确认链路暂缓',
+        stageText: '已延后，等待重新确认',
       };
 
       setDispatches(items => [deferDispatch, ...items].slice(0, 20));
@@ -499,6 +634,19 @@ export function AppProvider({children}: {children: ReactNode}) {
     setDispatches(items => [dispatchRecord, ...items].slice(0, 20));
 
     setTasks(items => [taskRecord, ...items.filter(item => item.id !== taskId)].slice(0, 20));
+
+    setRecentCaptures(items => [
+      {
+        id: `capture-kb-${createdAt}`,
+        type: 'knowledge' as const,
+        title: payload.title,
+        summary: payload.summary,
+        category: payload.category,
+        savedRemotely: payload.savedRemotely,
+        timestamp: createdAt,
+      },
+      ...items,
+    ].slice(0, 10));
   }, []);
 
   const registerMemoryCapture = useCallback((payload: {
@@ -544,6 +692,19 @@ export function AppProvider({children}: {children: ReactNode}) {
 
     setDispatches(items => [dispatchRecord, ...items].slice(0, 20));
     setTasks(items => [taskRecord, ...items.filter(item => item.id !== taskId)].slice(0, 20));
+
+    setRecentCaptures(items => [
+      {
+        id: `capture-mem-${createdAt}`,
+        type: 'memory' as const,
+        title,
+        summary: payload.content,
+        category: normalizedCategory,
+        savedRemotely: payload.savedRemotely,
+        timestamp: createdAt,
+      },
+      ...items,
+    ].slice(0, 10));
   }, []);
 
   /** Demo mode: inject 3 sample dispatches + 3 sample tasks for QA / showcase */
@@ -873,6 +1034,7 @@ export function AppProvider({children}: {children: ReactNode}) {
         finalizeLatestDispatch,
         registerKnowledgeCapture,
         registerMemoryCapture,
+        recentCaptures,
         injectDemoData,
       }}
     >

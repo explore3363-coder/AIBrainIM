@@ -192,6 +192,9 @@ export function TaskScreen() {
     },
   ]), [grouped]);
 
+  const hasNoTasks = tasks.length === 0;
+  const allDone = !hasNoTasks && grouped.running.length === 0 && grouped.todo.length === 0 && grouped.blocked.length === 0;
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
@@ -228,6 +231,41 @@ export function TaskScreen() {
           ))}
         </View>
       </View>
+
+      {(hasNoTasks || allDone) && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>{hasNoTasks ? '📋' : '🎉'}</Text>
+          <Text style={styles.emptyTitle}>
+            {hasNoTasks ? '任务板是空的' : '任务已全部收口'}
+          </Text>
+          <Text style={styles.emptyDesc}>
+            {hasNoTasks
+              ? '向 AI 对话发送一条指令，系统会自动生成任务并开始追踪。'
+              : '当前所有任务都已完成或已收口。系统在持续监听新的调度指令。'}
+          </Text>
+          <View style={styles.emptyActions}>
+            <TouchableOpacity
+              style={styles.emptyPrimaryBtn}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Tabs', {screen: 'Chat'} as any)}
+            >
+              <Text style={styles.emptyPrimaryBtnText}>去对话发一条指令</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.emptySecondaryBtn}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('DispatchChain')}
+            >
+              <Text style={styles.emptySecondaryBtnText}>查看调度链</Text>
+            </TouchableOpacity>
+          </View>
+          {hasNoTasks && (
+            <Text style={styles.emptyNote}>
+              在「对话」或「上传」任意入口发送指令后，任务会自动出现在这里。
+            </Text>
+          )}
+        </View>
+      )}
 
       <ScrollView
         horizontal
@@ -360,4 +398,31 @@ const styles = StyleSheet.create({
   taskMeta:  {color: C.textMuted, fontSize: 11, marginTop: 5},
   taskTrace: {color: C.primary, fontSize: 11, lineHeight: 16, marginTop: 5, fontWeight: '700'},
   taskNext:  {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 5},
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 14,
+  },
+  emptyEmoji: {fontSize: 52},
+  emptyTitle: {color: C.textTitle, fontSize: 20, fontWeight: '900', textAlign: 'center'},
+  emptyDesc: {color: C.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center'},
+  emptyActions: {flexDirection: 'row', gap: 10, marginTop: 4},
+  emptyPrimaryBtn: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+    backgroundColor: C.primary,
+  },
+  emptyPrimaryBtnText: {color: C.bgRoot, fontWeight: '900', fontSize: 13},
+  emptySecondaryBtn: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.12)',
+    borderWidth: 1, borderColor: C.borderActive,
+  },
+  emptySecondaryBtnText: {color: C.primary, fontWeight: '800', fontSize: 13},
+  emptyNote: {
+    color: C.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center',
+    marginTop: 6, fontStyle: 'italic',
+  },
 });

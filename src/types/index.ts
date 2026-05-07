@@ -107,7 +107,7 @@ export interface AIFeedItem {
   agentAccent: string;
   text: string;
   timestamp: string;
-  type: 'output' | 'dispatch' | 'confirmation' | 'system';
+  type: 'output' | 'dispatch' | 'confirmation' | 'system' | 'upload' | 'knowledge' | 'memory';
 }
 
 export interface DispatchStatus {
@@ -133,4 +133,14 @@ export interface ProfileStats {
   activeAgents: number;
   memoryEntries: number;
   knowledgeDocs: number;
+}
+
+export interface CaptureEntry {
+  id: string;
+  type: 'knowledge' | 'memory';
+  title: string;
+  summary: string;
+  category: string;
+  savedRemotely: boolean;
+  timestamp: number;
 }

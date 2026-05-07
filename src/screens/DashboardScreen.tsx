@@ -67,6 +67,7 @@ export function DashboardScreen() {
     refresh,
     runtimeMode,
     injectDemoData,
+    recentCaptures,
   } = useAppContext();
 
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
@@ -74,6 +75,10 @@ export function DashboardScreen() {
   const safeConfirmations = useMemo(() => Array.isArray(confirmations) ? confirmations : [], [confirmations]);
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
   const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  const pendingConfirmationItems = useMemo(
+    () => safeConfirmations.filter(item => item.status !== 'confirmed' && item.status !== 'deferred'),
+    [safeConfirmations],
+  );
   const uploadingCount = useMemo(() => safeUploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [safeUploads]);
 
   // Dynamic brain store entries driven by real context data — no hardcoded mock counts
@@ -145,7 +150,7 @@ export function DashboardScreen() {
   const latestDispatch = safeDispatches[0];
   const latestDispatchMeta = latestDispatch ? DISPATCH_STATUS_META[latestDispatch.status] : null;
   const latestRunningTask = safeTasks.find(task => task.state === 'running');
-  const latestBlockedConfirmation = safeConfirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred');
+  const latestBlockedConfirmation = pendingConfirmationItems[0];
   const hottestUpload = safeUploads.find(item => item.status === 'uploading' || item.status === 'processing' || item.status === 'dispatched');
   const focusDescription = latestDispatch
     ? `最新调度「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
@@ -153,6 +158,8 @@ export function DashboardScreen() {
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
       : '当前没有进行中的调度单，系统运转正常。';
   const liveFeed = useMemo<AIFeedItem[]>(() => {
+    const safeCaptures = Array.isArray(recentCaptures) ? recentCaptures : [];
+
     const dispatchFeed = safeDispatches.slice(0, 4).map((item, index) => ({
       id: `dispatch-${item.id}-${index}`,
       agent: `助理 · ${DISPATCH_STATUS_META[item.status].label}`,
@@ -177,12 +184,23 @@ export function DashboardScreen() {
               ? `附件「${item.name}」已上传完成，正在进入后台处理队列。`
               : `附件「${item.name}」已分派给 ${item.agent ?? '对应智能体'}。`,
         timestamp: item.timestamp,
-        type: item.status === 'error' ? 'system' as const : 'output' as const,
+        type: item.status === 'error' ? 'system' as const : 'upload' as const,
       }));
 
-    const merged = [...dispatchFeed, ...uploadFeed];
+    const captureFeed = safeCaptures.slice(0, 4).map(entry => ({
+      id: entry.id,
+      agent: entry.type === 'knowledge' ? '📖 知识收录' : '🧠 记忆沉淀',
+      agentAccent: entry.type === 'knowledge' ? C.primary : '#a78bfa',
+      text: entry.savedRemotely
+        ? `「${entry.title}」已收录到${entry.type === 'knowledge' ? '知识' : '记忆'}层${entry.category ? `（${entry.category}）` : ''}，并回流到任务流。`
+        : `「${entry.title}」已先沉淀在本地闭环${entry.type === 'knowledge' ? '知识' : '记忆'}层。`,
+      timestamp: new Date(entry.timestamp).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}),
+      type: entry.type as 'knowledge' | 'memory',
+    }));
+
+    const merged = [...captureFeed, ...dispatchFeed, ...uploadFeed];
     return merged.length ? merged.slice(0, 6) : aiFeedMock;
-  }, [safeDispatches, safeUploads]);
+  }, [recentCaptures, safeDispatches, safeUploads]);
 
   const dispatchTrace = useMemo<CommandTrace[]>(() => {
     if (!safeDispatches.length) return commandTraceMock;
@@ -256,9 +274,7 @@ export function DashboardScreen() {
 
     // If no dispatch/task/action items, surface pending confirmations as top priority
     if (!queue.length) {
-      const unconfirmed = confirmations
-        .filter(item => item.status !== 'confirmed' && item.status !== 'deferred')
-        .slice(0, 2);
+      const unconfirmed = pendingConfirmationItems.slice(0, 2);
       if (unconfirmed.length > 0) {
         unconfirmed.forEach(item => {
           queue.push({
@@ -283,7 +299,7 @@ export function DashboardScreen() {
     }
 
     return queue.slice(0, 3);
-  }, [confirmations, hottestUpload, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, latestRunningTask, navigation]);
+  }, [hottestUpload, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, latestRunningTask, navigation, pendingConfirmationItems]);
 
   const summaryCards = useMemo(() => {
     const summary: Array<{
@@ -398,7 +414,7 @@ export function DashboardScreen() {
       )}
 
       <View style={styles.metricsGrid}>
-        <MetricCard label="活跃 Agent" value={`${activeCount}/${agents.length}`} accent={C.accent} />
+        <MetricCard label="活跃 Agent" value={`${activeCount}/${safeAgents.length}`} accent={C.accent} />
         <MetricCard label="进行中" value={`${runningCount}`} accent={C.working} />
         <MetricCard label="上传队列" value={`${uploadingCount}`} accent="#34d399" />
         <MetricCard label="需确认" value={`${pendingConfirmations}`} accent={C.highUrgency} />
@@ -491,9 +507,7 @@ export function DashboardScreen() {
         action={{label: '查看全部', onPress: () => navigation.navigate('Confirmations')}}
       />
       <View style={styles.confirmList}>
-        {confirmations.slice(0, 3).map(item => {
-          const status = item.status ?? 'pending';
-          const statusLabel = status === 'confirmed' ? '已确认' : status === 'deferred' ? '已延后' : '待确认';
+        {pendingConfirmationItems.length > 0 ? pendingConfirmationItems.slice(0, 3).map(item => {
           return (
             <View key={item.id} style={styles.confirmCard}>
               <View style={[styles.confirmDot, {backgroundColor: URGENCY_COLOR[item.urgency]}]} />
@@ -501,18 +515,20 @@ export function DashboardScreen() {
                 <View style={styles.confirmHeaderRow}>
                   <Text style={styles.confirmTitle}>{item.title}</Text>
                   <View style={styles.confirmStatusBadge}>
-                    <Text style={styles.confirmStatusText}>{statusLabel}</Text>
+                    <Text style={styles.confirmStatusText}>待确认</Text>
                   </View>
                 </View>
                 <Text style={styles.confirmDesc}>{item.description}</Text>
                 <Text style={styles.confirmMeta}>{item.agent} · {item.timestamp}</Text>
-                {item.resolutionNote ? (
-                  <Text style={styles.confirmResolution}>{item.resolutionNote}</Text>
-                ) : null}
               </View>
             </View>
           );
-        })}
+        }) : (
+          <View style={styles.confirmEmptyCard}>
+            <Text style={styles.confirmEmptyTitle}>当前没有待确认项</Text>
+            <Text style={styles.confirmEmptyDesc}>人工拍板链路已清空，首页不会再把已处理事项继续顶成待办。</Text>
+          </View>
+        )}
       </View>
 
       <SectionTitle
@@ -744,6 +760,15 @@ const styles = StyleSheet.create({
   confirmDesc: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 3},
   confirmMeta: {color: C.textMuted, fontSize: 11, marginTop: 4},
   confirmResolution: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5},
+  confirmEmptyCard: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  confirmEmptyTitle: {color: C.textTitle, fontSize: 14, fontWeight: '800'},
+  confirmEmptyDesc: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 6},
 
   footer: {height: 32},
 });

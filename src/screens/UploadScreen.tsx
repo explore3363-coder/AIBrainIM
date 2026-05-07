@@ -126,7 +126,7 @@ export function UploadScreen() {
           <View>
             <Text style={styles.title}>📤 上传管理</Text>
             <Text style={styles.sub}>
-              {files.length} 个文件 · {active.length} 上传中 · {failed.length} 失败
+              {files.length} 个文件{files.length > 0 ? ` · ${active.length} 上传中 · ${failed.length} 失败` : ''}
             </Text>
           </View>
           <View style={styles.headerActions}>
@@ -138,115 +138,146 @@ export function UploadScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {files.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📭</Text>
-            <Text style={styles.emptyTitle}>暂无上传任务</Text>
-            <Text style={styles.emptyHint}>在「对话」或「附件库」页面添加文件即可开始上传</Text>
+        {/* Active uploads — always visible at top when any are running */}
+        {active.length > 0 && (
+          <View style={styles.activeBanner}>
+            <View style={styles.activeDot} />
+            <Text style={styles.activeText}>
+              {active.length} 个文件正在上传/处理中，结果会自动进入 AI 产出流
+            </Text>
           </View>
         )}
 
-        {/* Failed first */}
-        {failed.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>❌ 失败 ({failed.length})</Text>
-            {failed.map(f => {
-              const meta = STATUS_META[f.status] ?? STATUS_META.error;
-              return (
-                <View key={f.id} style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.cardLeft}>
-                      <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
-                    </View>
-                    <View style={styles.cardBody}>
-                      <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
-                      <Text style={styles.fileMeta}>
-                        {uploadService.formatBytes(f.size)} · {meta.label}
-                      </Text>
-                      {f.error ? (
-                        <Text style={styles.errorText}>{f.error}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity
-                      style={styles.retryBtn}
-                      activeOpacity={0.75}
-                      onPress={() => handleRetry(f)}
-                    >
-                      <Text style={styles.retryBtnText}>🔄 重试</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.deleteBtn}
-                      activeOpacity={0.75}
-                      onPress={() => handleDelete(f.id)}
-                    >
-                      <Text style={styles.deleteBtnText}>🗑 删除</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </>
-        )}
+        {files.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>📭</Text>
+            <Text style={styles.emptyTitle}>暂无上传任务</Text>
+            <Text style={styles.emptyDesc}>
+              直接点击下方按钮上传文件，无大小限制。
+            </Text>
+            <Text style={styles.emptyHint}>
+              大文件（≥10 MB）自动分片上传 + 断点续传
+            </Text>
+            <View style={styles.emptyUploadRow}>
+              <TouchableOpacity
+                style={styles.emptyUploadBtn}
+                activeOpacity={0.8}
+                onPress={handleUpload}
+              >
+                <Text style={styles.emptyUploadBtnText}>📎 选择文件上传</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.emptyNote}>
+              上传后文件自动进入后台处理队列，AI 分析结果实时回流到首页。
+            </Text>
+          </View>
+        ) : null}
 
-        {/* Active uploads */}
-        {active.length > 0 && (
+        {files.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>⏳ 进行中 ({active.length})</Text>
-            {active.map(f => {
-              const meta = STATUS_META[f.status] ?? STATUS_META.uploading;
-              return (
-                <View key={f.id} style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.cardLeft}>
-                      <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
-                    </View>
-                    <View style={styles.cardBody}>
-                      <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
-                      <Text style={styles.fileMeta}>
-                        {uploadService.formatBytes(f.size)} · {meta.label}
-                        {f.status === 'uploading' && ` · ${Math.round(f.progress)}%`}
-                      </Text>
-                      {(f.status === 'uploading' || f.status === 'processing') && (
-                        <View style={styles.progressBar}>
-                          <View style={[styles.progressFill, {width: `${f.progress}%`}]} />
+            {/* Failed first */}
+            {failed.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>❌ 失败 ({failed.length})</Text>
+                {failed.map(f => {
+                  const meta = STATUS_META[f.status] ?? STATUS_META.error;
+                  return (
+                    <View key={f.id} style={styles.card}>
+                      <View style={styles.cardTop}>
+                        <View style={styles.cardLeft}>
+                          <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
                         </View>
-                      )}
+                        <View style={styles.cardBody}>
+                          <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
+                          <Text style={styles.fileMeta}>
+                            {uploadService.formatBytes(f.size)} · {meta.label}
+                          </Text>
+                          {f.error ? (
+                            <Text style={styles.errorText}>{f.error}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View style={styles.cardActions}>
+                        <TouchableOpacity
+                          style={styles.retryBtn}
+                          activeOpacity={0.75}
+                          onPress={() => handleRetry(f)}
+                        >
+                          <Text style={styles.retryBtnText}>🔄 重试</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.deleteBtn}
+                          activeOpacity={0.75}
+                          onPress={() => handleDelete(f.id)}
+                        >
+                          <Text style={styles.deleteBtnText}>🗑 删除</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <Text style={styles.statusDot}>●</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </>
-        )}
+                  );
+                })}
+              </>
+            )}
 
-        {/* Completed */}
-        {completed.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>✅ 已完成 ({completed.length})</Text>
-            {completed.map(f => {
-              const meta = STATUS_META[f.status] ?? STATUS_META.done;
-              return (
-                <View key={f.id} style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.cardLeft}>
-                      <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
+            {/* Active uploads */}
+            {active.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>⏳ 进行中 ({active.length})</Text>
+                {active.map(f => {
+                  const meta = STATUS_META[f.status] ?? STATUS_META.uploading;
+                  return (
+                    <View key={f.id} style={styles.card}>
+                      <View style={styles.cardTop}>
+                        <View style={styles.cardLeft}>
+                          <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
+                        </View>
+                        <View style={styles.cardBody}>
+                          <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
+                          <Text style={styles.fileMeta}>
+                            {uploadService.formatBytes(f.size)} · {meta.label}
+                            {f.status === 'uploading' && ` · ${Math.round(f.progress)}%`}
+                          </Text>
+                          {(f.status === 'uploading' || f.status === 'processing') && (
+                            <View style={styles.progressBar}>
+                              <View style={[styles.progressFill, {width: `${f.progress}%`}]} />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.statusDot}>●</Text>
+                      </View>
                     </View>
-                    <View style={styles.cardBody}>
-                      <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
-                      <Text style={styles.fileMeta}>
-                        {uploadService.formatBytes(f.size)} · {f.agent ? `分派给 ${f.agent}` : meta.label}
-                      </Text>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Completed */}
+            {completed.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>✅ 已完成 ({completed.length})</Text>
+                {completed.map(f => {
+                  const meta = STATUS_META[f.status] ?? STATUS_META.done;
+                  return (
+                    <View key={f.id} style={styles.card}>
+                      <View style={styles.cardTop}>
+                        <View style={styles.cardLeft}>
+                          <Text style={styles.fileEmoji}>{FileTypeIcon(f.mimeType)}</Text>
+                        </View>
+                        <View style={styles.cardBody}>
+                          <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
+                          <Text style={styles.fileMeta}>
+                            {uploadService.formatBytes(f.size)} · {f.agent ? `分派给 ${f.agent}` : meta.label}
+                          </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => handleDelete(f.id)}>
+                          <Text style={styles.doneIcon}>✓</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <TouchableOpacity onPress={() => handleDelete(f.id)}>
-                      <Text style={styles.doneIcon}>✓</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
+                  );
+                })}
+              </>
+            )}
           </>
         )}
 
@@ -271,12 +302,30 @@ const styles = StyleSheet.create({
   content:    {padding: 16, paddingBottom: 100},
 
   emptyState: {
-    alignItems: 'center', paddingVertical: 60,
+    alignItems: 'center', paddingVertical: 48,
     gap: 12,
   },
   emptyEmoji: {fontSize: 48},
   emptyTitle: {color: C.textTitle, fontSize: 18, fontWeight: '800'},
-  emptyHint:  {color: C.textMuted, fontSize: 13, textAlign: 'center', paddingHorizontal: 40},
+  emptyDesc:  {color: C.textMuted, fontSize: 13, lineHeight: 20, textAlign: 'center', paddingHorizontal: 32},
+  emptyHint:  {color: C.primary, fontSize: 12, textAlign: 'center', paddingHorizontal: 32},
+  emptyUploadRow: {marginTop: 8, flexDirection: 'row'},
+  emptyUploadBtn: {
+    paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999,
+    backgroundColor: C.primary,
+  },
+  emptyUploadBtnText: {color: C.bgRoot, fontWeight: '900', fontSize: 14},
+  emptyNote:  {color: C.textMuted, fontSize: 11, textAlign: 'center', marginTop: 6, fontStyle: 'italic', paddingHorizontal: 32},
+
+  activeBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(56,100,200,0.1)',
+    borderWidth: 1, borderColor: C.borderActive,
+  },
+  activeDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary},
+  activeText: {color: C.primary, fontSize: 12, fontWeight: '800', flex: 1},
 
   sectionTitle: {
     color: C.textMuted, fontSize: 11, fontWeight: '900',

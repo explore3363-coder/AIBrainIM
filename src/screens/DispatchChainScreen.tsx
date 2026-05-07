@@ -1,49 +1,56 @@
 import React, {useCallback, useMemo} from 'react';
-import {Text, View, StyleSheet, ScrollView, RefreshControl} from 'react-native';
+import {Text, View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {C, commandTraceMock} from '../data/mockData';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {C} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
 import type {CommandTrace, DispatchRecord} from '../types';
 
+// User-friendly fallback when no dispatches exist yet — no developer noise
+const EMPTY_TRACES: CommandTrace[] = [
+  {stage:'receive',   title:'接收指令',  actor:'你 → 助理',             detail:'在「对话」中发送一条指令，助理会立即接收并开始调度。'},
+  {stage:'dispatch',  title:'生成调度单', actor:'助理 / Gateway',        detail:'助理将你的指令拆解为任务，自动分派给对应的智能体执行。'},
+  {stage:'feedback',  title:'状态回流',  actor:'移动端 / 智能体',        detail:'执行过程中的状态变化会实时回流到这里，无需频繁刷新页面。'},
+  {stage:'synthesis', title:'结果交付', actor:'APP',                   detail:'执行完成后，结果自动同步到任务流、AI 产出流和首页闭环摘要。'},
+];
+
 const STATUS_META: Record<DispatchRecord['status'], {label: string; accent: string; summary: string}> = {
-  submitted: {label: '已提交', accent: '#fbbf24', summary: '等待助理拆解'},
-  dispatched: {label: '执行中', accent: C.primary, summary: '已进入子 Agent 执行'},
-  processing: {label: '处理中', accent: C.working, summary: '后台继续处理'},
-  completed: {label: '已完成', accent: '#34d399', summary: '结果已回流移动端'},
-  failed: {label: '执行失败', accent: C.highUrgency, summary: '需要回看调度链或重试'},
+  submitted:  {label: '已提交',   accent: '#fbbf24', summary: '等待助理拆解'},
+  dispatched: {label: '执行中',   accent: C.primary,  summary: '已进入子 Agent 执行'},
+  processing: {label: '处理中',   accent: C.working,  summary: '后台继续处理'},
+  completed:  {label: '已完成',   accent: '#34d399',  summary: '结果已回流移动端'},
+  failed:     {label: '执行失败', accent: C.highUrgency, summary: '需要回看调度链或重试'},
 };
 
 export function DispatchChainScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const {dispatches, refreshing, refresh} = useAppContext();
 
-  const onRefresh = useCallback(() => {
-    refresh();
-  }, [refresh]);
+  const onRefresh = useCallback(() => { refresh(); }, [refresh]);
 
   const latestDispatch = dispatches[0];
   const latestMeta = latestDispatch ? STATUS_META[latestDispatch.status] : null;
 
   const traces = useMemo<CommandTrace[]>(() => {
-    if (!dispatches.length) return commandTraceMock;
+    if (!dispatches.length) return EMPTY_TRACES;
     const latest = dispatches[0];
     const statusLabel = STATUS_META[latest.status].summary;
-
     return [
-      {stage:'receive', title:'接收指令', actor:'你 → 助理', detail: latest.userText},
-      {stage:'dispatch', title:'生成调度单', actor:'助理 / Gateway', detail: `taskId=${latest.taskId ?? '未生成'} · dispatchId=${latest.dispatchId ?? '未生成'}`},
-      {stage:'feedback', title:'状态回流', actor:'移动端', detail: latest.reply},
-      {stage:'synthesis', title:'当前状态', actor:'调度链', detail: `${statusLabel}${latest.sessionKey ? ` · session=${latest.sessionKey}` : ''}${latest.agentId ? ` · agent=${latest.agentId}` : ''}`},
-      {stage:'deliver', title:'结果交付', actor:'APP', detail: latest.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链与首页 AI 产出流。' : latest.status === 'failed' ? '该调度单执行失败，已保留现场记录，建议查看链路后重试。' : '该调度单已同步到任务流、调度链与首页 AI 产出流，可继续追踪后续状态。'},
+      {stage:'receive',   title:'接收指令',   actor:'你 → 助理',    detail: latest.userText},
+      {stage:'dispatch',  title:'生成调度单', actor:'助理 / Gateway', detail: `taskId=${latest.taskId ?? '未生成'} · dispatchId=${latest.dispatchId ?? '未生成'}`},
+      {stage:'feedback',  title:'状态回流',   actor:'移动端',        detail: latest.reply},
+      {stage:'synthesis', title:'当前状态',   actor:'调度链',        detail: `${statusLabel}${latest.sessionKey ? ` · session=${latest.sessionKey}` : ''}${latest.agentId ? ` · agent=${latest.agentId}` : ''}`},
+      {stage:'deliver',   title:'结果交付',   actor:'APP',          detail: latest.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链与首页 AI 产出流。' : latest.status === 'failed' ? '该调度单执行失败，已保留现场记录，建议查看链路后重试。' : '该调度单已同步到任务流、调度链与首页 AI 产出流，可继续追踪后续状态。'},
     ];
   }, [dispatches]);
 
-  const stats = useMemo(() => {
-    const total = dispatches.length;
-    const completed = dispatches.filter(item => item.status === 'completed').length;
-    const failed = dispatches.filter(item => item.status === 'failed').length;
-    const active = dispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length;
-    return {total, completed, failed, active};
-  }, [dispatches]);
+  const stats = useMemo(() => ({
+    total: dispatches.length,
+    completed: dispatches.filter(item => item.status === 'completed').length,
+    failed:    dispatches.filter(item => item.status === 'failed').length,
+    active:    dispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length,
+  }), [dispatches]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -54,11 +61,7 @@ export function DispatchChainScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={C.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
         <View style={styles.overviewRow}>
@@ -96,9 +99,7 @@ export function DispatchChainScreen() {
             {latestDispatch.agentId ? <Text style={styles.summaryText}>agent: {latestDispatch.agentId}</Text> : null}
             {latestDispatch.stageText ? <Text style={styles.summaryText}>stage: {latestDispatch.stageText}</Text> : null}
             <Text style={styles.summaryHint}>{latestMeta?.summary}</Text>
-            {latestDispatch.sessionKey ? (
-              <Text style={styles.summaryText}>session: {latestDispatch.sessionKey}</Text>
-            ) : null}
+            {latestDispatch.sessionKey ? <Text style={styles.summaryText}>session: {latestDispatch.sessionKey}</Text> : null}
           </View>
         ) : null}
 
@@ -118,6 +119,23 @@ export function DispatchChainScreen() {
           ))}
         </View>
 
+        {dispatches.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🔗</Text>
+            <Text style={styles.emptyTitle}>调度链暂无记录</Text>
+            <Text style={styles.emptyDesc}>
+              在「对话」中发送一条指令，助理会接收并开始调度，状态实时回流到这里。
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyPrimaryBtn}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Tabs', {screen: 'Chat'} as any)}
+            >
+              <Text style={styles.emptyPrimaryBtnText}>去对话发送指令</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {dispatches.length > 0 ? (
           <View style={styles.historySection}>
             <Text style={styles.historyTitle}>最近调度记录</Text>
@@ -132,7 +150,9 @@ export function DispatchChainScreen() {
                     </View>
                   </View>
                   <Text style={styles.historyMeta}>taskId={item.taskId ?? '—'} · dispatchId={item.dispatchId ?? '—'}</Text>
-                  <Text style={styles.historyMeta}>status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}{item.agentId ? ` · agent=${item.agentId}` : ''}</Text>
+                  <Text style={styles.historyMeta}>
+                    status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}{item.agentId ? ` · agent=${item.agentId}` : ''}
+                  </Text>
                   {item.stageText ? <Text style={styles.historyMeta}>stage={item.stageText}</Text> : null}
                   <Text style={styles.historyReply} numberOfLines={3}>{item.reply}</Text>
                 </View>
@@ -152,36 +172,27 @@ const styles = StyleSheet.create({
   sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
   content:    {padding: 16, paddingBottom: 100},
   overviewRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    flexDirection: 'row', gap: 8, marginBottom: 12,
   },
   overviewCard: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingVertical: 10, paddingHorizontal: 10,
     borderRadius: 16,
     backgroundColor: 'rgba(8,18,36,0.62)',
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
+    borderWidth: 1, borderColor: C.borderSubtle,
   },
   overviewLabel: {color: C.textMuted, fontSize: 10, fontWeight: '700'},
   overviewValue: {color: C.textTitle, fontSize: 18, fontWeight: '900', marginTop: 4},
   summaryCard: {
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 18,
+    marginBottom: 12, padding: 14, borderRadius: 18,
     backgroundColor: 'rgba(8,18,36,0.62)',
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
+    borderWidth: 1, borderColor: C.borderSubtle,
   },
   summaryEyebrow: {color: C.accent, fontSize: 11, fontWeight: '900', marginBottom: 8, letterSpacing: 1},
   statusRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8},
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 999, borderWidth: 1,
   },
   statusBadgeText: {fontSize: 10, fontWeight: '900'},
   summaryText: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 2},
@@ -206,26 +217,34 @@ const styles = StyleSheet.create({
   historySection: {marginTop: 14, gap: 8},
   historyTitle: {color: C.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 1},
   historyCard: {
-    padding: 12,
-    borderRadius: 16,
+    padding: 12, borderRadius: 16,
     backgroundColor: 'rgba(16,31,51,0.48)',
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
+    borderWidth: 1, borderColor: C.borderSubtle,
   },
   historyTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexDirection: 'row', alignItems: 'flex-start',
+    justifyContent: 'space-between', gap: 8,
   },
-  historyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
+  historyBadge: {paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1},
   historyBadgeText: {fontSize: 10, fontWeight: '900'},
   historyText: {flex: 1, color: C.textTitle, fontSize: 13, fontWeight: '800'},
   historyMeta: {color: C.textMuted, fontSize: 11, marginTop: 4, lineHeight: 16},
   historyReply: {color: C.textBody, fontSize: 12, marginTop: 6, lineHeight: 18},
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 14,
+  },
+  emptyIcon:   {fontSize: 48},
+  emptyTitle:  {color: C.textTitle, fontSize: 18, fontWeight: '900', textAlign: 'center'},
+  emptyDesc:   {color: C.textBody, fontSize: 14, lineHeight: 21, textAlign: 'center'},
+  emptyPrimaryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20, paddingVertical: 11,
+    borderRadius: 999, backgroundColor: C.primary,
+  },
+  emptyPrimaryBtnText: {color: C.bgRoot, fontWeight: '900', fontSize: 14},
 });
