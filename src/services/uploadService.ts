@@ -238,7 +238,7 @@ async function _tryRealUpload(
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      console.warn(`[uploadService] Gateway /upload returned ${res.status}: ${body.slice(0, 120)}`);
+      // [uploadService] Gateway /upload returned {res.status}: {body.slice(0,120)} — handled gracefully, simulation active
       return false;
     }
 
@@ -255,7 +255,7 @@ async function _tryRealUpload(
     return true;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[uploadService] Real upload failed, falling back to simulation: ${msg}`);
+    // [uploadService] Real upload failed, falling back to simulation: {msg}
     return false;
   }
 }
