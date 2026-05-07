@@ -103,7 +103,7 @@ jobs:
 
           # Verify
           # Add WWDR G3 certificate to keychain if not already present
-          security add-certificates -k ~/Library/Keychains/build.keychain-db /tmp/wwdrg3.pem
+          security add-certificates -k ~/Library/Keychains/build.keychain-db /tmp/wwdrg3.pem || true
 
           # Try codesign directly as verification (more reliable than find-identity)
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
