@@ -106,9 +106,17 @@ jobs:
         run: brew install fastlane
 
       # Create App Store Connect API key from secret
+      # APPLE_API_KEY_CONTENT is stored as raw .p8 PEM text in the secret (NOT base64 encoded)
       - name: Create API key file
         run: |
-          echo "${{ secrets.APPLE_API_KEY_CONTENT }}" | base64 -d > fastlane/apple_auth_key.p8
+          KEY_FILE=$(mktemp /tmp/api_key.p8)
+          printf '%s' "$APPLE_API_KEY_CONTENT" > "$KEY_FILE"
+          # Verify the file looks like a valid PEM key
+          if ! grep -q "BEGIN PRIVATE KEY" "$KEY_FILE"; then
+            echo "ERROR: APPLE_API_KEY_CONTENT does not look like a valid PEM file"
+            cat "$KEY_FILE"
+            exit 1
+          fi
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
 
