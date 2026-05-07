@@ -19,7 +19,7 @@ import {FeedItem} from '../components/FeedItem';
 import type {BrainStore, AIFeedItem, CommandTrace} from '../types';
 
 type RootStackParamList = {
-  Tabs: undefined;
+  Tabs: {screen?: 'Dashboard' | 'Chat' | 'Agent' | 'Tasks' | 'Profile'} | undefined;
   MemoryStore: undefined;
   KnowledgeBase: undefined;
   FileLibrary: undefined;
@@ -206,7 +206,9 @@ export function DashboardScreen() {
     ? `最新调度「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
     : latestRunningTask
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
-      : '当前没有进行中的调度单，系统运转正常。';
+      : runtimeMode === 'fallback'
+        ? '还没连通真实 Gateway，先在「对话」中发一条消息，验证基础调度链路是否正常。'
+        : '当前没有进行中的调度单，系统运转正常。';
   const liveFeed = useMemo<AIFeedItem[]>(() => {
     const safeCaptures = Array.isArray(recentCaptures) ? recentCaptures : [];
 
@@ -337,13 +339,14 @@ export function DashboardScreen() {
           });
         });
       } else {
+        // First launch / idle state — route to Chat to encourage first message
         queue.push({
           id: 'idle-default',
-          tag: '下一步',
-          title: '当前没有新的高优先动作',
-          detail: '系统运转正常，可检查需确认项或继续与 AI 对话。',
+          tag: '第一步',
+          title: '发送第一条消息，开启 AI 协作',
+          detail: '在「对话」中告诉助理你想做什么，调度链会立即开始工作。',
           accent: C.primary,
-          onPress: () => navigation.navigate('Confirmations'),
+          onPress: () => navigation.navigate('Tabs', {screen: 'Chat'}),
         });
       }
     }

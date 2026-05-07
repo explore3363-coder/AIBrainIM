@@ -116,37 +116,16 @@ jobs:
           security list-keychains -s ~/Library/Keychains/build.keychain-db
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
 
-          # Archive without signing — we'll sign the .xcarchive directly after
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }}
-
-      - name: Sign the .xcarchive
-        run: |
-          security list-keychains -s ~/Library/Keychains/build.keychain-db
-          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-
-          # Directly sign the archive with security command
-          security sign-code -v \
-            --keychain ~/Library/Keychains/build.keychain-db \
-            --force \
-            build/AIBrainIM.xcarchive 2>&1 | head -5 || echo "sign-code done"
-
-          # Embed team ID into the archive plist so export sees it
-          ARCHIVE_PLIST="build/AIBrainIM.xcarchive/Info.plist"
-          if [ -f "$ARCHIVE_PLIST" ]; then
-            /usr/libexec/PlistBuddy -c "Add :TeamIdentifier array" "$ARCHIVE_PLIST" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Set :TeamIdentifier:0 '7S96N8A32U'" "$ARCHIVE_PLIST" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Set :TeamName 'Hong Yang'" "$ARCHIVE_PLIST" 2>/dev/null || true
-          fi
-          echo "Archive team info embedded"
+            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            -allowProvisioningUpdates
 
       - name: Export IPA
         run: |
