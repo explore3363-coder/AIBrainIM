@@ -122,9 +122,7 @@ jobs:
             -derivedDataPath build/DerivedData \
             archive \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
-            OTHER_CODE_SIGN_FLAGS="--keychain=$HOME/Library/Keychains/build.keychain-db" \
             -allowProvisioningUpdates
 
       - name: Export IPA
