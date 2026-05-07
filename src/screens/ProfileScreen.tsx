@@ -71,6 +71,7 @@ export function ProfileScreen() {
     gatewayWarningCount,
     refreshing,
     refresh,
+    injectDemoData,
   } = useAppContext();
 
   const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
@@ -520,29 +521,16 @@ export function ProfileScreen() {
                   {
                     text: '注入 Demo 数据',
                     onPress: () => {
-                      const now = Date.now();
-                      // Inject 3 demo dispatches into the global app context
-                      const demoDispatches = [
-                        { id: `demo-dp-${now}-1`, userText: '检查今日钨矿价格走势', reply: '✓ 寻龙 [钨矿研判] 已完成本轮执行 · 已运行 12s', taskId: `demo-task-${now}-1`, dispatchId: `demo-d-${now}-1`, sessionKey: 'demo:xunlong:subagent:1', createdAt: now - 90000, updatedAt: now - 80000, status: 'completed' as const, source: 'chat' as const, agentId: 'xunlong', label: '钨矿研判', stageText: '寻龙 · 钨矿研判 · 12s' },
-                        { id: `demo-dp-${now}-2`, userText: '更新聚源三维项目进度', reply: '🛰 聚源三维 [数字孪生] 正在执行 · 已运行 28s', taskId: `demo-task-${now}-2`, dispatchId: `demo-d-${now}-2`, sessionKey: 'demo:wuyin:subagent:2', createdAt: now - 60000, updatedAt: now - 50000, status: 'dispatched' as const, source: 'chat' as const, agentId: 'wuyin', label: '数字孪生', stageText: '无垠 · 数字孪生 · 28s' },
-                        { id: `demo-dp-${now}-3`, userText: 'XRT 选矿参数优化建议', reply: '✓ 探索 [XRT参数] 已完成本轮执行 · 已运行 18s', taskId: `demo-task-${now}-3`, dispatchId: `demo-d-${now}-3`, sessionKey: 'demo:tansuo:subagent:3', createdAt: now - 30000, updatedAt: now - 20000, status: 'completed' as const, source: 'chat' as const, agentId: 'tansuo', label: 'XRT参数', stageText: '探索 · XRT参数 · 18s' },
-                      ];
-                      const demoTasks = [
-                        { id: `demo-task-${now}-1`, title: '检查今日钨矿价格走势', owner: '寻龙 / 对话链路', state: 'done' as const, eta: '已完成', next: '结果已回流到首页 AI 产出流', priority: 'P1' as const, agentId: 'xunlong', sessionKey: 'demo:xunlong:subagent:1', updatedAt: now - 80000, sourceType: 'chat' as const, traceSummary: '对话链路 · 钨矿研判' },
-                        { id: `demo-task-${now}-2`, title: '更新聚源三维项目进度', owner: '无垠 / 对话链路', state: 'running' as const, eta: '执行中', next: '项目数字孪生模型更新推进中', priority: 'P0' as const, agentId: 'wuyin', sessionKey: 'demo:wuyin:subagent:2', updatedAt: now - 50000, sourceType: 'chat' as const, traceSummary: '对话链路 · 数字孪生' },
-                        { id: `demo-task-${now}-3`, title: 'XRT 选矿参数优化建议', owner: '探索 / 对话链路', state: 'done' as const, eta: '已完成', next: '结果已同步到选矿专家系统', priority: 'P1' as const, agentId: 'tansuo', sessionKey: 'demo:tansuo:subagent:3', updatedAt: now - 20000, sourceType: 'chat' as const, traceSummary: '对话链路 · XRT参数' },
-                      ];
-                      // We access the global app context via a synthetic refresh by
-                      // triggering the Dashboard refresh, which will re-fetch from API.
-                      // For demo mode, we patch the upload service with demo files.
+                      injectDemoData();
                       try {
                         const { enqueueDemoUpload } = require('../services/uploadService');
-                        enqueueDemoUpload(0); // image
-                        enqueueDemoUpload(2); // video (large)
-                        Alert.alert('✅ Demo 数据已注入', '已注入 3 条模拟调度 + 2 个附件。请到「总览」和「任务」页面查看效果。');
-                      } catch {
-                        Alert.alert('✅ Demo 数据已注入', '请到「总览」页面查看 AI 产出流效果。');
-                      }
+                        enqueueDemoUpload(0); // image demo
+                        enqueueDemoUpload(2); // video demo (large file)
+                      } catch { /* uploadService may not be available */ }
+                      Alert.alert(
+                        '✅ Demo 数据已注入',
+                        '已注入 3 条模拟调度 + 2 个演示附件。请到「总览」和「任务」页面查看效果。',
+                      );
                     },
                   },
                 ],

@@ -87,7 +87,7 @@ export function ChatScreen() {
       dot1.setValue(0); dot2.setValue(0); dot3.setValue(0);
       return;
     }
-    const makeLoop = (dot: Animated.Value, delay: number) =>
+    const makeLoop = (dot: Animated.Value, _delay: number) =>
       Animated.loop(
         Animated.sequence([
           Animated.timing(dot, {toValue: 1, duration: 380, useNativeDriver: true}),

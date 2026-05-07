@@ -1,12 +1,17 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-07 09:15 GMT+8
+> 最后更新：2026-05-07 10:45 GMT+8
 
 ---
 
-## 当前状态：P1 可用版已收口 ✅
+## 当前状态：P1 可用版已收口 ✅（第五轮完成）
 
 **代码冻结点**：本轮完成后核心产品代码基本稳定，下一步优先真实 API 接入 + Apple 侧物料。
+
+### 本轮（第五轮）新增
+- `ChatScreen`：打字指示器从静态 dots 升级为 Animated.Value 脉冲动画（3 个点顺序 stagger，使用 native driver，60fps）
+- `ProfileScreen`：「系统」区块新增 🎲 Demo 模式按钮，QA/演示时注入 3 条模拟调度 + 2 个演示附件，无需 Gateway 即可看到完整 populated 效果
+- `AppContext`：新增 `mergeDispatchRecords()` + `mergeTasks()` 本地/远程状态合并，解决 live 数据回填时覆盖本地记录的问题
 
 ---
 
