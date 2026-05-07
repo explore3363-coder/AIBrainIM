@@ -294,6 +294,14 @@ export function KnowledgeBaseScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {filtered.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📖</Text>
+            <Text style={styles.emptyTitle}>知识库暂无内容</Text>
+            <Text style={styles.emptySub}>上传文档或由助理自动沉淀知识条目后，会在此显示。</Text>
+            <Text style={styles.emptySub2}>矿业知识、工程经验、技术规范、政策文件都可以沉淀。</Text>
+          </View>
+        )}
         {filtered.map(doc => {
           const meta = CAT_META[doc.category];
           return (
@@ -373,6 +381,11 @@ const styles = StyleSheet.create({
   filterText:      {color: C.textMuted, fontSize: 13, fontWeight: '700'},
   filterTextActive:{color: C.primary},
   content:    {padding: 16, paddingBottom: 100, gap: 10},
+  emptyState:  {alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24},
+  emptyIcon:   {fontSize: 44, marginBottom: 12},
+  emptyTitle:  {color: C.textTitle, fontSize: 17, fontWeight: '800', marginBottom: 8},
+  emptySub:    {color: C.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 20},
+  emptySub2:   {color: C.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18, marginTop: 6, fontStyle: 'italic'},
   card: {
     padding: 14, borderRadius: 18,
     backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle,

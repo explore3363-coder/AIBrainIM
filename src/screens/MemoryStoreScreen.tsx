@@ -456,6 +456,14 @@ export function MemoryStoreScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {filtered.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🧠</Text>
+            <Text style={styles.emptyTitle}>记忆库是空的</Text>
+            <Text style={styles.emptySub}>直接在下方写入记忆，或在「对话」中触发调度，系统会自动汇入运行时记忆。</Text>
+            <Text style={styles.emptySub2}>上行写入后，会先保留在本地闭环，Gateway 恢复在线时会自动补写到远程记忆层。</Text>
+          </View>
+        )}
         {filtered.map(entry => {
           const meta = CATEGORY_META[entry.category];
           const isRetrying = retryingEntryId === entry.id;
@@ -603,6 +611,11 @@ const styles = StyleSheet.create({
   filterText:      {color: C.textMuted, fontSize: 13, fontWeight: '700'},
   filterTextActive:{color: C.primary},
   content:    {padding: 16, paddingBottom: 100, gap: 10},
+  emptyState:  {alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24},
+  emptyIcon:   {fontSize: 44, marginBottom: 12},
+  emptyTitle:  {color: C.textTitle, fontSize: 17, fontWeight: '800', marginBottom: 8},
+  emptySub:    {color: C.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 20},
+  emptySub2:   {color: C.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18, marginTop: 6, fontStyle: 'italic'},
   card: {
     padding: 14, borderRadius: 18,
     backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle,

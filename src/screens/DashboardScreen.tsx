@@ -28,6 +28,7 @@ type RootStackParamList = {
   Confirmations: undefined;
   DispatchChain: undefined;
   GatewaySettings: undefined;
+  Profile: undefined;
 };
 
 const NAV_MAP: Record<string, keyof RootStackParamList> = {
@@ -299,6 +300,21 @@ export function DashboardScreen() {
         <View style={styles.cornerAccent} />
       </View>
 
+      {runtimeMode === 'fallback' && safeDispatches.length === 0 && (
+        <TouchableOpacity
+          style={styles.demoHintBanner}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Profile')}
+        >
+          <Text style={styles.demoHintIcon}>🎲</Text>
+          <View style={styles.demoHintText}>
+            <Text style={styles.demoHintTitle}>演示模式 · 尚未连接 Gateway</Text>
+            <Text style={styles.demoHintSub}>点击前往「我的」→ 系统 → Demo 模式，注入模拟数据查看完整效果</Text>
+          </View>
+          <Text style={styles.demoHintArrow}>›</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.metricsGrid}>
         <MetricCard label="活跃 Agent" value={`${activeCount}/${agents.length}`} accent={C.accent} />
         <MetricCard label="进行中" value={`${runningCount}`} accent={C.working} />
@@ -478,6 +494,23 @@ const styles = StyleSheet.create({
   },
 
   metricsGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14},
+  demoHintBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.35)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    gap: 10,
+  },
+  demoHintIcon: {fontSize: 22},
+  demoHintText: {flex: 1},
+  demoHintTitle: {color: '#fbbf24', fontSize: 13, fontWeight: '700'},
+  demoHintSub: {color: C.textMuted, fontSize: 11, marginTop: 3, lineHeight: 16},
+  demoHintArrow: {color: '#fbbf24', fontSize: 20, fontWeight: '700'},
   summaryGrid: {gap: 10, marginBottom: 2},
   summaryCard: {
     padding: 14,
