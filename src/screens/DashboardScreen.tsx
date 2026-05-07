@@ -10,7 +10,7 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
-import {C, brainStoresMock, commandTraceMock, aiFeedMock} from '../data/mockData';
+import {C, commandTraceMock, aiFeedMock} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
 import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';
@@ -72,12 +72,71 @@ export function DashboardScreen() {
   const safeConfirmations = useMemo(() => Array.isArray(confirmations) ? confirmations : [], [confirmations]);
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
   const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
+  const uploadingCount = useMemo(() => safeUploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [safeUploads]);
+
+  // Dynamic brain store entries driven by real context data — no hardcoded mock counts
+  const brainStores = useMemo<BrainStore[]>(() => {
+    const memorySignals = safeDispatches.filter(d => d.source === 'memory').length
+      + safeTasks.filter(t => t.sourceType === 'memory').length;
+    const knowledgeSignals = safeDispatches.filter(d => d.source === 'knowledge').length
+      + safeTasks.filter(t => t.sourceType === 'knowledge').length;
+    const projectSignals = safeDispatches.filter(d =>
+      d.label?.includes('项目') || d.userText.includes('项目') || d.reply.includes('项目')).length;
+    const fileSignals = safeUploads.length;
+
+    return [
+      {
+        id: 'memory' as const,
+        title: '记忆库',
+        value: `${Math.min(99, memorySignals)} 条运行信号`,
+        status: memorySignals > 0 ? 'active' as const : 'standby' as const,
+        detail: '长期 + 短期记忆 · 搜索 · 新建',
+        accent: '#a78bfa',
+        screen: 'MemoryStore',
+      },
+      {
+        id: 'knowledge' as const,
+        title: '知识库',
+        value: `${Math.min(99, knowledgeSignals)} 条运行信号`,
+        status: knowledgeSignals > 0 ? 'active' as const : 'standby' as const,
+        detail: '矿业 + 工程 + 技术 · 搜索 · 收录',
+        accent: C.primary,
+        screen: 'KnowledgeBase',
+      },
+      {
+        id: 'project' as const,
+        title: '项目库',
+        value: projectSignals > 0 ? `${Math.min(99, projectSignals)} 条项目信号` : 'AIBrainIM / 聚源三维',
+        status: projectSignals > 0 ? 'active' as const : 'standby' as const,
+        detail: '移动端开发 · 智慧矿山 · OpenClaw',
+        accent: '#34d399',
+        screen: 'ProjectLibrary',
+      },
+      {
+        id: 'file' as const,
+        title: '附件库',
+        value: fileSignals > 0 ? `${fileSignals} 个附件` : '暂无附件',
+        status: fileSignals > 0 ? 'active' as const : 'standby' as const,
+        detail: `图片 / 视频 / 文档 · ${uploadingCount} 个上传中`,
+        accent: '#f97316',
+        screen: 'FileLibrary',
+      },
+      {
+        id: 'upload' as const,
+        title: '上传入口',
+        value: uploadingCount > 0 ? `${uploadingCount} 个上传中` : '随时可用',
+        status: uploadingCount > 0 ? 'pending' as const : 'active' as const,
+        detail: '图片 / 视频 / 文档 · AI 自动分派',
+        accent: uploadingCount > 0 ? '#fbbf24' : '#38bdf8',
+        screen: 'Upload',
+      },
+    ];
+  }, [safeDispatches, safeTasks, safeUploads, uploadingCount]);
 
   const activeCount  = useMemo(() => safeAgents.filter(a => a.status === 'online' || a.status === 'working').length, [safeAgents]);
   const runningCount = useMemo(() => safeTasks.filter(t => t.state === 'running').length, [safeTasks]);
   const doneCount = useMemo(() => safeTasks.filter(t => t.state === 'done').length, [safeTasks]);
   const blockedCount = useMemo(() => safeTasks.filter(t => t.state === 'blocked').length, [safeTasks]);
-  const uploadingCount = useMemo(() => safeUploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [safeUploads]);
   const dispatchActiveCount = useMemo(() => safeDispatches.filter(item => item.status === 'submitted' || item.status === 'dispatched' || item.status === 'processing').length, [safeDispatches]);
   const uploadDoneCount = useMemo(() => safeUploads.filter(u => u.status === 'done' || u.status === 'dispatched').length, [safeUploads]);
 
@@ -304,12 +363,12 @@ export function DashboardScreen() {
         <TouchableOpacity
           style={styles.demoHintBanner}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('GatewaySettings')}
         >
-          <Text style={styles.demoHintIcon}>🎲</Text>
+          <Text style={styles.demoHintIcon}>🛰️</Text>
           <View style={styles.demoHintText}>
-            <Text style={styles.demoHintTitle}>演示模式 · 尚未连接 Gateway</Text>
-            <Text style={styles.demoHintSub}>点击前往「我的」→ 系统 → Demo 模式，注入模拟数据查看完整效果</Text>
+            <Text style={styles.demoHintTitle}>尚未连接 OpenClaw Gateway</Text>
+            <Text style={styles.demoHintSub}>当前显示本地回退数据，点击前往配置 Gateway 地址与 Token 以接通真实调度链</Text>
           </View>
           <Text style={styles.demoHintArrow}>›</Text>
         </TouchableOpacity>
@@ -438,7 +497,7 @@ export function DashboardScreen() {
         hint="点击进入对应模块"
       />
       <View style={styles.storeGrid}>
-        {brainStoresMock.map(store => (
+        {brainStores.map(store => (
           <StoreCard key={store.id} store={store} onPress={handleStorePress} />
         ))}
       </View>

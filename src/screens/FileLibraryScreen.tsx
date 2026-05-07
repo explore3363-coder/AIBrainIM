@@ -10,26 +10,7 @@ import {C} from '../data/mockData';
 import {enqueueUpload, uploadService, type UploadFile} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
-// ─── Historical / Mock Files ─────────────────────────────────────────────────
-interface HistoricalFile {
-  id: string;
-  name: string;
-  type: 'image' | 'video' | 'document' | 'archive';
-  size: string;
-  agent: string;
-  timestamp: string;
-  status: 'dispatched' | 'pending' | 'reviewed';
-}
 
-const HISTORICAL_FILES: HistoricalFile[] = [
-  {id:'f1', name:'聚源三维矿区实拍.jpg',        type:'image',    size:'4.2 MB', agent:'无垠',   timestamp:'20:30','status':'dispatched'},
-  {id:'f2', name:'钨矿选矿工艺流程图.pdf',       type:'document', size:'1.8 MB', agent:'探索',   timestamp:'20:25','status':'reviewed'},
-  {id:'f3', name:'OpenClaw 架构草图.png',        type:'image',    size:'892 KB', agent:'黑金',   timestamp:'19:50','status':'dispatched'},
-  {id:'f4', name:'智慧矿山数字孪生方案.docx',    type:'document', size:'3.1 MB', agent:'无垠',   timestamp:'19:40','status':'pending'},
-  {id:'f5', name:'AIBrainIM 移动端 Demo.mp4',   type:'video',    size:'18.7 MB', agent:'黑金',  timestamp:'18:20','status':'reviewed'},
-  {id:'f6', name:'矿业政策汇编_2026.zip',        type:'archive',  size:'7.4 MB', agent:'寻龙',   timestamp:'17:55','status':'dispatched'},
-  {id:'f7', name:'XRT 选矿传感器数据.csv',       type:'document', size:'556 KB', agent:'探索',   timestamp:'17:30','status':'pending'},
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const TYPE_META: Record<string, {emoji: string; color: string}> = {
@@ -52,18 +33,14 @@ const STATUS_META: Record<string, {label: string; color: string}> = {
 const FILTER_TYPES = ['全部', '图片', '视频', '文档', '压缩包'] as const;
 type FilterType = typeof FILTER_TYPES[number];
 
-type AnyFile = HistoricalFile | UploadFile;
+type AnyFile = UploadFile;
 
-// Merge historical + upload-queue files, dedup by id
-function mergeFiles(historical: HistoricalFile[], queue: UploadFile[]): AnyFile[] {
-  const all = new Map<string, AnyFile>();
-  for (const f of historical) all.set(f.id, f);
-  for (const f of queue) all.set(f.id, f);
-  return Array.from(all.values()).sort((a, b) => {
-    const ta = 'timestamp' in a ? a.timestamp : '';
-    const tb = 'timestamp' in b ? b.timestamp : '';
-    return tb.localeCompare(ta);
-  });
+function getFileTimestamp(f: UploadFile): string {
+  return f.timestamp ?? '';
+}
+
+function sortByTimestamp(files: UploadFile[]): UploadFile[] {
+  return [...files].sort((a, b) => getFileTimestamp(b).localeCompare(getFileTimestamp(a)));
 }
 
 function getFileType(f: AnyFile): string {
@@ -75,7 +52,7 @@ export function FileLibraryScreen() {
   const [activeType, setActiveType] = useState<FilterType>('全部');
   const {uploads} = useAppContext();
 
-  const allFiles = useMemo(() => mergeFiles(HISTORICAL_FILES, uploads), [uploads]);
+  const allFiles = useMemo(() => sortByTimestamp(uploads), [uploads]);
 
   const filtered = activeType === '全部'
     ? allFiles
@@ -175,16 +152,13 @@ export function FileLibraryScreen() {
         {filtered.map(file => {
           const type = getFileType(file);
           const typeMeta = TYPE_META[type] ?? TYPE_META.document;
-          // Derive display fields — handle both historical and queue types
+          // Derive display fields from UploadFile
           const fileName = file.name;
-          const fileAgent = (file as any).agent ?? (file as any).owner ?? '—';
+          const fileAgent = file.agent ?? '—';
           const fileStatus = file.status as string;
           const statusMeta = STATUS_META[fileStatus] ?? STATUS_META.pending;
-          const fileSize =
-            'size' in file && typeof (file as any).size === 'string'
-              ? (file as HistoricalFile).size
-              : uploadService.formatBytes(((file as any).size as number) ?? 0);
-          const fileTime = 'timestamp' in file ? file.timestamp : '';
+          const fileSize = uploadService.formatBytes(file.size);
+          const fileTime = file.timestamp ?? '';
 
           return (
             <View key={file.id} style={styles.card}>

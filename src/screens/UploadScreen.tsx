@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/mockData';
-import {uploadService, enqueueUpload, enqueueDemoUpload, type UploadFile} from '../services/uploadService';
+import {uploadService, enqueueUpload, type UploadFile} from '../services/uploadService';
 import {launchImageLibrary, type ImagePickerResponse} from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
 
@@ -57,11 +57,6 @@ export function UploadScreen() {
 
   const handleRetry = (file: UploadFile) => {
     uploadService.retryUpload(file.id);
-    setFiles([...uploadService.getQueue()]);
-  };
-
-  const handleDemo = () => {
-    enqueueDemoUpload();
     setFiles([...uploadService.getQueue()]);
   };
 
@@ -135,9 +130,6 @@ export function UploadScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.demoBtn} activeOpacity={0.8} onPress={handleDemo}>
-              <Text style={styles.demoBtnText}>🎲 Demo</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.uploadBtn} activeOpacity={0.8} onPress={handleUpload}>
               <Text style={styles.uploadBtnText}>+ 上传</Text>
             </TouchableOpacity>
@@ -269,12 +261,6 @@ const styles = StyleSheet.create({
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
   headerRow:  {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   headerActions:{flexDirection: 'row', gap: 8, alignItems: 'center'},
-  demoBtn:    {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: 'rgba(129,140,248,0.12)',
-    borderWidth: 1, borderColor: 'rgba(129,140,248,0.35)',
-  },
-  demoBtnText: {color: '#818cf8', fontWeight: '900', fontSize: 13},
   uploadBtn:  {
     paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999,
     backgroundColor: C.primary,
