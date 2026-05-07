@@ -77,7 +77,7 @@ jobs:
       # ── Step 3: Submit CSR to ASC API to get distribution certificate ────────
       - name: Create iOS Distribution certificate via ASC API
         run: |
-          # PyJWT is pre-installed on macOS-15 runner - no pip install needed
+          python3 -m pip install PyJWT --quiet 2>&1 | tail -2
           python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, os
 
@@ -175,6 +175,7 @@ jobs:
       # ── Step 6: Create provisioning profile via ASC API ────────────────────
       - name: Create provisioning profile via ASC API
         run: |
+          python3 -m pip install PyJWT --quiet 2>&1 | tail -2
           python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, plistlib
 
