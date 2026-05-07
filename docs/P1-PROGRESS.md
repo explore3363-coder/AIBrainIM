@@ -1,19 +1,22 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-08 04:00 GMT+8
+> 最后更新：2026-05-08 04:30 GMT+8
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第十七轮凌晨巡检验证）
+## 当前状态：P1 可用版收口完毕 ✅（第十八轮凌晨巡检验证）
 
-### 本轮（第十七轮）完成：凌晨结构巡检 · 上传服务深度验证 · 文档收口
-- TypeScript ✅ · Jest 10 suites/82 tests ✅ · Git clean ✅ · 提交记录 a95f06b
-- 全面验证五主功能 + 信息层五入口 + 调度链 + 上传服务 + ProjectLibrary
-- GatewaySettingsScreen 完整实现：session 发现、连通性测试、直连会话测试、Feishu 回退测试
-- 测试记录写入 dispatch chain，测试结果合并到 AI 产出流
-- P1-PROGRESS.md 更新到最新状态
+### 本轮（第十八轮）完成：凌晨快速状态确认
+- TypeScript ✅ · Jest 10 suites/82 tests ✅ · Git clean ✅ · iOS Build ✅
+- 快速审查核心文件：ChatScreen · DashboardScreen · uploadService · ProjectLibraryScreen · GatewaySettingsScreen
+- ChatScreen：打字机动画 · 调度状态卡片 · 附件上下文携带 · 会话历史持久化 · 长上下文提示
+- uploadService：完整 8 阶段状态机（queued→chunking→uploading→merging→processing→dispatched→done/error）· 断点续传 · 指数退避+jitter
+- ProjectLibraryScreen：运行时项目投影（自动识别 AIBrainIM/聚源三维/Runtime）· 动态 progress 计算
+- GatewaySettingsScreen：session 发现 + 连通性测试 + 直连会话测试
+- 阻塞项全部为人工依赖项，无工程阻塞
 
-### 上轮（第十三轮）完成：截图自动化修复 + App Store 尺寸生成
+### 上轮（第十七轮）完成：凌晨结构巡检 · 上传服务深度验证 · 文档收口
+- TypeScript ✅ · Jest 10 suites/82 tests ✅ · Git clean ✅ · 全面验证五主功能 + 信息层五入口
 - `scripts/capture-screenshots.sh` 修复 iOS 26.4 兼容（`simctl io screenshot` 替换已移除的 `simctl screenshot`）
 - 自动生成 App Store 三种尺寸：1290×2796 / 1284×2778 / 1242×2208
 - `RELEASE_CHECKLIST.md` 更新截图完成状态
