@@ -1,4 +1,5 @@
 import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
+import {Animated} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ScrollView,
@@ -76,6 +77,29 @@ export function ChatScreen() {
   const [queuedAttachmentIds, setQueuedAttachmentIds] = useState<string[]>([]);
   const scrollRef   = useRef<ScrollView>(null);
   const lastDispatchIdRef = useRef<string | undefined>(undefined);
+  // Animated typing indicator — three dots pulse in sequence
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!typing) {
+      dot1.setValue(0); dot2.setValue(0); dot3.setValue(0);
+      return;
+    }
+    const makeLoop = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(dot, {toValue: 1, duration: 380, useNativeDriver: true}),
+          Animated.timing(dot, {toValue: 0, duration: 380, useNativeDriver: true}),
+        ]),
+      );
+    const a1 = makeLoop(dot1, 0);
+    const a2 = makeLoop(dot2, 160);
+    const a3 = makeLoop(dot3, 320);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, [typing, dot1, dot2, dot3]);
 
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
   const safeAttachments = useMemo(() => Array.isArray(attachments) ? attachments : [], [attachments]);
@@ -514,14 +538,20 @@ export function ChatScreen() {
             </View>
           )}
 
-          {/* Typing indicator */}
+          {/* Typing indicator — animated bounce dots */}
           {typing && (
             <View style={styles.msgIn}>
               <Text style={styles.msgName}>助理</Text>
               <View style={{flexDirection:'row', alignItems:'center', paddingTop:4, gap:5}}>
-                <Text style={[styles.typingDot, {opacity:1}]}>●</Text>
-                <Text style={[styles.typingDot, {opacity:0.6}]}>●</Text>
-                <Text style={[styles.typingDot, {opacity:0.3}]}>●</Text>
+                {[dot1, dot2, dot3].map((dot, i) => (
+                  <Animated.Text
+                    key={i}
+                    style={[
+                      styles.typingDot,
+                      {opacity: dot.interpolate({inputRange: [0, 1], outputRange: [0.25, 1]})},
+                    ]}
+                  >●</Animated.Text>
+                ))}
               </View>
             </View>
           )}
