@@ -1,10 +1,11 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState, useCallback} from 'react';
 import {
   ScrollView,
   Text,
   View,
   TouchableOpacity,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -47,7 +48,8 @@ type RootStackParamList = {
 
 export function AgentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {agents, tasks, dispatches, pendingConfirmations, refreshing, runtimeMode, runtimeError} = useAppContext();
+  const {agents, tasks, dispatches, pendingConfirmations, refreshing, refresh, runtimeMode, runtimeError} = useAppContext();
+  const onRefresh = useCallback(() => { refresh(); }, [refresh]);
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
   const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
@@ -156,7 +158,17 @@ export function AgentScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.grid}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        }
+      >
         <View style={styles.focusBoard}>
           <View style={styles.focusTop}>
             <View>
