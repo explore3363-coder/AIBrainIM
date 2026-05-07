@@ -1,19 +1,17 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-07 10:45 GMT+8
+> 最后更新：2026-05-07 17:00 GMT+8
 
 ---
 
-## 当前状态：P1 可用版已收口 ✅（第五轮完成）
+## 当前状态：P1 可用版收口完毕 ✅（第六轮完成）
 
-**代码冻结点**：本轮完成后核心产品代码基本稳定，下一步优先真实 API 接入 + Apple 侧物料。
-
-### 本轮（第六轮）新增
-- `DashboardScreen`：回退模式 + 无数据时显示黄色 Demo 模式提示横幅，点击跳转到「我的 → Demo 模式」一键注入模拟数据
-- `MemoryStoreScreen`：无记忆时显示引导性空状态，不再是空白页
-- `KnowledgeBaseScreen`：无知识时显示引导性空状态，不再是空白页
-- `AppContext`：`injectDemoData()` 方法正式上线，连接 ProfileScreen Demo 按钮
-- `ChatScreen`：修复 unused `delay` 参数（_delay），清除 eslint 最后一个 error
+### 本轮（第七轮）完成：开发者自嗨信息清理
+- `aiFeedMock` + `commandTraceMock` 替换为用户友好文案（去掉「下一步转向真实 API」「P1 可用版...」等开发者内容）
+- 删除 DashboardScreen「注入 Demo」按钮 + ProfileScreen「Demo 模式」菜单项
+- 移除 `injectDemoData` 未使用导入（DashboardScreen + ProfileScreen）
+- 修复 Dashboard 回退横幅 `demoSettingsBtn` 布局（移除 `demoHintActions` 包装后 `flex:1` 问题）
+- TypeScript ✅ 55 tests ✅
 
 ---
 
