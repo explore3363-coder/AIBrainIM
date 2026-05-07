@@ -22,6 +22,10 @@
 - [x] 调度链（receive → dispatch → feedback → synthesis → deliver 五阶段）
 - [x] 需确认项（pending/confirmed/deferred 状态流转）
 - [x] 附件上传：分片/直传/断点续传/指数退避/后台队列/结果回流
+- [x] 对话上下文策略 Banner：实时显示消息条数 + 长上下文+分层记忆+按需回补说明
+- [x] 上传页非空状态 Banner：明确标注「无大小限制·分片·断点续传·后台处理」
+- [x] Chat/DispatchChain/Task/Upload 路由参数 TypeScript 严格化（?. 链式取值）
+- [x] TypeScript check 通过 + 55 tests 全部通过
 - [x] AppContext 全局状态管理（agents/tasks/dispatches/uploads/confirmations）
 - [x] Gateway 配置页（URL/Token/通道/账号配置 + 连通性测试）
 - [x] CI/CD：GitHub Actions TypeScript + iOS Simulator Build
