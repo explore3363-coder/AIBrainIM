@@ -5,20 +5,51 @@ import type {
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const C = {
-  bgRoot:        '#050d1a',
-  bgCard:        'rgba(13,22,40,0.72)',
-  bgGlass:       'rgba(20,35,60,0.55)',
-  bgElevated:    '#0c1830',
-  borderSubtle:  'rgba(56,100,200,0.18)',
-  borderActive:  'rgba(56,189,248,0.55)',
-  primary:       '#38bdf8',
-  primaryDark:   '#0284c7',
-  primaryGlow:   'rgba(56,189,248,0.28)',
-  accent:        '#22d3ee',
-  accentGlow:    'rgba(34,211,238,0.25)',
+  // ── Backgrounds ──────────────────────────────────────────────────────────
+  bgRoot:      '#030810',           //极深背景（最深层）
+  bgSurface:    '#080e1a',          //页面背景
+  bgCard:       'rgba(14,24,42,0.7)', //毛玻璃卡片
+  bgElevated:   '#0d1830',          //抬升层
+  bgOverlay:    'rgba(8,14,28,0.85)', //遮罩/弹层
+
+  // ── Borders ──────────────────────────────────────────────────────────────
+  borderSubtle:  'rgba(255,255,255,0.06)',
+  borderDefault: 'rgba(255,255,255,0.10)',
+  borderActive:  'rgba(56,189,248,0.5)',
+
+  // ── Accent / Primary ─────────────────────────────────────────────────────
+  primary:      '#38bdf8',          //主蓝
+  primaryDark:  '#0284c7',
+  primaryGlow:  'rgba(56,189,248,0.25)',
+  accent:       '#22d3ee',          //青蓝点缀
+
+  // ── Text ─────────────────────────────────────────────────────────────────
+  textPrimary:   '#f1f5f9',
+  textSecondary: '#94a3b8',
+  textMuted:     '#475569',
+  textDisabled:  '#1e293b',
+
+  // ── Status ────────────────────────────────────────────────────────────────
+  success:   '#34d399',
+  warning:   '#fbbf24',
+  error:     '#f87171',
+  info:      '#60a5fa',
+
+  // ── Agent platform colours ────────────────────────────────────────────────
+  zhuli:    '#22d3ee',
+  renzhi:   '#a78bfa',
+  xunlong:  '#fbbf24',
+  wuyin:    '#34d399',
+  tansuo:   '#fb7185',
+  zhilian:  '#38bdf8',
+  heijin:   '#f97316',
+  kaifa:    '#4ade80',
+
+  // ── Legacy aliases (kept for compatibility) ───────────────────────────────
+  bgGlass:       'rgba(14,24,42,0.65)',
+  borderGlass:   'rgba(255,255,255,0.08)',
   textTitle:     '#f1f5f9',
   textBody:      '#cbd5e1',
-  textMuted:     '#64748b',
   textDim:       '#334155',
   online:        '#22d3ee',
   working:       '#38bdf8',
@@ -32,7 +63,7 @@ export const C = {
   tabActive:     '#38bdf8',
   tabInactive:   '#64748b',
   highUrgency:   '#f87171',
-  normalUrgency: '#fbbf24',
+  normalUrgency:'#fbbf24',
   lowUrgency:    '#34d399',
 } as const;
 

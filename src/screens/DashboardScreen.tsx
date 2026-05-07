@@ -32,6 +32,15 @@ type RootStackParamList = {
   Profile: undefined;
 };
 
+type SpotlightCard = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  detail: string;
+  accent: string;
+  target: keyof RootStackParamList;
+};
+
 const NAV_MAP: Record<string, keyof RootStackParamList> = {
   memory: 'MemoryStore',
   knowledge: 'KnowledgeBase',
@@ -300,6 +309,43 @@ export function DashboardScreen() {
     return queue.slice(0, 3);
   }, [hottestUpload, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, latestRunningTask, navigation, pendingConfirmationItems]);
 
+  const spotlightCards = useMemo<SpotlightCard[]>(() => {
+    const projectSignal = dispatchActiveCount > 0
+      ? `AI 产出、调度状态和任务链已经开始共用真实运行态数据，当前还有 ${dispatchActiveCount} 条链路在前台可见。`
+      : '当前没有新的执行堆积，适合继续推进产品闭环或做真机验证。';
+
+    return [
+      {
+        id: 'spotlight-output',
+        eyebrow: '首页主线',
+        title: latestDispatchMeta ? `AI 产出正在${latestDispatchMeta.label}` : 'AI 产出流已收口到首页',
+        detail: latestDispatch
+          ? `${latestDispatch.reply}${latestDispatch.agentId ? ` · 执行方 ${latestDispatch.agentId}` : ''}`
+          : '当前首页会优先顶出最新 AI 结果，不再让工程噪音抢首屏。',
+        accent: latestDispatchMeta?.accent ?? C.primary,
+        target: 'DispatchChain',
+      },
+      {
+        id: 'spotlight-confirm',
+        eyebrow: '人工决策',
+        title: pendingConfirmations > 0 ? `还有 ${pendingConfirmations} 项待拍板` : '确认链路当前比较干净',
+        detail: latestBlockedConfirmation
+          ? `${latestBlockedConfirmation.title} · ${latestBlockedConfirmation.description}`
+          : '已经处理过的事项不会继续占首页，只有真正待确认的内容会被顶上来。',
+        accent: pendingConfirmations > 0 ? C.highUrgency : '#34d399',
+        target: 'Confirmations',
+      },
+      {
+        id: 'spotlight-project',
+        eyebrow: '项目闭环',
+        title: 'P1 正在从样板走向可用驾驶舱',
+        detail: projectSignal,
+        accent: '#38bdf8',
+        target: 'ProjectLibrary',
+      },
+    ];
+  }, [dispatchActiveCount, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, pendingConfirmations]);
+
   const summaryCards = useMemo(() => {
     const summary: Array<{
       id: string;
@@ -428,6 +474,23 @@ export function DashboardScreen() {
         </View>
       </View>
 
+      <SectionTitle title="首页重点" hint="首屏只保留用户真会关心的三件事" />
+      <View style={styles.spotlightGrid}>
+        {spotlightCards.map(card => (
+          <TouchableOpacity
+            key={card.id}
+            style={styles.spotlightCard}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate(card.target)}
+          >
+            <Text style={[styles.spotlightEyebrow, {color: card.accent}]}>{card.eyebrow}</Text>
+            <Text style={styles.spotlightTitle}>{card.title}</Text>
+            <Text style={styles.spotlightDetail}>{card.detail}</Text>
+            <Text style={[styles.spotlightAction, {color: card.accent}]}>打开查看 ›</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <SectionTitle title="闭环摘要" hint="先判断现在是在产出、卡点，还是等待确认" />
       <View style={styles.summaryGrid}>
         {summaryCards.map(card => (
@@ -530,7 +593,7 @@ export function DashboardScreen() {
 
 const BR = 24;
 const styles = StyleSheet.create({
-  content: {padding: 16, paddingBottom: 100},
+  content: {padding: 16, paddingBottom: 100, gap: 0},
 
   hero: {
     borderRadius: BR + 4,
@@ -539,6 +602,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   heroGlass: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -573,7 +641,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34,211,238,0.2)',
   },
 
-  metricsGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14},
+  metricsGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 24},
   demoHintBanner: {
     backgroundColor: 'rgba(251,191,36,0.12)',
     borderWidth: 1,
@@ -601,18 +669,40 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   demoSettingsBtnText: {color: C.primary, fontSize: 12, fontWeight: '900'},
-  summaryGrid: {gap: 10, marginBottom: 2},
+  summaryGrid: {gap: 10, marginBottom: 24},
+  spotlightGrid: {gap: 10, marginBottom: 24},
+  spotlightCard: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8,18,36,0.62)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  spotlightEyebrow: {fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
+  spotlightTitle: {color: C.textTitle, fontSize: 16, fontWeight: '900', marginTop: 6},
+  spotlightDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
+  spotlightAction: {fontSize: 12, fontWeight: '800', marginTop: 10},
   summaryCard: {
     padding: 14,
     borderRadius: 18,
     backgroundColor: 'rgba(8,18,36,0.62)',
     borderWidth: 1,
     borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   summaryLabel: {fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
   summaryValue: {color: C.textTitle, fontSize: 17, fontWeight: '900', marginTop: 6},
   summaryDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
-  actionQueueList: {gap: 10, marginBottom: 2},
+  actionQueueList: {gap: 10, marginBottom: 24},
   actionQueueCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -622,6 +712,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,18,36,0.62)',
     borderWidth: 1,
     borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   actionQueueAccent: {width: 4, alignSelf: 'stretch', borderRadius: 999},
   actionQueueBody: {flex: 1},
@@ -629,18 +724,23 @@ const styles = StyleSheet.create({
   actionQueueTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900', marginTop: 4},
   actionQueueDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
   actionQueueArrow: {color: C.textMuted, fontSize: 24, fontWeight: '300'},
-  feedList: {gap: 9},
-  confirmList: {gap: 9},
+  feedList: {gap: 9, marginBottom: 24},
+  confirmList: {gap: 9, marginBottom: 24},
   storeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
   overviewGrid: {gap: 10},
 
   focusBoard: {
-    marginTop: 16,
+    marginTop: 24,
     padding: 16,
     borderRadius: BR,
     backgroundColor: 'rgba(10,22,42,0.88)',
     borderWidth: 1,
     borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   focusHeader: {
     flexDirection: 'row',
@@ -694,6 +794,11 @@ const styles = StyleSheet.create({
     flex: 1, marginBottom: 10, padding: 13, borderRadius: 18,
     backgroundColor: 'rgba(16,31,51,0.65)',
     borderWidth: 1, borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   dispatchTitle: {color: C.textTitle, fontWeight: '900', fontSize: 15},
   dispatchActor: {color: C.accent, fontWeight: '800', fontSize: 11, marginTop: 4},
@@ -707,6 +812,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.bgCard,
     borderWidth: 1,
     borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   confirmDot: {width: 8, height: 8, borderRadius: 4, marginTop: 6},
   confirmText: {flex: 1},
@@ -735,6 +845,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.bgCard,
     borderWidth: 1,
     borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   confirmEmptyTitle: {color: C.textTitle, fontSize: 14, fontWeight: '800'},
   confirmEmptyDesc: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 6},

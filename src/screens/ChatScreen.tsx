@@ -698,9 +698,11 @@ export function ChatScreen() {
               onChangeText={setDraft}
               placeholder="输入 AI 调度指令…"
               placeholderTextColor={C.textMuted}
-              style={styles.input}
+              style={[styles.input, {borderColor: 'rgba(255,255,255,0.08)'}]}
               multiline
               editable={!sending}
+              onFocus={e => { (e.nativeEvent as any); }}
+              onBlur={e => { (e.nativeEvent as any); }}
             />
             <Text style={styles.inputHint}>
               {sending ? '正在提交到 OpenClaw 调度链…' : '消息直接发送至 OpenClaw Gateway'}
@@ -745,9 +747,9 @@ const styles = StyleSheet.create({
   clearHistoryBtnText: {color: '#f87171', fontSize: 11, fontWeight: '800'},
   entryRow:     {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12},
   entryChip: {
-    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: 'rgba(56,100,200,0.12)',
-    borderWidth: 1, borderColor: C.borderActive,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: 'rgba(56,189,248,0.08)',
+    borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)',
   },
   entryChipText: {color: C.primary, fontSize: 12, fontWeight: '800'},
   gatewayBanner: {
@@ -770,22 +772,22 @@ const styles = StyleSheet.create({
   historyRestoredText: {color: '#34d399', fontSize: 11, fontWeight: '800'},
   gatewayBannerText: {color: '#f87171', fontSize: 11, fontWeight: '700'},
 
-  // 上下文策略说明
+  // 上下文策略说明 — 压缩为一行 mini indicator
   contextBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 14,
-    backgroundColor: 'rgba(56,100,200,0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,189,248,0.06)',
     borderWidth: 1,
-    borderColor: C.borderSubtle,
+    borderColor: 'rgba(56,189,248,0.12)',
   },
-  contextBannerLeft: {flex: 1},
-  contextBannerTitle: {color: C.textTitle, fontSize: 12, fontWeight: '900'},
-  contextBannerSub:  {color: C.textMuted, fontSize: 11, marginTop: 3, lineHeight: 16},
+  contextBannerLeft: {flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6},
+  contextBannerTitle: {color: C.textSecondary, fontSize: 11, fontWeight: '600'},
+  contextBannerSub:  {color: C.textMuted, fontSize: 11, lineHeight: 16},
   contextPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 9, paddingVertical: 5,
@@ -799,27 +801,37 @@ const styles = StyleSheet.create({
   chatContent:  {padding: 16, paddingBottom: 16},
 
   msgIn: {
-    alignSelf: 'flex-start', maxWidth: '90%',
-    padding: 13, borderRadius: 18, borderBottomLeftRadius: 6,
-    backgroundColor: 'rgba(16,31,51,0.8)',
-    marginBottom: 10, borderWidth: 1, borderColor: C.borderSubtle,
+    alignSelf: 'flex-start', maxWidth: '82%',
+    padding: 14, borderRadius: 20, borderBottomLeftRadius: 6,
+    backgroundColor: 'rgba(14,24,42,0.85)',
+    marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000', shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.3, shadowRadius: 10,
+    elevation: 6,
   },
   msgOut: {
-    alignSelf: 'flex-end', maxWidth: '90%',
-    padding: 13, borderRadius: 18, borderBottomRightRadius: 6,
-    backgroundColor: 'rgba(2,132,199,0.25)',
+    alignSelf: 'flex-end', maxWidth: '82%',
+    padding: 14, borderRadius: 20, borderBottomRightRadius: 6,
+    backgroundColor: 'rgba(2,132,199,0.35)',
     marginBottom: 12, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)',
+    shadowColor: '#38bdf8', shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2, shadowRadius: 8,
+    elevation: 4,
   },
   msgName: {color: C.primary, fontSize: 11, fontWeight: '800', marginBottom: 4},
   typingDot: {color: C.primary, fontSize: 18, marginRight: 4, lineHeight: 22},
   msgText: {color: C.textBody, fontSize: 14, lineHeight: 20},
 
   dispatchStatusCard: {
-    padding: 13,
-    borderRadius: 18,
-    backgroundColor: 'rgba(9,20,38,0.72)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(14,24,42,0.75)',
     borderWidth: 1,
-    borderColor: C.borderSubtle,
+    borderColor: 'rgba(255,255,255,0.06)',
     marginBottom: 12,
   },
   dispatchStatusTop: {
@@ -828,11 +840,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  dispatchStatusTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900'},
-  dispatchStatusLink: {color: C.primary, fontSize: 12, fontWeight: '800'},
-  dispatchStatusSummary: {color: C.textBody, fontSize: 13, lineHeight: 19, marginTop: 8},
-  dispatchStatusMeta: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6},
-  dispatchAttachmentHint: {color: C.primary, fontSize: 11, lineHeight: 16, marginTop: 6, fontWeight: '700'},
+  dispatchStatusTitle: {color: C.textSecondary, fontSize: 11, fontWeight: '800'},
+  dispatchStatusLink: {color: C.primary, fontSize: 11, fontWeight: '800'},
+  dispatchStatusSummary: {color: C.textSecondary, fontSize: 12, lineHeight: 16, flex: 1},
+  dispatchStatusMeta: {color: C.textMuted, fontSize: 10, lineHeight: 14},
+  dispatchAttachmentHint: {color: C.primary, fontSize: 10, lineHeight: 14, fontWeight: '700'},
 
   uploadPanel: {
     padding: 13, borderRadius: 18,
