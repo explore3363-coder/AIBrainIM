@@ -1,23 +1,22 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-07 21:38 GMT+8
+> 最后更新：2026-05-07 22:20 GMT+8
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第十轮完成）
+## 当前状态：P1 可用版收口完毕 ✅（第十一轮完成）
 
-### 本轮（第十轮）完成：App Icon PNG 修复 + testflight.yml 修正
+### 本轮（第十一轮）完成：全面质量复检 + 收口确认
+- TypeScript ✅ 70 tests ✅
+- iOS Simulator Build ✅（BUILD SUCCEEDED）
+- GitHub push ✅
+- 全仓库 TODO/FIXME 关键词扫描：核心业务文件全部零残留
+- `aiFeedMock`/`commandTraceMock` 作为首页 fallback 保留（非自嗨，合理存在）
+- 8 个核心文件零 TODO/FIXME（AppContext/AgentScreen/GatewaySettings/Chat/Dashboard/Knowledge/Memory/uploadService）
+
+### 上轮（第十轮）完成：App Icon PNG 修复 + testflight.yml 修正
 - `AppIcon-1024.png` 原为 JPEG 伪装成 .png（84KB JPEG），App Store 要求纯 PNG 格式，已替换为真正 PNG（153KB）
 - `testflight.yml`：APPLE_API_KEY_CONTENT 注释说"NOT base64 encoded"但代码执行了 `base64 -d`，已修正为 `printf` 直写，与 ci.yml 保持一致
-- TypeScript ✅ 70 tests ✅
-- GitHub push ✅
-
-### 上轮（第九轮）完成：代码质量审查 + README 收口
-- 全仓库关键词扫描（TODO/FIXME/开发中/待实现/demo/placeholder/stub）：零残留
-- `injectDemoData` 已无 UI 入口，纯内部残留，可留；`aiFeedMock`/`commandTraceMock` 作首页 fallback 保留（非自嗨）
-- README 删除过期描述，确认为 P1 收口状态
-- TypeScript ✅ 70 tests ✅
-- GitHub push ✅
 
 ---
 
@@ -26,8 +25,8 @@
 ### 1. React Native 主工程唯一化
 - 已删除 HTML 体验稿，React Native 是唯一交付物
 - iOS 构建：`npm run build:sim` / `npm run build:release`
-- `npm run typecheck` ✅ `npm test` ✅（4 suites, 47 tests passing）
-- ESLint: 0 errors, 24 warnings（react-hooks/exhaustive-deps 全部修复）
+- `npm run typecheck` ✅ `npm test` ✅（9 suites, 70 tests passing）
+- ESLint: 0 errors
 
 ### 2. 五主功能骨架稳定
 | Tab | 入口 | 状态 |
