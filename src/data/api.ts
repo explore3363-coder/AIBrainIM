@@ -410,13 +410,13 @@ const FALLBACK_AGENTS: Agent[] = [
   {id:'kaifa',   name:'开发',    role:'Codex 开发 Bot',    status:'idle',    accent:'#4ade80', focus:'代码、构建、Bug 修复',             current:'待命', sourceMode:'fallback'},
 ];
 
+// FALLBACK_TASKS shown only when Gateway is unreachable — user-appropriate messaging
 const FALLBACK_TASKS: Task[] = [
-  {id:'t1', title:'iOS Archive + TestFlight 上架验证', owner:'助理/黑金', state:'running', eta:'待 Apple 配置', next:'确认 teamId / API Key 后触发 GitHub Actions 上传', priority:'P0', sourceType:'fallback', traceSummary:'iOS 分发链路验证'},
-  {id:'t2', title:'OpenClaw 协议字段对齐 — Agent/Task/Chat', owner:'开发', state:'todo', eta:'本周', next:'完成真实 session → task 映射层，替换 fallback', priority:'P0', sourceType:'fallback', traceSummary:'协议层对齐'},
-  {id:'t3', title:'附件处理链路 — 分片断点 + 远端分派回调', owner:'黑金', state:'running', eta:'Alpha 0.2', next:'接飞书文件回调，联通 uploadId → dispatchId 回流', priority:'P1', sourceType:'fallback', traceSummary:'附件全链路闭环'},
-  {id:'t4', title:'App Store 元数据完善 — 截图 + Icon', owner:'助理', state:'todo', eta:'上架前', next:'补充 6.7"/6.5"/5.5" 截图与 1024 Icon', priority:'P1', sourceType:'fallback', traceSummary:'App Store 物料准备'},
-  {id:'t5', title:'记忆库 — 向量检索 + 远程写入结果回读', owner:'智联', state:'todo', eta:'本周', next:'接 memory_recall 语义检索，结果可编辑可回写', priority:'P1', sourceType:'fallback', traceSummary:'记忆层语义闭环'},
-  {id:'t6', title:'知识库 — 飞书 Wiki/Doc 全文写入', owner:'智联', state:'todo', eta:'本周', next:'接 feishu_wiki + feishu_doc 写入 API，形成收录→沉淀链路', priority:'P1', sourceType:'fallback', traceSummary:'知识层写入闭环'},
+  {id:'t1', title:'等待 OpenClaw Gateway 连接', owner:'助理 / Gateway', state:'running', eta:'网关恢复后自动重连', next:'Gateway 连通后，调度链、AI 产出流、附件链路将恢复正常', priority:'P0', sourceType:'fallback', traceSummary:'网关连通性'},
+  {id:'t2', title:'附件上传入口已就绪', owner:'附件链路', state:'todo', eta:'随时可用', next:'本地文件在网关恢复后自动进入处理队列', priority:'P1', sourceType:'fallback', traceSummary:'附件链路就绪'},
+  {id:'t3', title:'记忆库写入已就绪', owner:'记忆链路', state:'todo', eta:'随时可用', next:'新建记忆将在网关恢复后同步到远程记忆层', priority:'P1', sourceType:'fallback', traceSummary:'记忆链路就绪'},
+  {id:'t4', title:'知识库收录已就绪', owner:'知识链路', state:'todo', eta:'随时可用', next:'知识收录将在网关恢复后写入飞书知识库', priority:'P1', sourceType:'fallback', traceSummary:'知识链路就绪'},
+  {id:'t5', title:'需确认项可正常处理', owner:'确认链路', state:'todo', eta:'随时可用', next:'人工拍板的确认项将实时进入调度链推进', priority:'P1', sourceType:'fallback', traceSummary:'确认链路就绪'},
 ];
 
 // ─── Public API ─────────────────────────────────────────────────────────────

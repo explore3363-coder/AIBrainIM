@@ -96,6 +96,103 @@ function updateConfirmationStatus(
   );
 }
 
+function getDispatchIdentity(record: DispatchRecord): string {
+  if (record.sessionKey) return `session:${record.sessionKey}`;
+  if (record.dispatchId) return `dispatch:${record.dispatchId}`;
+  if (record.taskId) return `task:${record.taskId}`;
+  return `text:${record.userText}`;
+}
+
+function mergeDispatchRecords(
+  localRecords: DispatchRecord[],
+  liveRecords: DispatchRecord[],
+): DispatchRecord[] {
+  const merged = new Map<string, DispatchRecord>();
+
+  const push = (record: DispatchRecord) => {
+    const key = getDispatchIdentity(record);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, record);
+      return;
+    }
+
+    const existingTime = existing.updatedAt ?? existing.createdAt;
+    const nextTime = record.updatedAt ?? record.createdAt;
+    const preferred = nextTime >= existingTime
+      ? {
+          ...existing,
+          ...record,
+          reply: record.reply || existing.reply,
+          userText: record.userText || existing.userText,
+        }
+      : {
+          ...record,
+          ...existing,
+          reply: existing.reply || record.reply,
+          userText: existing.userText || record.userText,
+        };
+
+    merged.set(key, preferred);
+  };
+
+  localRecords.forEach(push);
+  liveRecords.forEach(push);
+
+  return Array.from(merged.values())
+    .sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))
+    .slice(0, 20);
+}
+
+function getTaskIdentity(task: Task): string {
+  if (task.sessionKey) return `session:${task.sessionKey}`;
+  return task.id;
+}
+
+function mergeTasks(localTasks: Task[], liveTasks: Task[]): Task[] {
+  const merged = new Map<string, Task>();
+
+  const push = (task: Task) => {
+    const key = getTaskIdentity(task);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, task);
+      return;
+    }
+
+    const existingTime = existing.updatedAt ?? 0;
+    const nextTime = task.updatedAt ?? 0;
+    const preferred = nextTime >= existingTime
+      ? {
+          ...existing,
+          ...task,
+          title: task.title || existing.title,
+          owner: task.owner || existing.owner,
+          traceSummary: task.traceSummary || existing.traceSummary,
+        }
+      : {
+          ...task,
+          ...existing,
+          title: existing.title || task.title,
+          owner: existing.owner || task.owner,
+          traceSummary: existing.traceSummary || task.traceSummary,
+        };
+
+    merged.set(key, preferred);
+  };
+
+  localTasks.forEach(push);
+  liveTasks.forEach(push);
+
+  return Array.from(merged.values())
+    .sort((a, b) => {
+      const aTime = a.updatedAt ?? 0;
+      const bTime = b.updatedAt ?? 0;
+      return bTime - aTime;
+    })
+    .slice(0, 20);
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 const AppContext = createContext<AppContextValue>({
   agents: agentsMock,
@@ -163,13 +260,8 @@ export function AppProvider({children}: {children: ReactNode}) {
         fetchConfirmations(),
       ]);
       setAgents(Array.isArray(snapshot.agents) ? snapshot.agents : []);
-      setTasks(Array.isArray(snapshot.tasks) ? snapshot.tasks : []);
-      setDispatches(current => {
-        if (current.length > 0) {
-          return current;
-        }
-        return Array.isArray(snapshot.dispatches) ? snapshot.dispatches : [];
-      });
+      setTasks(current => mergeTasks(current, Array.isArray(snapshot.tasks) ? snapshot.tasks : []));
+      setDispatches(current => mergeDispatchRecords(current, snapshot.dispatches ?? []));
       setRuntimeMode(snapshot.runtimeMode);
       setRuntimeError(snapshot.runtimeError);
       setLastSyncedAt(snapshot.lastSyncedAt);

@@ -353,6 +353,10 @@ export function ChatScreen() {
         source: 'chat',
       });
 
+      // Sync the rest of the app (Dashboard AI feed, Agent status, Task/Kanban)
+      // so the send action immediately reflects everywhere without requiring pull-to-refresh.
+      void refresh();
+
       if (sent && queuedAttachmentSummaries.length > 0) {
         setMessages(m => [
           ...m,
@@ -385,6 +389,7 @@ export function ChatScreen() {
     draft,
     queuedAttachmentSummaries,
     registerDispatch,
+    refresh,
     sending,
   ]);
 
