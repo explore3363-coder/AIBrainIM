@@ -107,3 +107,56 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 ## 下一步
 
 截图已全部就位，等用户提供 Apple Developer 账号信息后可立即推进 App Store Connect 配置。
+
+---
+
+# 第二十七轮（2026-05-08 06:30 · 代码侧收口完毕，上架文案预备）
+
+## 本轮完成
+
+**三板斧持续绿:**
+- TypeScript ✅（tsc --noEmit 零错误）
+- Jest ✅（10 suites / 82 tests 全部通过）
+- Git worktree clean，origin/main 同步
+
+**App Store 上架文案已就位（可直接填入 App Store Connect）：**
+
+从 `APPSTORE_LISTING.md` 复制即可，包含：
+- 宣传文本（170字）：智能任务中枢，随时在线
+- 描述文本（4000字）：五段式结构，覆盖核心价值
+- 关键词（100字符）：AI助手,智能任务,协作平台,工作流…
+- 支持 URL：GitHub Pages
+- 隐私政策 URL：已托管于 GitHub Pages（自动部署）
+
+## 当前状态
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (82 tests) | ✅ |
+| iOS Simulator Build | ✅（已验证）|
+| App Store 截图（6.7"/6.5"/5.5"）| ✅ |
+| AppIcon 1024×1024 | ✅ |
+| 隐私政策 GitHub Pages | ✅ |
+| 上架文案 | ✅（可直接填入）|
+| Git worktree | clean |
+
+## 唯一阻塞（人工·外部）
+
+| 阻塞项 | 类型 | 行动 |
+|--------|------|------|
+| Apple Developer 账号 | 外部 | 注册 $99/年，获取 Team ID |
+| App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
+| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+
+## 就绪待触发
+
+- `git tag v0.1.0 && git push --tags` → GitHub Actions Archive → TestFlight
+- App Store Connect 截图上传（docs/screenshots/ 已备好三尺寸）
+- 上架文案可立即填入 App Store Connect（不等账号）
+
+## 下一步
+
+1. **用户操作**：注册 Apple Developer 账号（2分钟）→ 获取 Team ID → 配置 GitHub Secrets/Variables
+2. **并行推进**（不等账号）：在 App Store Connect 创建 App 记录，填入上架文案和截图
+3. 打 tag → TestFlight → 真机安装验证
