@@ -123,19 +123,43 @@ jobs:
       # Build Release archive
       - name: Build Release Archive
         run: |
+          # Import distribution certificate from p12 secret
+          mkdir -p ~/Library/Keychains/ci-build
+          security create-keychain -p "ci-pass" ~/Library/Keychains/ci-build/keychain-db
+          security set-keychain-settings -t 3600 -u ~/Library/Keychains/ci-build/keychain-db
+          security unlock-keychain -p "ci-pass" ~/Library/Keychains/ci-build/keychain-db
+
+          # Decode p12 and import into CI keychain
+          echo "$APPLE_DIST_P12" | base64 -d > /tmp/cert.p12
+          security import /tmp/cert.p12 -k ~/Library/Keychains/ci-build/keychain-db -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "ci-pass" ~/Library/Keychains/ci-build/keychain-db
+
+          security list-keychains --user ~/Library/Keychains/ci-build/keychain-db
+
+          # Build archive with distribution signing
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
             -archivePath fastlane/builds/AIBrainIM.xcarchive \
-            archive
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
+            DEVELOPMENT_TEAM=1165010090 \
+            -allowProvisioningUpdates
+        env:
+          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
 
-      # Export .ipa
       - name: Export .ipa
         run: |
+          security unlock-keychain -p "ci-pass" ~/Library/Keychains/ci-build/keychain-db
+
           xcodebuild -exportArchive \
             -archivePath fastlane/builds/AIBrainIM.xcarchive \
             -exportPath fastlane/builds \
-            -exportOptionsPlist ios/ExportOptions.plist
+            -exportOptionsPlist ios/ExportOptions.plist \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
+            DEVELOPMENT_TEAM=1165010090
 
       - name: Upload to TestFlight
         run: |
