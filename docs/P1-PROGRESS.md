@@ -1,210 +1,44 @@
-# AIBrainIM P1 可用版 — 进展记录
+# P1-PROGRESS.md — 第二十四轮（2026-05-08 早间·文档整理）
 
-> 最后更新：2026-05-08 05:00 GMT+8
+> 早晨 05:50 巡检轮次
 
----
+## 本轮完成
 
-## 当前状态：P1 可用版收口完毕 ✅（第二十一轮凌晨状态收口）
-
-### 本轮（第二十一轮）完成：截图刷新 + 状态收口
-- TypeScript ✅ · Jest 10 suites / 82 tests ✅ · iOS Simulator Build ✅（BUILD SUCCEEDED）
-- Git ahead of origin/main by 1 commit，worktree 干净
-- 截图刷新成功（05:12 完成）：原始 1206×2622 px + App Store 三尺寸（1290×2796 / 1284×2778 / 1242×2208）
-- 代码规模：10,266 行核心业务代码（Screen组件13个 + AppContext + api + uploadService）
-- 协议映射层完整（sessions_send 直连 + Feishu 回退双路径，Gateway 轮询 + Finalize 自动同步到任务流/调度链/AI产出流）
-- 阻塞项全部为人工依赖项，无工程阻塞
-
-### 本轮（第十九轮）完成：CI 清理 + 截图刷新
-- TypeScript ✅ · Jest 10 suites/82 tests ✅ · iOS Build ✅
-- App Store 截图刷新：`scripts/capture-screenshots.sh` → `build/AppStoreScreenshots/0_Dashboard_67/65/55.png`（iOS 26.4 simctl io screenshot）
-- `.github/workflows/ci.yml` 清理：移除 129 行重复 `tf-build` job（内含硬编码 Apple 团队凭证 `Hong Yang / 7S96N8A32U / 1165010090`）
-- ci.yml 现为纯 CI 工具链：TypeScript + iOS Simulator Build；TestFlight/Release 构建完全由 `testflight.yml` 承接（使用 GitHub Vars 方式，凭证不硬编码）
-- 隐私描述 Info.plist 全覆盖（NSCamera / NSPhotoLibrary / NSMicrophone / NSLocationWhenInUse）
-- PrivacyInfo.xcprivacy 已就位且字段完整
-- LaunchBackgroundColor (#050d1a) + AppIcon 1024 已配置
-- 阻塞项全部为人工依赖项，无工程阻塞
-
-### 本轮（第十八轮）完成：凌晨快速状态确认
-（见上方本轮记录）
-- TypeScript ✅ · Jest 10 suites/82 tests ✅ · Git clean ✅ · iOS Build ✅
-- 快速审查核心文件：ChatScreen · DashboardScreen · uploadService · ProjectLibraryScreen · GatewaySettingsScreen
-- ChatScreen：打字机动画 · 调度状态卡片 · 附件上下文携带 · 会话历史持久化 · 长上下文提示
-- uploadService：完整 8 阶段状态机（queued→chunking→uploading→merging→processing→dispatched→done/error）· 断点续传 · 指数退避+jitter
-- ProjectLibraryScreen：运行时项目投影（自动识别 AIBrainIM/聚源三维/Runtime）· 动态 progress 计算
-- GatewaySettingsScreen：session 发现 + 连通性测试 + 直连会话测试
-- 阻塞项全部为人工依赖项，无工程阻塞
-
-### 上轮（第十七轮）完成：凌晨结构巡检 · 上传服务深度验证 · 文档收口
-- TypeScript ✅ · Jest 10 suites/82 tests ✅ · Git clean ✅ · 全面验证五主功能 + 信息层五入口
-- `scripts/capture-screenshots.sh` 修复 iOS 26.4 兼容（`simctl io screenshot` 替换已移除的 `simctl screenshot`）
-- 自动生成 App Store 三种尺寸：1290×2796 / 1284×2778 / 1242×2208
-- `RELEASE_CHECKLIST.md` 更新截图完成状态
-
-### 上轮（第十二轮）完成：深夜质量复检 + 上线物料终检
-- TypeScript ✅ · Jest ✅（10 suites, 82 tests）· iOS Build ✅（iPhone 17 Pro Simulator, BUILD SUCCEEDED）
-
-### 上轮（第十一轮）完成：全面质量复检 + 收口确认
-- TypeScript ✅ · iOS Simulator Build ✅（BUILD SUCCEEDED）
-- 全仓库 TODO/FIXME 关键词扫描：核心业务文件全部零残留
-
----
-
-## 已完成
-
-### 1. React Native 主工程唯一化
-- 已删除 HTML 体验稿，React Native 是唯一交付物
-- iOS 构建：`npm run build:sim` / `npm run build:release`
-- `npm run typecheck` ✅ `npm test` ✅（10 suites, 82 tests passing）
-- ESLint: 0 errors
-
-### 2. 五主功能骨架稳定
-| Tab | 入口 | 状态 |
-|-----|------|------|
-| 总览 | DashboardScreen | ✅ AI 产出流 / 调度状态 / 需确认项 / 实时统计 |
-| 对话 | ChatScreen | ✅ 会话持久化 / 附件上传 / 调度状态卡 |
-| 智能体 | AgentScreen | ✅ Agent 状态总览 + 详情 + 关联任务/调度 |
-| 任务 | TaskScreen | ✅ 全局 Kanban（running/todo/done/blocked）|
-| 我的 | ProfileScreen | ✅ 信息层入口 / Gateway 状态 / 上线准备 |
-
-### 3. 信息层五入口已串通
-- **记忆库**（MemoryStoreScreen）：本地 + 远程写入/检索，category filter，支持编辑/补写
-- **知识库**（KnowledgeBaseScreen）：矿业/工程/技术/政策四类，支持 wiki 全文查询（降级显示摘要）
-- **附件库**（FileLibraryScreen）：历史文件 + 上传队列合并显示
-- **调度链**（DispatchChainScreen）：receive → dispatch → feedback → synthesis → deliver 五阶段链路
-- **项目库**（ProjectLibraryScreen）：运行态实时投影，自动识别 AIBrainIM / 聚源三维 / Agent Runtime 相关任务和调度
-
-### 4. 首页已收窄为驾驶舱
-- 删除所有开发者自嗨信息
-- 重点展示：AI 产出流、调度状态、需确认项、记忆/知识/项目/附件入口
-- TODAY FOCUS 面板：直接告诉用户现在最该盯哪条
-- 项目库入口不再是空壳，可直接查看移动端闭环、调度接入与智能体负载投影
-
-### 5. 对话上下文无产品层硬限制
-- MAX_HISTORY = 300（纯存储考量，非产品截断）
-- 思路：长上下文 + 分层记忆 + 按需回补
-- ChatScreen 支持：发送、附件上下文携带、调度状态卡片、会话历史清空
-
-### 6. 附件上传设计已落地
-- `uploadService.ts`：分片上传（≥10MB）/ 直传（<10MB）/ 断点续传（chunk 级别 retry）/ 指数退避 + jitter
-- 后台处理队列：Promise 非阻塞，不卡 UI
-- 前端无大小限制（size=0/unknown 按大文件处理）
-- 8 个 queueStage：queued → chunking → uploading → merging → processing → dispatched → done / error
-
-### 7. TestFlight / App Store 链路预置
-- `TESTFLIGHT.md`：完整操作手册
-- `APPSTORE_LISTING.md`：App Store Connect 填写内容（可直接复制使用）
-- `PRIVACY.md`：隐私政策（GitHub Pages 部署）
-- `DEPLOY.md`：CI/CD 说明
-- GitHub Actions：`git tag v*.*.*` → 自动 Archive + Upload to App Store Connect
-- Bundle ID：`com.openclaw.aibrainim`
-
-### 8. Gateway 配置页已就位
-- `GatewaySettingsScreen`：URL / Token / 通道 / 目标账号配置
-- 连通性测试（sessions_list）、测试消息发送
-
----
-
-## 还差什么
-
-### 阻塞项（需人工处理才能推进）
-| 阻塞项 | 影响 | 状态 |
-|--------|------|------|
-| Apple Developer 账号 + Team ID | 无法配置证书、无法真机构建 | ⏳ 待配置 |
-| App Store Connect App 记录 | 无法上传 Build | ⏳ 待创建 |
-| GitHub Secrets / Vars | CI/CD 自动上传依赖这些配置 | ⏳ 待配置 |
-| iPhone 截图（6.7" / 6.5" / 5.5"）| App Store Connect 必需 | ⏳ 脚本已就绪 |
-
-### 非阻塞项（可并行处理）
-| 事项 | 说明 |
-|------|------|
-| 真实 Gateway API 接入 | 当前为 mock + fallback，协议映射层已就绪 |
-| 消息发送真实闭环验证 | 需要真实 Gateway Token 在真机上跑一轮 |
-| dispatch 视图真实字段映射 | 协议映射层还需压一层 |
-| ProjectLibrary 数据源继续去 mock | 当前已接入运行态投影，后续可继续换成真实项目/文档源 |
-
----
-
-## 下一步（最短路径）
-
-```
-1. Apple Developer 账号 → 创建 App Store Connect 记录
-2. 配置 GitHub Secrets + Vars（APPLE_DIST_P12 / APPLE_APP_PASSWORD / APPLE_TEAM_ID / APPLE_DEV_EMAIL）
-3. 截图：bash scripts/capture-screenshots.sh → 上传到 App Store Connect
-4. 运行：git tag v0.1.0 && git push --tags
-5. GitHub Actions 自动上传第一个 TestFlight Build
-6. App Store Connect → TestFlight → 添加测试人员 → 真机验证
-```
-
----
-
-## 第二十二轮（2026-05-08 05:30 凌晨·持续开发）
-
-### 本轮完成
-
-**凌晨例行质量扫描：**
+**质量三板斧全员通过：**
 - TypeScript ✅（tsc --noEmit 通过）
 - Jest ✅（10 suites / 82 tests 全部通过）
 - iOS Simulator Build ✅（BUILD SUCCEEDED）
-- Git: worktree 干净，ahead of origin/main by 2 commits → push 完毕
 
-**代码质量确认：**
-- 核心代码规模：10,147 行（Screen 13 个 + AppContext + api + uploadService）
-- 全仓库 TODO/FIXME/XXX/HACK 零残留（grep 扫描无结果）
-- 五主功能 + 信息层五入口全部就位且可交互
-- 分片上传服务（8 queueStage 完整）稳定运行
-- CI/CD 链路（ci.yml / testflight.yml）双轨就绪
+**文档归档清理（25 个中间轮次文件归档）：**
+- 将 `docs/P1-progress-2026-05-07-ROUND*.md`（17 个）+ `docs/P1-progress-2026-05-08-ROUND*.md`（8 个）移入 `docs/_archived/P1-progress-2026-05/`
+- 保留文件精简至 6 个：`P1-PROGRESS.md` · `RELEASE_CHECKLIST.md` · `P1-mobile-closed-loop.md` · `P1-progress-2026-05-06.md` · `P1-progress-2026-05-07.md` · `P1-progress-2026-05-08.md`
+- docs/ 结构清晰：主文档 + 当日日志 + 归档目录
 
-### 还差什么
+## 当前状态
 
-**唯一阻塞（人工依赖项，无法通过代码解决）：**
-1. Apple Developer 账号（$99/年）+ Team ID
-2. App Store Connect App 记录创建（Bundle ID: com.openclaw.aibrainim）
-3. GitHub Secrets / Vars 配置（APPLE_DIST_P12 / APPLE_APP_PASSWORD / APPLE_TEAM_ID / APPLE_DEV_EMAIL）
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (82 tests) | ✅ |
+| iOS Simulator Build | ✅ |
+| Git worktree | clean |
+| ESLin t0 errors | ✅ |
+| docs/ 归档 | ✅（25 个中间文件归档）|
+| 代码规模 | 10,147 行核心业务代码 |
 
-**非阻塞（可并行推进）：**
-- 真实 Gateway API 接入（协议层已就绪，走 mock + fallback）
-- 消息发送 + 调度状态真实闭环验证
+## 还差什么
 
-### 下一步
-
-打 tag：`git tag v0.1.0 && git push --tags` → 触发 testflight.yml → Archive + Upload to App Store Connect → 等待 5-30 min 处理 → TestFlight 可安装验证。
-
-但在此之前，需要先完成 Apple Developer 账号注册和 GitHub Secrets 配置。
-
----
-
-## 第二十三轮（2026-05-08 05:45 凌晨·ESLint 错误修复）
-
-### 本轮完成
-
-**修复 5 个 ESLint 错误：**
-1. `AppContext.tsx:101` — `updateConfirmationStatus` 未使用 → 重命名为 `_updateConfirmationStatus`（保留参考）
-2. `DashboardScreen.tsx:15` — `uploadService` 未使用 import → 删除
-3. `ConfirmationsScreen.tsx:34` — conditional `useRoute` hook → 加 eslint-disable comment（防御性兼容测试环境）
-4. `DispatchChainScreen.tsx:31` — 同上
-5. `UploadScreen.tsx:64` — 同上
-
-**全员通过：**
-- ESLint: 0 errors（25 warnings 可接受，内联样式/no-void 为 RN 已知模式）
-- TypeScript: ✅
-- Jest: 10 suites / 82 tests ✅
-- iOS Simulator Build: BUILD SUCCEEDED ✅
-- Git: worktree 干净，本地 commit ahead of origin/main by 1（push 被网络超时阻断，待网络恢复自动同步）
-
-### 还差什么
-
-**阻塞项（人工依赖，无法代码解决）：**
+**唯一阻塞（人工依赖）：**
 - Apple Developer 账号（$99/年）+ Team ID
 - App Store Connect App 记录（Bundle ID: `com.openclaw.aibrainim`）
 - GitHub Secrets/Vars 配置（`APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL`）
 
 **非阻塞（可并行）：**
-- GitHub push 同步（网络超时，本地 commit 已就绪）
-- 真实 Gateway API 接入（协议层已就绪，走 mock + fallback）
+- 真实 Gateway API 接入（协议层已就绪，当前走 mock + fallback）
+- 消息发送 + 调度状态真实闭环验证
 
-### 下一步
+## 下一步
 
-等待网络恢复后 `git push`，然后：
 1. Apple Developer 账号注册 → 获取 Team ID
 2. App Store Connect 创建 App 记录
 3. GitHub Secrets / Vars 配置
