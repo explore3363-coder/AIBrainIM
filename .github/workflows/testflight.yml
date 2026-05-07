@@ -81,7 +81,7 @@ jobs:
       - name: Export IPA
         run: |
           xcodebuild -exportArchive \
-            -archivepath build/AIBrainIM.xcarchive \
+            -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
             CODE_SIGN_STYLE=Manual \
