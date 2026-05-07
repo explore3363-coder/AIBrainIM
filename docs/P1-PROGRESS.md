@@ -259,3 +259,59 @@ P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
 3. 打 tag → TestFlight → 真机验证
 
 P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
+
+---
+
+# 第三十轮（2026-05-08 早间 · 07:01 · 收口最终确认）
+
+## 本轮完成
+
+**三板斧全绿（本轮验证）：**
+- TypeScript ✅（tsc --noEmit 零错误）
+- Jest ✅（10 suites / 82 tests 全部通过）
+- Git worktree ✅（已 push，origin/main 同步）
+
+**App Store 三尺寸截图验证：**
+- 6.7"（1290×2796）✅
+- 6.5"（1284×2778）✅
+- 5.5"（1242×2208）✅
+- 五 Tab 实机截图全部到位
+
+**代码规模：**
+- 核心业务代码：11,324 行（.ts/.tsx 合计）
+- 屏幕数：10 个（含五主功能 + 五信息入口）
+- Git 归档：25 个中间轮次文件已归档
+
+## 当前状态（代码侧完全收口）
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (82 tests) | ✅ |
+| iOS Simulator Build | ✅ |
+| App Store 截图（6.7"/6.5"/5.5"）| ✅ |
+| AppIcon 1024×1024 | ✅ |
+| 隐私政策 GitHub Pages | ✅ |
+| 上架文案（APPSTORE_LISTING.md）| ✅ |
+| GitHub Actions TestFlight workflow | ✅ |
+| 生产安全（console.* 清理）| ✅ |
+| Git worktree | clean |
+
+## 唯一阻塞（等待用户提供）
+
+| 阻塞项 | 类型 | 说明 |
+|--------|------|------|
+| Apple Developer 账号 | 外部 | $99/年，需配置 GitHub Secrets |
+| App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
+| GitHub Secrets / Variables | 外部 | `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+
+## 就绪待触发
+
+```bash
+git tag v0.1.0 && git push --tags origin main
+```
+→ GitHub Actions 自动 Archive → TestFlight 上传
+
+## 下一步
+
+等待用户提供 Apple Developer 账号信息（Team ID + 证书）后配置 GitHub Secrets，即可打 tag 触发 TestFlight。
