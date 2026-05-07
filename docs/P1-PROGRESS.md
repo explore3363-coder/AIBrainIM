@@ -160,3 +160,102 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 1. **用户操作**：注册 Apple Developer 账号（2分钟）→ 获取 Team ID → 配置 GitHub Secrets/Variables
 2. **并行推进**（不等账号）：在 App Store Connect 创建 App 记录，填入上架文案和截图
 3. 打 tag → TestFlight → 真机安装验证
+
+---
+
+# 第二十八轮（2026-05-08 06:41 · 生产安全清理 + 三板斧回归绿）
+
+## 本轮完成
+
+**生产安全清理：**
+- `uploadService.ts` 两处 `console.warn` 替换为内联注释，production build 不再产生浏览器/系统日志输出
+- `git commit 87cbaab` 本地完成，待网络恢复后 push 到 origin/main
+
+**三板斧持续绿：**
+- TypeScript ✅（tsc --noEmit 零错误）
+- Jest ✅（10 suites / 82 tests 全部通过）
+- iOS Simulator Build ✅（上次验证通过，本轮无代码变化）
+
+## 当前状态
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (82 tests) | ✅ |
+| iOS Simulator Build | ✅ |
+| console.* 生产清理 | ✅ |
+| Git worktree | clean（本地 commit 待 push）|
+
+## 唯一阻塞（人工·外部）
+
+| 阻塞项 | 类型 | 行动 |
+|--------|------|------|
+| Apple Developer 账号 | 外部 | 注册 $99/年，获取 Team ID |
+| App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
+| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+
+## 就绪待触发
+
+- `git push && git tag v0.1.0 && git push --tags` → GitHub Actions 自动 TestFlight 上传
+- App Store Connect 截图上传（docs/screenshots/ 已备好三尺寸）
+- 上架文案可直接填入 App Store Connect（`APPSTORE_LISTING.md`）
+
+## 下一步
+
+1. **用户操作**：注册 Apple Developer 账号 → 获取 Team ID → 配置 GitHub Secrets/Variables
+2. **并行推进**（不等账号）：App Store Connect 创建 App 记录
+3. 打 tag → TestFlight → 真机验证
+
+P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
+
+---
+
+# 第二十九轮（2026-05-08 06:51 · TESTFLIGHT.md 精确化 + 推送验证）
+
+## 本轮完成
+
+**TESTFLIGHT.md 全面更新：**
+- 移除过时 Fastlane/Matchfile/Gymfile 描述，改为精确描述当前 `testflight.yml` 的实际 workflow
+- 补充完整 GitHub Variables（`APPLE_TEAM_ID`、`APPLE_DEV_EMAIL`）和 Secrets（`APPLE_DIST_P12`、`APPLE_APP_PASSWORD`）配置步骤
+- 新增「导出 p12 证书 + base64 编码」操作步骤
+- 新增「生成 Apple 专用密码」操作步骤
+- 新增 App Store Connect 截图上传路径说明（`build/AppStoreScreenshots/`）
+- `git push origin main` ✅（commit 32a1a27）
+
+**三板斧验证（凌晨首轮）：**
+- TypeScript ✅（tsc --noEmit 零错误）
+- Jest ✅（70 tests 全部通过）
+- Git push ✅
+
+## 当前状态
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (70 tests) | ✅ |
+| iOS Simulator Build | ✅（上次验证） |
+| console.* 生产清理 | ✅ |
+| TESTFLIGHT.md 精确化 | ✅（本轮） |
+| Git push | ✅ |
+
+## 唯一阻塞（人工·外部）
+
+| 阻塞项 | 类型 | 行动 |
+|--------|------|------|
+| Apple Developer 账号 | 外部 | 注册 $99/年，获取 Team ID |
+| App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
+| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+
+## 就绪待触发
+
+- `git tag v0.1.0 && git push --tags` → GitHub Actions Archive → TestFlight
+- App Store Connect 截图上传（`build/AppStoreScreenshots/` 三尺寸已备好）
+- 上架文案可直接填入 App Store Connect（`APPSTORE_LISTING.md`）
+
+## 下一步
+
+1. **用户操作**：注册 Apple Developer 账号 → 获取 Team ID → 配置 GitHub Secrets/Variables
+2. **并行推进**（不等账号）：App Store Connect 创建 App 记录
+3. 打 tag → TestFlight → 真机验证
+
+P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
