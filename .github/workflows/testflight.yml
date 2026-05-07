@@ -33,6 +33,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -72,7 +75,8 @@ jobs:
             -derivedDataPath build/DerivedData \
             archive \
             CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }}
+            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            -allowProvisioningUpdates
 
       - name: Export IPA
         run: |
@@ -81,7 +85,8 @@ jobs:
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
             CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }}
+            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            -allowProvisioningUpdates
 
       - name: List build artifacts
         run: ls -la build/
