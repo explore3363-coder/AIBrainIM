@@ -1,23 +1,10 @@
 name: TestFlight Release
 
-# 触发条件：
-#   - 打 tag（git tag v*.*.*）推送到 main
-#   - 手动 workflow_dispatch
 on:
   push:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
-    inputs:
-      bump_type:
-        description: 'Version bump type'
-        required: true
-        default: 'build'
-        type: choice
-        options:
-          - build
-          - minor
-          - major
 
 env:
   NODE_VERSION: "22"
@@ -25,7 +12,6 @@ env:
   APP_NAME: "AIBrainIM"
 
 jobs:
-  # ── Build & Upload to TestFlight ───────────────────────────────────────────────
   testflight:
     name: Build & Upload TestFlight
     runs-on: macos-15
@@ -56,7 +42,6 @@ jobs:
       - name: Install Pods
         run: cd ios && pod install && cd ..
 
-      # Bump build number to current GitHub run number
       - name: Set Info.plist build version
         run: |
           BUILD_NUM=${{ github.run_number }}
@@ -66,51 +51,290 @@ jobs:
           fi
           echo "Build number set to: ${BUILD_NUM}"
 
-      - name: Import code signing certificate
-        env:
-          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
+      # ── Step 1: Generate RSA private key + CSR in the runner ──────────────────
+      - name: Generate RSA private key and CSR
         run: |
-          # Download WWDR G3 certificate FIRST (required for cert chain validation)
-          curl -s -o /tmp/wwdrg3.der http://certs.apple.com/wwdrg3.der
-          openssl x509 -inform DER -outform PEM -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
-          echo "WWDR G3 downloaded, size: $(wc -c < /tmp/wwdrg3.der) bytes"
+          mkdir -p ~/cert_work
+          openssl genrsa -out ~/cert_work/dist_private.key 2048
+          openssl req -new -key ~/cert_work/dist_private.key \
+            -out ~/cert_work/dist.csr \
+            -subj "/UID=7S96N8A32U/CN=iPhone Distribution: Hong Yang (7S96N8A32U)/OU=7S96N8A32U/O=Hong Yang/C=US"
+          echo "Private key and CSR generated"
 
-          # Create keychain dir first, then keychain
+      # ── Step 2: Download WWDR G3 ───────────────────────────────────────────
+      - name: Download and import WWDR G3 certificate
+        run: |
           mkdir -p ~/Library/Keychains
           security create-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
           security set-keychain-settings -t 3600 -u ~/Library/Keychains/build.keychain-db
-          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
+          security list-keychains -s ~/Library/Keychains/build.keychain-db
 
-          # Add WWDR G3 to keychain FIRST
+          curl -s -o /tmp/wwdrg3.der http://certs.apple.com/wwdrg3.der
+          openssl x509 -inform DER -outform PEM -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
           security import /tmp/wwdrg3.pem -k ~/Library/Keychains/build.keychain-db -T /usr/bin/codesign -T /usr/bin/security
-          echo "WWDR G3 imported to keychain"
+          echo "WWDR G3 imported"
 
-          # Decode p12 using python3 (more reliable)
-          python3 -c "
-            import os, base64
-            secret = os.environ.get('APPLE_DIST_P12', '')
-            if not secret:
-                raise Exception('APPLE_DIST_P12 is empty!')
-            with open('/tmp/certificate.p12', 'wb') as f:
-                f.write(base64.b64decode(secret))
-            size = os.path.getsize('/tmp/certificate.p12')
-            print('p12 decoded, size: {} bytes'.format(size))
-          "
-          echo "Certificate p12 decoded"
+      # ── Step 3: Submit CSR to ASC API to get distribution certificate ────────
+      - name: Create iOS Distribution certificate via ASC API
+        env:
+          APPLE_API_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          APPLE_API_ISSUER_ID: ${{ vars.APPLE_API_ISSUER_ID }}
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json, time, jwt, base64, os
 
-          # Import certificate
-          security import /tmp/certificate.p12 -k ~/Library/Keychains/build.keychain-db -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "build-pass" ~/Library/Keychains/build.keychain-db
+          # Get API key content from env (base64 encoded)
+          key_content = os.environ.get('APPLE_API_KEY_CONTENT', '')
+          if not key_content:
+            # Read directly from file if it's a path
+            with open('/Users/zz/Downloads/AuthKey_HWP45ALL8Y.p8', 'r') as f:
+              p8_content = f.read().strip()
+          else:
+            p8_content = key_content
 
-          # Verify
-          # Add WWDR G3 certificate to keychain if not already present
-          security add-certificates -k ~/Library/Keychains/build.keychain-db /tmp/wwdrg3.pem || true
+          kid = os.environ.get('APPLE_API_KEY_ID', 'HWP45ALL8Y')
+          iss = os.environ.get('APPLE_API_ISSUER_ID', '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a')
 
-          # Try codesign directly as verification (more reliable than find-identity)
+          def apple_token():
+              payload = {"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 300, "aud": "appstoreconnect-v1"}
+              return jwt.encode(payload, p8_content, algorithm="ES256", headers={"kid": kid})
+
+          tok = apple_token()
+          headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "Accept": "application/json"}
+
+          # Read CSR
+          with open(os.path.expanduser('~/cert_work/dist.csr'), 'rb') as f:
+              csr_bytes = f.read()
+          csr_b64 = base64.b64encode(csr_bytes).decode()
+
+          # Submit CSR to create new distribution certificate
+          payload = json.dumps({
+              "data": {
+                  "type": "certificates",
+                  "attributes": {
+                      "certificateType": "IOS_DISTRIBUTION",
+                      "csrContent": csr_b64
+                  }
+              }
+          }).encode()
+
+          req = urllib.request.Request(
+              "https://api.appstoreconnect.apple.com/v1/certificates",
+              data=payload, method="POST", headers=headers
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  result = json.loads(resp.read().decode())
+              cert_data = result["data"]
+              cert_id = cert_data["id"]
+              print(f"Certificate created! ID: {cert_id}")
+          except Exception as e:
+              if hasattr(e, 'read'):
+                  err_body = e.read()
+                  if b'already have a current' in err_body:
+                      # Find existing pending cert
+                      print("Already has certificate, checking existing...")
+                      req3 = urllib.request.Request(
+                          "https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION",
+                          headers=headers
+                      )
+                      with urllib.request.urlopen(req3, timeout=15) as resp:
+                          certs_data = json.loads(resp.read().decode())
+                      existing = [c for c in certs_data["data"] if c["attributes"]["certificateType"] == "IOS_DISTRIBUTION"]
+                      cert_id = existing[0]["id"]
+                      print(f"Using existing cert: {cert_id}")
+                  else:
+                    print(f"Error: {err_body[:300]}")
+                    raise
+              else:
+                  raise
+
+          # Download the certificate
+          req2 = urllib.request.Request(
+              f"https://api.appstoreconnect.apple.com/v1/certificates/{cert_id}",
+              headers={"Authorization": f"Bearer {tok}", "Accept": "application/json"}
+          )
+          with urllib.request.urlopen(req2, timeout=15) as resp:
+              cert_resp = json.loads(resp.read().decode())
+          cert_b64 = cert_resp["data"]["attributes"]["certificateContent"]
+          cert_bytes = base64.b64decode(cert_b64)
+          with open(os.path.expanduser('~/cert_work/dist.cer'), 'wb') as f:
+              f.write(cert_bytes)
+          print(f"Certificate downloaded, {len(cert_bytes)} bytes, serial: {cert_resp['data']['attributes']['serialNumber']}")
+          print(f"::set-output name=CERT_ID::{cert_id}")
+          PYEOF
+
+      # ── Step 4: Build .p12 from private key + certificate ─────────────────
+      - name: Build .p12 from private key and certificate
+        run: |
+          # Convert certificate to PEM
+          openssl x509 -inform DER -in ~/cert_work/dist.cer -out ~/cert_work/dist.pem
+
+          # Create .p12 (combine private key + certificate + WWDR)
+          OPENSSL_CONF=/dev/null openssl pkcs12 -export \
+            -inkey ~/cert_work/dist_private.key \
+            -in ~/cert_work/dist.pem \
+            -certfile /tmp/wwdrg3.pem \
+            -out ~/cert_work/dist.p12 \
+            -password pass:ci-pass
+
+          echo "p12 created: $(wc -c < ~/cert_work/dist.p12) bytes"
+
+      # ── Step 5: Import .p12 to CI keychain ─────────────────────────────────
+      - name: Import signing certificate to keychain
+        run: |
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-          KEYCHAIN=~/Library/Keychains/build.keychain-db codesign -s "iPhone Distribution: Hong Yang (7S96N8A32U)" /tmp/test_sign_$$ 2>/dev/null && echo "CERT_USABLE" || echo "CERT_MAY_NOT_WORK"
-          ls -la /tmp/certificate.p12
+          security import ~/cert_work/dist.p12 -k ~/Library/Keychains/build.keychain-db -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
+          security list-keychains -s ~/Library/Keychains/build.keychain-db
+          echo "Certificate imported to keychain"
+          security find-identity -v -p codesigning ~/Library/Keychains/build.keychain-db
 
+      # ── Step 6: Create provisioning profile via ASC API ────────────────────
+      - name: Create provisioning profile via ASC API
+        env:
+          APPLE_API_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          APPLE_API_ISSUER_ID: ${{ vars.APPLE_API_ISSUER_ID }}
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json, time, jwt, base64, os
+
+          with open('/Users/zz/Downloads/AuthKey_HWP45ALL8Y.p8', 'r') as f:
+              p8_content = f.read().strip()
+
+          kid = os.environ.get('APPLE_API_KEY_ID', 'HWP45ALL8Y')
+          iss = os.environ.get('APPLE_API_ISSUER_ID', '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a')
+
+          def apple_token():
+              payload = {"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 300, "aud": "appstoreconnect-v1"}
+              return jwt.encode(payload, p8_content, algorithm="ES256", headers={"kid": kid})
+
+          tok = apple_token()
+          headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "Accept": "application/json"}
+
+          # Check if bundle ID exists
+          bundle_id = "com.openclaw.aibrainim"
+          req0 = urllib.request.Request(
+              f"https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}",
+              headers=headers
+          )
+          try:
+              with urllib.request.urlopen(req0, timeout=15) as resp:
+                  data = json.loads(resp.read().decode())
+              if data.get("data"):
+                  asc_bundle_id = data["data"][0]["id"]
+                  print(f"Bundle ID exists: {asc_bundle_id}")
+              else:
+                  print("Bundle ID not found, creating...")
+                  req_new = urllib.request.Request(
+                      "https://api.appstoreconnect.apple.com/v1/bundleIds",
+                      data=json.dumps({"data": {"type": "bundleIds", "attributes": {"identifier": bundle_id, "platforms": ["IOS"]}}}).encode(),
+                      method="POST", headers=headers
+                  )
+                  with urllib.request.urlopen(req_new, timeout=15) as resp:
+                      result = json.loads(resp.read().decode())
+                  asc_bundle_id = result["data"]["id"]
+                  print(f"Bundle ID created: {asc_bundle_id}")
+          except Exception as e:
+              if hasattr(e, 'read') and b'already exists' in (e.read() or b''):
+                  req_find = urllib.request.Request(
+                      f"https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}",
+                      headers=headers
+                  )
+                  with urllib.request.urlopen(req_find, timeout=15) as resp:
+                      data = json.loads(resp.read().decode())
+                  asc_bundle_id = data["data"][0]["id"]
+                  print(f"Bundle ID found: {asc_bundle_id}")
+              else:
+                  print(f"Bundle ID error: {e}")
+                  raise
+
+          # Get the new distribution cert we just created (to include in profile)
+          req_certs = urllib.request.Request(
+              "https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION",
+              headers=headers
+          )
+          with urllib.request.urlopen(req_certs, timeout=15) as resp:
+              certs_data = json.loads(resp.read().decode())
+          dist_certs = certs_data["data"]
+          print(f"Found {len(dist_certs)} distribution certs")
+          # Use the most recently created one
+          cert_id = dist_certs[0]["id"]
+          print(f"Using cert ID: {cert_id}")
+
+          # Create ADHOC provisioning profile
+          profile_payload = json.dumps({
+              "data": {
+                  "type": "profiles",
+                  "attributes": {
+                      "name": "AIBrainIM-CI-AdHoc",
+                      "profileType": "IOS_APP_ADHOC"
+                  },
+                  "relationships": {
+                      "bundleId": {"data": {"id": asc_bundle_id, "type": "bundleIds"}},
+                      "certificates": {"data": [{"id": cert_id, "type": "certificates"}]}
+                  }
+              }
+          }).encode()
+
+          req_profile = urllib.request.Request(
+              "https://api.appstoreconnect.apple.com/v1/profiles",
+              data=profile_payload, method="POST", headers=headers
+          )
+          try:
+              with urllib.request.urlopen(req_profile, timeout=15) as resp:
+                  prof_result = json.loads(resp.read().decode())
+              profile_id = prof_result["data"]["id"]
+              print(f"Profile created! ID: {profile_id}")
+          except Exception as e:
+              if hasattr(e, 'read'):
+                  err_body = e.read()
+                  print(f"Profile creation error: {err_body[:300]}")
+              # Check if already exists
+              req_pf_list = urllib.request.Request(
+                  "https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AdHoc",
+                  headers=headers
+              )
+              try:
+                  with urllib.request.urlopen(req_pf_list, timeout=15) as resp:
+                      pf_data = json.loads(resp.read().decode())
+                  if pf_data.get("data"):
+                      profile_id = pf_data["data"][0]["id"]
+                      print(f"Using existing profile: {profile_id}")
+                  else:
+                      raise Exception("No profile found and can't create")
+              except:
+                  raise Exception("Profile creation failed")
+
+          # Download the profile
+          req_download = urllib.request.Request(
+              f"https://api.appstoreconnect.apple.com/v1/profiles/{profile_id}",
+              headers=headers
+          )
+          with urllib.request.urlopen(req_download, timeout=15) as resp:
+              pf_result = json.loads(resp.read().decode())
+          profile_b64 = pf_result["data"]["attributes"]["profileContent"]
+          profile_bytes = base64.b64decode(profile_b64)
+          with open(os.path.expanduser('~/cert_work/profile.mobileprovision'), 'wb') as f:
+              f.write(profile_bytes)
+          print(f"Profile downloaded, {len(profile_bytes)} bytes")
+          import plistlib, sys
+          pf_plist = plistlib.loads(profile_bytes)
+          print(f"UUID: {pf_plist.get('UUID')}")
+          print(f"TeamName: {pf_plist.get('TeamName')}")
+          print(f"AppIDName: {pf_plist.get('AppIDName')}")
+          PYEOF
+
+      # ── Step 7: Install provisioning profile ─────────────────────────────────
+      - name: Install provisioning profile
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp ~/cert_work/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          echo "Profile installed"
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      # ── Step 8: Archive the app ────────────────────────────────────────────
       - name: Build for Release (Archive)
         run: |
           security list-keychains -s ~/Library/Keychains/build.keychain-db
@@ -122,11 +346,13 @@ jobs:
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
-            -allowProvisioningUpdates
+            DEVELOPMENT_TEAM=1165010090 \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
+      # ── Step 9: Export IPA ─────────────────────────────────────────────────
       - name: Export IPA
         run: |
           security list-keychains -s ~/Library/Keychains/build.keychain-db
@@ -138,52 +364,29 @@ jobs:
             -exportOptionsPlist ios/ExportOptions.plist \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }}
+            DEVELOPMENT_TEAM=1165010090
 
-      - name: List build artifacts
-        run: ls -la build/
-
-      # ── Upload via altool (Apple ID auth — can auto-create app in ASC) ───────
-      # Uses APPLE_DEV_EMAIL + APPLE_APP_PASSWORD
-      # This auth method can automatically create the App record in ASC on first upload
+      # ── Step 10: Upload to App Store Connect ──────────────────────────────
       - name: Upload to App Store Connect
         env:
+          APPLE_DEV_EMAIL: ${{ vars.APPLE_DEV_EMAIL }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          IPA_PATH="build/AIBrainIM.ipa"
-          echo "Uploading with email: ${{ vars.APPLE_DEV_EMAIL }}"
-          xcrun altool \
-            --upload-app \
-            -type ios \
-            -file "$IPA_PATH" \
-            -u "${{ vars.APPLE_DEV_EMAIL }}" \
-            -p "$APPLE_APP_PASSWORD"
+          echo "Uploading with email: $APPLE_DEV_EMAIL"
+          xcrun altool --upload-app \
+            -f build/AIBrainIM.ipa \
+            -t ios \
+            -u "$APPLE_DEV_EMAIL" \
+            -p "$APPLE_APP_PASSWORD" \
+            --team-id 1165010090 \
+            --upload WaitAfterProcessing 2>&1 | tail -20
 
-      # ── Create GitHub Release ─────────────────────────────────────────────────
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        if: success()
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          name: "AIBrainIM ${{ github.ref }}"
-          draft: false
-          prerelease: false
+          tag_name: ${{ github.ref_name }}
+          name: TestFlight Release ${{ github.ref_name }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ── Post-build notification ───────────────────────────────────────────────────
-  notify:
-    name: Notify
-    runs-on: ubuntu-latest
-    needs: testflight
-    if: always()
-    steps:
-      - name: Summary
-        run: |
-          if [[ "${{ needs.testflight.result }}" == "success" ]]; then
-            echo "✅ TestFlight upload succeeded. Check App Store Connect for processing (~5-30 min)."
-          else
-            echo "❌ TestFlight build/upload failed. Check logs above."
-            exit 1
-          fi
