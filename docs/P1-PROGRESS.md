@@ -15,7 +15,8 @@
 ### 1. React Native 主工程唯一化
 - 已删除 HTML 体验稿，React Native 是唯一交付物
 - iOS 构建：`npm run build:sim` / `npm run build:release`
-- `npm run typecheck` ✅ `npm test` ✅（3 suites, 9 tests passing）
+- `npm run typecheck` ✅ `npm test` ✅（4 suites, 47 tests passing）
+- ESLint: 0 errors, 24 warnings（react-hooks/exhaustive-deps 全部修复）
 
 ### 2. 五主功能骨架稳定
 | Tab | 入口 | 状态 |
