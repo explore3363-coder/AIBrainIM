@@ -68,15 +68,18 @@ jobs:
 
       - name: Build for Release (Archive)
         run: |
+          # Remove hardcoded CODE_SIGN_IDENTITY from project to allow Automatic signing to work
+          sed -i '' 's/CODE_SIGN_IDENTITY = .*/CODE_SIGN_IDENTITY = "-";/' ios/AIBrainIM.xcodeproj/project.pbxproj
+
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="-"
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            -allowProvisioningUpdates
 
       - name: Export IPA
         run: |
@@ -84,9 +87,9 @@ jobs:
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="-"
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=${{ vars.APPLE_TEAM_ID }} \
+            -allowProvisioningUpdates
 
       - name: List build artifacts
         run: ls -la build/
