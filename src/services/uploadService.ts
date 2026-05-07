@@ -198,7 +198,7 @@ async function _tryRealUpload(
   const cfg = _getUploadConfig();
   if (!cfg) return false;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let config: any = null;
   try {
     config = await cfg.getGatewayConfig();
@@ -299,7 +299,7 @@ async function _chunkedUpload(state: UploadState): Promise<void> {
   let gatewayToken = '';
   if (cfg) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const config: any = await cfg.getGatewayConfig();
       const validation = cfg.validateGatewayConfig(config);
       if (validation.valid) {
