@@ -39,12 +39,12 @@ export function UploadScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Defensive: useRoute is a React Navigation hook that may not be available in test environments
   const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
-  const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'Upload'> | {params: undefined};
+  const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'Upload'> | {params?: RootStackParamList['Upload']};
   const {runtimeMode, runtimeError, gatewayConfigValid} = useAppContext();
   const [files, setFiles] = useState<UploadFile[]>([]);
 
-  const focusFileId = route.params && 'focusFileId' in (route.params as any) ? (route.params as any).focusFileId : undefined;
-  const focusDispatchId = route.params && 'focusDispatchId' in (route.params as any) ? (route.params as any).focusDispatchId : undefined;
+  const focusFileId = route.params?.focusFileId;
+  const focusDispatchId = route.params?.focusDispatchId;
 
   useEffect(() => {
     setFiles([...uploadService.getQueue()]);
@@ -197,6 +197,13 @@ export function UploadScreen() {
             </Text>
           </View>
         )}
+
+        {/* 上传链路说明：不做大小限制 */}
+        <View style={styles.uploadPolicyBanner}>
+          <Text style={styles.uploadPolicyText}>
+            📡 无大小限制 · 大文件自动分片 + 断点续传 · 后台 AI 处理队列
+          </Text>
+        </View>
 
         {files.length === 0 ? (
           <View style={styles.emptyState}>
@@ -390,6 +397,14 @@ const styles = StyleSheet.create({
   },
   activeDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary},
   activeText: {color: C.primary, fontSize: 12, fontWeight: '800', flex: 1},
+
+  uploadPolicyBanner: {
+    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(52,211,153,0.07)',
+    borderWidth: 1, borderColor: 'rgba(52,211,153,0.18)',
+  },
+  uploadPolicyText: {color: '#34d399', fontSize: 11, fontWeight: '700', textAlign: 'center'},
 
   sectionTitle: {
     color: C.textMuted, fontSize: 11, fontWeight: '900',

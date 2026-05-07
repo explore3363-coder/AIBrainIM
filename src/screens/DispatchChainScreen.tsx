@@ -29,14 +29,14 @@ export function DispatchChainScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Defensive: useRoute is a React Navigation hook that may not be available in test environments
   const rawRoute = typeof useRoute === 'function' ? useRoute() : null;
-  const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'DispatchChain'> | {params: undefined};
+  const route = (rawRoute ?? {params: undefined}) as RouteProp<RootStackParamList, 'DispatchChain'> | {params?: RootStackParamList['DispatchChain']};
   const {dispatches, refreshing, refresh} = useAppContext();
 
   const onRefresh = useCallback(() => { refresh(); }, [refresh]);
 
-  const focusDispatchId = route.params && 'focusDispatchId' in route.params ? route.params.focusDispatchId : undefined;
-  const focusTaskId = route.params && 'focusTaskId' in route.params ? route.params.focusTaskId : undefined;
-  const focusSessionKey = route.params && 'focusSessionKey' in route.params ? route.params.focusSessionKey : undefined;
+  const focusDispatchId = route.params?.focusDispatchId;
+  const focusTaskId = route.params?.focusTaskId;
+  const focusSessionKey = route.params?.focusSessionKey;
 
   const rankedDispatches = useMemo(() => {
     if (!focusDispatchId && !focusTaskId && !focusSessionKey) {
@@ -153,7 +153,7 @@ export function DispatchChainScreen() {
             <TouchableOpacity
               style={styles.emptyPrimaryBtn}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('Tabs', {screen: 'Chat'} as any)}
+              onPress={() => navigation.navigate('Tabs', {screen: 'Chat'})}
             >
               <Text style={styles.emptyPrimaryBtnText}>去对话发送指令</Text>
             </TouchableOpacity>

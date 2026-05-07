@@ -467,6 +467,23 @@ export function ChatScreen() {
             <Text style={styles.entryChipText}>调度链</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 上下文策略说明 — 长上下文 + 分层记忆 + 按需回补 */}
+        <View style={styles.contextBanner}>
+          <View style={styles.contextBannerLeft}>
+            <Text style={styles.contextBannerTitle}>📡 上下文策略</Text>
+            <Text style={styles.contextBannerSub}>
+              本轮 {messages.length - 1} 条消息 · 不做硬截断 · 后端分层记忆 + 按需回补
+            </Text>
+          </View>
+          <View style={styles.contextPill}>
+            <View style={styles.contextDot} />
+            <Text style={styles.contextPillText}>
+              {runtimeMode === 'live' ? 'AI 在线' : '本地模式'}
+            </Text>
+          </View>
+        </View>
+
         {runtimeMode === 'fallback' && (
           <View style={styles.gatewayBanner}>
             <Text style={styles.gatewayBannerText}>
@@ -752,6 +769,33 @@ const styles = StyleSheet.create({
   },
   historyRestoredText: {color: '#34d399', fontSize: 11, fontWeight: '800'},
   gatewayBannerText: {color: '#f87171', fontSize: 11, fontWeight: '700'},
+
+  // 上下文策略说明
+  contextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 14,
+    backgroundColor: 'rgba(56,100,200,0.08)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  contextBannerLeft: {flex: 1},
+  contextBannerTitle: {color: C.textTitle, fontSize: 12, fontWeight: '900'},
+  contextBannerSub:  {color: C.textMuted, fontSize: 11, marginTop: 3, lineHeight: 16},
+  contextPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 9, paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    borderWidth: 1, borderColor: 'rgba(52,211,153,0.25)',
+  },
+  contextDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: '#34d399'},
+  contextPillText: {color: '#34d399', fontSize: 10, fontWeight: '800'},
+
   chatContent:  {padding: 16, paddingBottom: 16},
 
   msgIn: {

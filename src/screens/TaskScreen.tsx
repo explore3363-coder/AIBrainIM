@@ -387,7 +387,7 @@ export function TaskScreen() {
             <TouchableOpacity
               style={styles.emptyPrimaryBtn}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('Tabs', {screen: 'Chat'} as any)}
+              onPress={() => navigation.navigate('Tabs', {screen: 'Chat'})}
             >
               <Text style={styles.emptyPrimaryBtnText}>去对话发一条指令</Text>
             </TouchableOpacity>
