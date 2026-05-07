@@ -8,10 +8,12 @@
 
 **代码冻结点**：本轮完成后核心产品代码基本稳定，下一步优先真实 API 接入 + Apple 侧物料。
 
-### 本轮（第五轮）新增
-- `ChatScreen`：打字指示器从静态 dots 升级为 Animated.Value 脉冲动画（3 个点顺序 stagger，使用 native driver，60fps）
-- `ProfileScreen`：「系统」区块新增 🎲 Demo 模式按钮，QA/演示时注入 3 条模拟调度 + 2 个演示附件，无需 Gateway 即可看到完整 populated 效果
-- `AppContext`：新增 `mergeDispatchRecords()` + `mergeTasks()` 本地/远程状态合并，解决 live 数据回填时覆盖本地记录的问题
+### 本轮（第六轮）新增
+- `DashboardScreen`：回退模式 + 无数据时显示黄色 Demo 模式提示横幅，点击跳转到「我的 → Demo 模式」一键注入模拟数据
+- `MemoryStoreScreen`：无记忆时显示引导性空状态，不再是空白页
+- `KnowledgeBaseScreen`：无知识时显示引导性空状态，不再是空白页
+- `AppContext`：`injectDemoData()` 方法正式上线，连接 ProfileScreen Demo 按钮
+- `ChatScreen`：修复 unused `delay` 参数（_delay），清除 eslint 最后一个 error
 
 ---
 
