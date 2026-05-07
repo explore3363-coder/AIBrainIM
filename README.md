@@ -16,11 +16,15 @@ AI 大脑移动端 - React Native · iOS · OpenClaw Agent Runtime
 | 任务 | ✅ | 全局 Kanban:对话指令 + 附件上传链路合并显示 |
 | 我的 | ✅ | 信息层入口 + TestFlight/App Store 准备入口 |
 
-**待完成(P1 之后):** 真实 API 接入(Agent/Task/Chat/Upload 四链路替换 mock)
-
-**本轮新增：** Dashboard Fallback Banner 含 Demo 注入按钮（注入 3 条模拟调度 + 2 个演示附件），可在无 Gateway 环境下快速演示完整闭环。Gateway 连接配置页支持 URL / Token / 通道 / 目标账号配置与连通性测试。Task 页已补成"收口台"，可直接看到 Gateway 运行态、待确认阻塞、附件推进与当前最值得处理的任务焦点。导航类型安全已全面升级（ConfirmationsScreen / DispatchChainScreen / UploadScreen），移除全部 `(navigation as any)` cast，TypeScript 类型覆盖完整。
-
 **上线准备参考:** [APP_STORE_READINESS.md](./APP_STORE_READINESS.md)
+
+---
+
+## 当前状态（2026-05-07 夜）
+
+P1 产品层已收口，iOS Simulator Build ✅ / TypeScript ✅ / Jest 70 tests ✅。
+
+GitHub Actions CI 已就绪。唯一阻塞项为 Apple 侧配置（账号 + App Store Connect 记录 + 截图）。
 
 ---
 
