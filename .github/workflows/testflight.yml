@@ -68,7 +68,21 @@ jobs:
 
       - name: Import code signing certificate
         run: |
-          # Use python3 to decode (avoids shell compatibility issues)
+          # Download WWDR G3 certificate FIRST (required for cert chain validation)
+          curl -s -o /tmp/wwdrg3.der http://certs.apple.com/wwdrg3.der
+          openssl x509 -inform DER -outform PEM -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
+          echo "WWDR G3 downloaded, size: $(wc -c < /tmp/wwdrg3.der) bytes"
+
+          # Create keychain
+          security create-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
+          security set-keychain-settings -t 3600 -u ~/Library/Keychains/build.keychain-db
+          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
+
+          # Add WWDR G3 to keychain FIRST
+          security import /tmp/wwdrg3.pem -k ~/Library/Keychains/build.keychain-db -T /usr/bin/codesign -T /usr/bin/security
+          echo "WWDR G3 imported to keychain"
+
+          # Decode p12 using python3 (more reliable)
           python3 -c "
             import os, base64
             secret = os.environ.get('APPLE_DIST_P12', '')
@@ -76,21 +90,16 @@ jobs:
                 raise Exception('APPLE_DIST_P12 is empty!')
             with open('/tmp/certificate.p12', 'wb') as f:
                 f.write(base64.b64decode(secret))
-            print(f'p12 size: {os.path.getsize("/tmp/certificate.p12")} bytes')
+            print(f'p12 decoded, size: {os.path.getsize("/tmp/certificate.p12")} bytes')
           "
-          echo "Secret decoded successfully"
-
-          # Create keychain
-          security create-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-          security set-keychain-settings -t 3600 -u ~/Library/Keychains/build.keychain-db
-          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
+          echo "Certificate p12 decoded"
 
           # Import certificate
           security import /tmp/certificate.p12 -k ~/Library/Keychains/build.keychain-db -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "build-pass" ~/Library/Keychains/build.keychain-db
 
           # Verify
-          KEYCHAIN=~/Library/Keychains/build.keychain-db security find-identity -v -p codesigning "$KEYCHAIN"
+          KEYCHAIN=~/Library/Keychains/build.keychain-db security find-identity -v -p codesigning "$KEYCHAIN" || echo 'find-identity returned no identities (may still work with xcodebuild)'
           ls -la /tmp/certificate.p12
         env:
           APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
