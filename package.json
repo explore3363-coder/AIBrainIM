@@ -12,7 +12,6 @@
     "build:sim": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO",
     "build:release": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -archivePath ios/builds/AIBrainIM.xcarchive archive",
     "screenshot": "bash scripts/capture-screenshots.sh",
-    "build:sim": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO",
     "pods": "cd ios && pod install && cd .."
   },
   "dependencies": {
