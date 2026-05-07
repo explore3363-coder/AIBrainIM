@@ -1,12 +1,21 @@
 # AIBrainIM P1 可用版 — 进展记录
 
-> 最后更新：2026-05-07 22:20 GMT+8
+> 最后更新：2026-05-08 02:45 GMT+8
 
 ---
 
-## 当前状态：P1 可用版收口完毕 ✅（第十一轮完成）
+## 当前状态：P1 可用版收口完毕 ✅（第十二轮深夜完成）
 
-### 本轮（第十一轮）完成：全面质量复检 + 收口确认
+### 本轮（第十二轮）完成：深夜质量复检 + 上线物料终检
+- TypeScript ✅ · Jest ✅（10 suites, 82 tests）· iOS Build ✅（iPhone 17 Pro Simulator, BUILD SUCCEEDED）
+- GitHub push ✅ → origin/main（commit e96acbf）
+- 五主功能全部稳定（总览/对话/智能体/任务/我的）
+- 信息层五入口全部串通（记忆/知识/附件/项目/调度链）
+- 上线物料全部就位（App Icon PNG / 隐私政策 / ExportOptions.plist / PrivacyInfo.xcprivacy）
+- 真实 Gateway 协议映射层稳定（sessions_list / sessions_send / message.send）
+- 记忆库远程读写已接入（gatewayInvoke → memory_recall/memory_store）
+
+### 上轮（第十一轮）完成：全面质量复检 + 收口确认
 - TypeScript ✅ 70 tests ✅
 - iOS Simulator Build ✅（BUILD SUCCEEDED）
 - GitHub push ✅
