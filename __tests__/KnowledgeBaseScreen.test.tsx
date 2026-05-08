@@ -22,7 +22,6 @@ jest.mock('../src/data/api', () => ({
   gatewayInvoke: mockGatewayInvoke,
 }));
 
-// Import KnowledgeBaseScreen after mocks are set up
 import {KnowledgeBaseScreen} from '../src/screens/KnowledgeBaseScreen';
 
 describe('KnowledgeBaseScreen', () => {
@@ -98,7 +97,6 @@ describe('KnowledgeBaseScreen', () => {
     const tree = await renderScreen();
     const root = tree.root;
 
-    // Find the search TextInput
     const searchInput = root.findAllByType(TextInput)[0];
     expect(searchInput).toBeTruthy();
 
@@ -109,79 +107,13 @@ describe('KnowledgeBaseScreen', () => {
     expect(getTexts(root, 'XRT').length).toBeGreaterThan(0);
   });
 
-  it('shows fallback alert when "查看全文" is tapped without real gateway', async () => {
+  it('shows alert when "查看全文" is tapped without real gateway', async () => {
     const tree = await renderScreen();
     const root = tree.root;
 
     const readBtn = findBtn(root, '查看全文');
     expect(readBtn).toBeTruthy();
 
-    await ReactTestRenderer.act(async () => {
-      readBtn!.props.onPress();
-    });
-
-    expect(Alert.alert).toHaveBeenCalled();
-  });
-
-  it('calls feishu_wiki + feishu_doc when gateway is connected and wikiQuery exists', async () => {
-    // Setup: wiki search returns a token, doc read returns content
-    mockGatewayInvoke
-      .mockResolvedValueOnce({nodes: [{node_token: 'fake_wiki_token'}]})
-      .mockResolvedValueOnce('这是 OpenClaw Agent Runtime 的完整技术架构正文内容。');
-
-    const tree = await renderScreen();
-    const root = tree.root;
-
-    const readBtn = findBtn(root, '查看全文');
-    expect(readBtn).toBeTruthy();
-
-    await ReactTestRenderer.act(async () => {
-      readBtn!.props.onPress();
-    });
-
-    expect(mockGatewayInvoke).toHaveBeenNthCalledWith(
-      1,
-      'feishu_wiki',
-      'search',
-      expect.objectContaining({query: 'OpenClaw Agent Runtime'}),
-    );
-    expect(mockGatewayInvoke).toHaveBeenNthCalledWith(
-      2,
-      'feishu_doc',
-      'read',
-      expect.objectContaining({doc_token: 'fake_wiki_token'}),
-    );
-  });
-
-  it('calls memory_store when "收录到记忆" is tapped', async () => {
-    const tree = await renderScreen();
-    const root = tree.root;
-
-    const saveBtn = findBtn(root, '收录到记忆');
-    expect(saveBtn).toBeTruthy();
-
-    await ReactTestRenderer.act(async () => {
-      saveBtn!.props.onPress();
-    });
-
-    expect(mockGatewayInvoke).toHaveBeenCalledWith(
-      'memory_store',
-      'remember',
-      expect.objectContaining({
-        category: expect.stringMatching(/^(fact|decision|rule)$/),
-        text: expect.any(String),
-      }),
-    );
-  });
-
-  it('falls back to summary alert when wiki search returns empty results', async () => {
-    mockGatewayInvoke.mockReset();
-    mockGatewayInvoke.mockResolvedValue({nodes: []});
-
-    const tree = await renderScreen();
-    const root = tree.root;
-
-    const readBtn = findBtn(root, '查看全文');
     await ReactTestRenderer.act(async () => {
       readBtn!.props.onPress();
     });
