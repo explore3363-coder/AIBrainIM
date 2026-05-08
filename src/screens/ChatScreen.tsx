@@ -74,6 +74,7 @@ export function ChatScreen() {
   const [draft, setDraft]   = useState('');
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
+  const [inputHeight, setInputHeight] = useState(44);
   const [messages, setMessages] = useState<Message[]>([
     {role: 'in', name: '助理', text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。'},
   ]);
@@ -734,9 +735,10 @@ export function ChatScreen() {
               onChangeText={setDraft}
               placeholder="输入 AI 调度指令..."
               placeholderTextColor={C.textMuted}
-              style={[styles.input, {borderColor: 'rgba(255,255,255,0.08)'}]}
+              style={[styles.input, {borderColor: 'rgba(255,255,255,0.08)', minHeight: Math.max(44, Math.min(inputHeight, 120))}]}
               multiline
               editable={!sending}
+              onContentSizeChange={e => { setInputHeight(e.nativeEvent.contentSize.height); }}
               onFocus={e => { (e.nativeEvent as any); }}
               onBlur={e => { (e.nativeEvent as any); }}
             />
@@ -915,7 +917,7 @@ const styles = StyleSheet.create({
   },
   inputWrap: {flex: 1},
   input: {
-    minHeight: 44, maxHeight: 96,
+    minHeight: 44, maxHeight: 144,
     borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10,
     color: C.textTitle,
     backgroundColor: 'rgba(5,13,26,0.9)',
