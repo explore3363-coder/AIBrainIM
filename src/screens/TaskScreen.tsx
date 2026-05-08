@@ -52,7 +52,7 @@ function TaskCard({task, onPress}: {task: Task; onPress?: () => void}) {
           <TaskBadge state={task.state} />
         )}
       </View>
-      <Text style={styles.taskId}>#{task.id}</Text>
+      {task.priority ? <Text style={styles.taskId}>优先级：{task.priority}</Text> : null}
       <View style={styles.metaBadgeRow}>
         {task.attachmentCount ? (
           <View style={[styles.sourceBadge, {backgroundColor: '#6366f1'}]}>
@@ -73,7 +73,7 @@ function TaskCard({task, onPress}: {task: Task; onPress?: () => void}) {
       <Text style={styles.taskMeta}>👤 {task.owner}</Text>
       <Text style={styles.taskMeta}>⏱ {task.eta} · {TASK_STATE_LABEL[task.state]}</Text>
       {task.sessionKey ? <Text style={styles.taskMeta}>🧷 {task.sessionKey}</Text> : null}
-      {task.traceSummary ? <Text style={styles.taskTrace}>{task.traceSummary}</Text> : null}
+      {task.traceSummary && task.state !== 'done' ? <Text style={styles.taskTrace}>{task.traceSummary}</Text> : null}
       <Text style={styles.taskNext}>→ {task.next}</Text>
       <Text style={styles.tapHint}>👆 {isConfirmation ? '点击前往确认' : '点击继续推进'}</Text>
     </TouchableOpacity>

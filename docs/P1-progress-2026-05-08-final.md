@@ -60,3 +60,41 @@ git tag v0.1.0 && git push --tags origin main
 ## 下一步
 
 等待用户提供 Apple Developer 账号信息，或继续推进非 TestFlight 依赖的优化项（截图素材、App Store 描述文案精修等）。
+
+---
+
+## 第二十七轮（2026-05-08 13:58 · Demo 残留代码清理）
+
+### 本轮完成
+
+**injectDemoData 全部清理（111 行）：**
+- AppContext 接口定义：删除 `injectDemoData: () => void`
+- AppContext 默认值：删除 `injectDemoData: () => {}`
+- AppContext Provider 导出：删除 `injectDemoData`
+- AppContext 实现：`const injectDemoData = useCallback(...) {...}` 119 行全部删除
+
+**原因：** injectDemoData() 从未在任何 UI 层调用，属于开发者 QA 测试代码残留，对用户无价值但增加代码体积。
+
+**保留说明：** Dashboard 的 `aiFeedMock` fallback 保留（用户友好，非开发者自嗨）；DispatchChain 的 `EMPTY_TRACES` 保留（同理）。
+
+### 三板斧验证
+
+| 检查项 | 结果 |
+|--------|------|
+| TypeScript | ✅ 零错误 |
+| Jest | ✅ 17 suites / 138 tests 全部通过 |
+| iOS Simulator Build | ✅ BUILD SUCCEEDED |
+
+### Git 状态
+
+- Commit: `7487098 remove injectDemoData: clean up developer QA demo code from AppContext`
+- 净删除：111 行
+- AppContext 从 1180+ 行 → 1053 行
+- 已 push 到 origin/main
+
+### 当前状态
+
+代码侧 P1 可用版完全收口，无任何开发者自嗨残留，无 TODO，无阻塞。
+
+**唯一阻塞：** Apple Developer 账号 + App Store Connect 记录 + GitHub Secrets 配置
+
