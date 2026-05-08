@@ -177,12 +177,10 @@ jobs:
           print(f'Profile installed: {out_path} ({len(profile_bytes)} bytes)')
           PYEOF
 
-      # ── Step 4: Archive with proper signing ────────────────────────────────
+      # ── Step 4: Archive WITHOUT signing ────────────────────────────────────
+      # Skip signing to avoid OCSP check hanging on GitHub runner network
       - name: Build for Release (Archive)
         run: |
-          security list-keychains -s ~/Library/Keychains/build.keychain-db
-          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
@@ -190,24 +188,21 @@ jobs:
             -derivedDataPath build/DerivedData \
             archive \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=7S96N8A32U \
-            PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=7S96N8A32U
 
-      # ── Step 5: Export IPA ──────────────────────────────────────────────────
+      # ── Step 5: Export IPA (server-side signing via App Store Connect) ───────
+      # app-store-connect method asks Apple to sign — no local cert needed
       - name: Export IPA
         run: |
-          security list-keychains -s ~/Library/Keychains/build.keychain-db
-          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=7S96N8A32U \
-            PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=7S96N8A32U
 
       # ── Step 6: Upload to App Store Connect ──────────────────────────────────
       - name: Upload to App Store Connect
