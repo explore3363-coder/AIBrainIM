@@ -22,8 +22,8 @@ import {AppProvider, useAppContext} from './context/AppContext';
 import {TabBarIcon} from './components/TabBarIcon';
 
 // Screens
-import {DashboardScreen}      from './screens/DashboardScreen';
-import {ChatScreen}           from './screens/ChatScreen';
+import {DashboardScreen}       from './screens/DashboardScreen';
+import {ChatScreen}            from './screens/ChatScreen';
 import {AgentScreen}          from './screens/AgentScreen';
 import {TaskScreen}           from './screens/TaskScreen';
 import {ProfileScreen}        from './screens/ProfileScreen';
@@ -34,14 +34,22 @@ import {ProjectLibraryScreen} from './screens/ProjectLibraryScreen';
 import {DispatchChainScreen}  from './screens/DispatchChainScreen';
 import {ConfirmationsScreen}  from './screens/ConfirmationsScreen';
 import {UploadScreen}         from './screens/UploadScreen';
-import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
+import {GatewaySettingsScreen}from './screens/GatewaySettingsScreen';
 
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-
+// ─── Tab bar icon factories (module scope avoids react/no-unstable-nested-components) ───
+ 
+const _tabIcon = (label: string, emoji: string) => ({focused}: {focused: boolean}) => (
+  <TabBarIcon label={label} emoji={emoji} focused={focused} />
+);
+ 
+const _tabIconWithBadge = (label: string, emoji: string, count: number | undefined) => ({focused}: {focused: boolean}) => (
+  <TabBarIcon label={label} emoji={emoji} focused={focused} badge={count} />
+);
 
 function TabNavigator() {
   const {pendingConfirmations, uploads, tasks} = useAppContext();
@@ -70,45 +78,28 @@ function TabNavigator() {
         tabBarLabel: () => null,
       }}
     >
-      {/* 底部五主功能：总览、对话、智能体、任务、我的 */}
-      {/* 待确认badge显示在「我的」(Profile) tab — pendingConfirmations */}
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{tabBarIcon: ({focused}) => <TabBarIcon label="总览" emoji="📊" focused={focused} />}}
-      />
-      <Tab.Screen
-        name="Chat"
-        component={ChatScreen}
-        options={{tabBarIcon: ({focused}) => <TabBarIcon label="对话" emoji="💬" focused={focused} />}}
-      />
-      <Tab.Screen
-        name="Agent"
-        component={AgentScreen}
-        options={{tabBarIcon: ({focused}) => <TabBarIcon label="智能体" emoji="🤖" focused={focused} />}}
-      />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('总览', '📊')}} />
+      <Tab.Screen name="Chat"      component={ChatScreen}       options={{tabBarIcon: _tabIcon('对话', '💬')}} />
+      <Tab.Screen name="Agent"     component={AgentScreen}     options={{tabBarIcon: _tabIcon('智能体', '🤖')}} />
       <Tab.Screen
         name="Tasks"
         component={TaskScreen}
-        options={{tabBarIcon: ({focused}) => <TabBarIcon label="任务" emoji="📋" focused={focused} badge={runningTaskCount > 0 ? runningTaskCount : undefined} />}}
+        options={{tabBarIcon: _tabIconWithBadge('任务', '📋', runningTaskCount > 0 ? runningTaskCount : undefined)}}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{tabBarIcon: ({focused}) => (
-          <TabBarIcon
-            label="我的"
-            emoji="👤"
-            focused={focused}
-            badge={
-              pendingConfirmations > 0
-                ? pendingConfirmations
-                : uploadingCount > 0
-                  ? uploadingCount
-                  : undefined
-            }
-          />
-        )}}
+        options={{
+          tabBarIcon: _tabIconWithBadge(
+            '我的',
+            '👤',
+            pendingConfirmations > 0
+              ? pendingConfirmations
+              : uploadingCount > 0
+                ? uploadingCount
+                : undefined,
+          ),
+        }}
       />
     </Tab.Navigator>
   );
@@ -124,51 +115,15 @@ function RootNavigator() {
         contentStyle: {backgroundColor: C.bgRoot},
       }}
     >
-      <Stack.Screen
-        name="Tabs"
-        component={TabNavigator}
-        options={{headerShown: false}}
-      />
-      <Stack.Screen
-        name="MemoryStore"
-        component={MemoryStoreScreen}
-        options={{title: '记忆库', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="KnowledgeBase"
-        component={KnowledgeBaseScreen}
-        options={{title: '知识库', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="FileLibrary"
-        component={FileLibraryScreen}
-        options={{title: '附件库', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="ProjectLibrary"
-        component={ProjectLibraryScreen}
-        options={{title: '项目库', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="DispatchChain"
-        component={DispatchChainScreen}
-        options={{title: '调度链', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="Confirmations"
-        component={ConfirmationsScreen}
-        options={{title: '需确认项', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="Upload"
-        component={UploadScreen}
-        options={{title: '📤 上传管理', headerBackTitle: '返回'}}
-      />
-      <Stack.Screen
-        name="GatewaySettings"
-        component={GatewaySettingsScreen}
-        options={{title: 'Gateway 配置', headerBackTitle: '返回'}}
-      />
+      <Stack.Screen name="Tabs" component={TabNavigator} options={{headerShown: false}} />
+      <Stack.Screen name="MemoryStore"    component={MemoryStoreScreen}    options={{title: '记忆库',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="KnowledgeBase"  component={KnowledgeBaseScreen}  options={{title: '知识库',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="FileLibrary"     component={FileLibraryScreen}    options={{title: '附件库',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="ProjectLibrary" component={ProjectLibraryScreen} options={{title: '项目库',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="DispatchChain"   component={DispatchChainScreen}  options={{title: '调度链',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="Confirmations"   component={ConfirmationsScreen}  options={{title: '需确认项',     headerBackTitle: '返回'}} />
+      <Stack.Screen name="Upload"          component={UploadScreen}         options={{title: '📤 上传管理',  headerBackTitle: '返回'}} />
+      <Stack.Screen name="GatewaySettings" component={GatewaySettingsScreen} options={{title: 'Gateway 配置', headerBackTitle: '返回'}} />
     </Stack.Navigator>
   );
 }
