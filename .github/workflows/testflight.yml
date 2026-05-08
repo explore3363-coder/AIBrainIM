@@ -8,6 +8,12 @@ on:
       - '**.md'
       - '**.txt'
       - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      dist_p12:
+        description: 'Base64 encoded APPLE_DIST_P12 (optional — uses secret if empty)'
+        required: false
+        default: ''
 
 env:
   APP_NAME: AIBrainIM
