@@ -111,10 +111,12 @@ jobs:
       - name: Archive with automatic signing via ASC API key
         run: |
           mkdir -p build
+          set -o pipefail
           xcodebuild \
             -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
+            -destination 'generic/platform=iOS' \
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             -allowProvisioningUpdates \
@@ -123,10 +125,11 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            archive
+            archive 2>&1 | tee build/archive.log
 
       - name: Export IPA with automatic signing
         run: |
+          set -o pipefail
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build/export \
@@ -134,7 +137,7 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_HWP45ALL8Y.p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee build/export.log
 
       - name: Verify IPA
         run: |
@@ -157,3 +160,13 @@ jobs:
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
             --verbose
+
+      - name: Upload build logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-build-logs
+          path: |
+            build/archive.log
+            build/export.log
+          if-no-files-found: ignore
