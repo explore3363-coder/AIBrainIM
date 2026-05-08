@@ -177,8 +177,8 @@ jobs:
           print(f'Profile installed: {out_path} ({len(profile_bytes)} bytes)')
           PYEOF
 
-      # ── Step 4: Archive WITHOUT signing ────────────────────────────────────
-      # Skip signing to avoid OCSP check hanging on GitHub runner network
+      # ── Step 4: Archive with team ID embedded (no actual signing) ─────────────
+      # CODE_SIGN_IDENTITY="" embeds team without cert verification — avoids OCSP hang
       - name: Build for Release (Archive)
         run: |
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
@@ -188,13 +188,11 @@ jobs:
             -derivedDataPath build/DerivedData \
             archive \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM=7S96N8A32U
 
       # ── Step 5: Export IPA (server-side signing via App Store Connect) ───────
-      # app-store-connect method asks Apple to sign — no local cert needed
+      # app-store-connect method: Apple servers sign using the team ID
       - name: Export IPA
         run: |
           xcodebuild -exportArchive \
