@@ -51,7 +51,7 @@ jobs:
           fi
           echo "Build number set to: ${BUILD_NUM}"
 
-      # ── Step 1: Archive with Automatic signing (embeds team ID) ────────────────
+      # ── Step 1: Archive without signing ───────────────────────────────────────
       - name: Build for Release (Archive)
         run: |
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
@@ -60,19 +60,18 @@ jobs:
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=1165010090 \
-            -allowProvisioningUpdates
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=1165010090
 
-      # ── Step 2: Export IPA (unsigned, altool will handle signing) ──────────────
-      - name: Export IPA
+      # ── Step 2: Export IPA directly from xcarchive (no signing needed) ────────
+      - name: Export IPA from archive
         run: |
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGNING_REQUIRED=NO \
             DEVELOPMENT_TEAM=1165010090
 
       # ── Step 3: Upload to App Store Connect via altool ────────────────────
