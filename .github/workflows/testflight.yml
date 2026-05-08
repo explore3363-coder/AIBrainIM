@@ -177,7 +177,7 @@ jobs:
           print(f'Profile installed: {out_path} ({len(profile_bytes)} bytes)')
           PYEOF
 
-      # ── Step 4: Archive with Automatic signing (Xcode manages profile) ───────────
+      # ── Step 4: Archive with Manual signing ─────────────────────────────────────
       - name: Build for Release (Archive)
         env:
           KEYCHAIN_PASSWORD: build-pass
@@ -192,8 +192,10 @@ jobs:
             -archivePath build/AIBrainIM.xcarchive \
             -derivedDataPath build/DerivedData \
             archive \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=7S96N8A32U
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
+            DEVELOPMENT_TEAM=7S96N8A32U \
+            PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
       # ── Step 5: Export IPA ──────────────────────────────────────────────────
       - name: Export IPA
@@ -208,8 +210,10 @@ jobs:
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=7S96N8A32U
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
+            DEVELOPMENT_TEAM=7S96N8A32U \
+            PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
       # ── Step 6: Upload to App Store Connect ──────────────────────────────────
       - name: Upload to App Store Connect
