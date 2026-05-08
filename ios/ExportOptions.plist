@@ -5,13 +5,7 @@
     <key>method</key>
     <string>app-store</string>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>teamId</key>
-    <string>7S96N8A32U</string>
-    <key>signingCertificate</key>
-    <string>iPhone Distribution: Hong Yang (7S96N8A32U)</string>
-    <key>provisioningProfile</key>
-    <string>3d8fdd81-ba2a-4074-bb1a-3770fe705ee6</string>
+    <string>automatic</string>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadBitcode</key>
