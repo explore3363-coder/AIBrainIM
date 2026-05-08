@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import {Text, TouchableOpacity, RefreshControl} from 'react-native';
+import {RefreshControl} from 'react-native';
 import {DispatchChainScreen} from '../src/screens/DispatchChainScreen';
 
 const mockRefresh = jest.fn();

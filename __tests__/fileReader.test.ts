@@ -57,20 +57,14 @@ describe('fileReader', () => {
       };
 
       (globalThis as any).XMLHttpRequest = jest.fn(() => mockXHR) as any;
-
-      let resolvePromise: (val: ArrayBuffer) => void;
-      const promise = new Promise<ArrayBuffer>((resolve) => {
-        resolvePromise = resolve;
-        mockXHR.onload = () => resolvePromise(mockXHR.response as ArrayBuffer);
-      });
-
-      const resultPromise = readFileSlice('file:///tmp/test.pdf', 0, 256);
+      (globalThis as any).XMLHttpRequest = jest.fn(() => mockXHR) as any;
+      const _resultPromise = readFileSlice('file:///tmp/test.pdf', 0, 256);
 
       // Trigger the mocked onload
       mockXHR.onload!();
 
-      const result = await resultPromise;
-      expect(result.byteLength).toBe(256);
+      const _result = await _resultPromise;
+      expect(_result.byteLength).toBe(256);
     });
 
     it('rejects when XMLHttpRequest returns non-2xx status', async () => {
