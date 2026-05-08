@@ -25,7 +25,7 @@ export const tasksMock: Task[] = [
   {id:'t1', title:'移动端 P0：AI 大脑总览',       owner:'助理 / 黑金', state:'running', eta:'今晚',      next:'补齐总览、记忆库、调度链 UI',              priority:'P0'},
   {id:'t2', title:'OpenClaw Bridge 接口骨架',   owner:'开发',         state:'todo',    eta:'明天',      next:'接真实 Agent/任务/消息 API',                priority:'P0'},
   {id:'t3', title:'附件上传入口',                owner:'黑金',         state:'running', eta:'Alpha 0.2', next:'图片、视频、文件统一进入 AI 指令流',        priority:'P1'},
-  {id:'t4', title:'APP 上架 Skill',             owner:'助理',         state:'done',    eta:'已完成',    next:'后续补 TestFlight 自动化',                  priority:'P1'},
+  {id:'t4', title:'APP 上架链路收口',           owner:'助理',         state:'running', eta:'待配置Apple账号', next:'配置 GitHub Secrets → TestFlight build → App Store Connect', priority:'P0'},
   {id:'t5', title:'Brave 搜索链路补丁验证',     owner:'助理',         state:'blocked', eta:'待二轮验证',next:'搜索链只作为研究辅助，不阻塞移动端',       priority:'P2'},
   {id:'t6', title:'记忆库接口接入',              owner:'智联',         state:'todo',    eta:'本周',      next:'接 OpenClaw 记忆 API',                      priority:'P1'},
   {id:'t7', title:'知识库全文检索',             owner:'智联',         state:'todo',    eta:'本周',      next:'接向量检索服务',                             priority:'P1'},
@@ -73,23 +73,34 @@ export const commandTraceMock: CommandTrace[] = [
 ];
 
 // ─── Confirmation Items (需确认项) ──────────────────────────────────────────
+// Real items — replace mock items when Gateway connectivity is live.
 export const confirmationMock: ConfirmationItem[] = [
   {
-    id:'c1', title:'是否接入 Brave 搜索？',
-    description:'当前标记为研究辅助，不阻塞移动端主流程。可延后。',
-    agent:'助理', urgency:'normal', timestamp:'20:28',
+    id:'c1',
+    title:'AIBrainIM TestFlight 上架配置',
+    description:'GitHub repo 的 APPLE_DIST_P12 / APPLE_APP_PASSWORD / APPLE_API_KEY_CONTENT 尚未配置，当前 workflow 无法触发自动发布。',
+    agent:'助理',
+    urgency:'high',
+    timestamp:'20:29',
+    status:'pending',
+    followUpTaskId:'t4',
+  },
+  {
+    id:'c2',
+    title:'OpenClaw Gateway 真实连接验证',
+    description:'当前为 fallback 态，首页使用 mock 数据。需在真实 Gateway 下跑通一轮完整闭环后，才算真正可提测。',
+    agent:'助理',
+    urgency:'normal',
+    timestamp:'20:28',
     status:'pending',
   },
   {
-    id:'c2', title:'记忆库优先级确认',
-    description:'长期记忆与短期记忆的存储策略需要确认。',
-    agent:'智联', urgency:'high', timestamp:'20:20',
-    status:'pending',
-  },
-  {
-    id:'c3', title:'附件大小策略',
-    description:'前端不设硬限制，请确认后端处理策略（分片/转码）。',
-    agent:'黑金', urgency:'low', timestamp:'20:15',
+    id:'c3',
+    title:'记忆库 / 知识库 API 接入优先级',
+    description:'MemoryStoreScreen 和 KnowledgeBaseScreen 的远程搜索/创建依赖 gatewayInvoke。当前为本地 mock，需要确认远程 API 是否已稳定。',
+    agent:'智联',
+    urgency:'normal',
+    timestamp:'20:25',
     status:'pending',
   },
 ];
