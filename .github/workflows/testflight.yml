@@ -47,6 +47,7 @@ jobs:
 
       - name: Install Pods
         run: pod install
+        working-directory: ios
 
       - name: Set Info.plist build version
         run: |
