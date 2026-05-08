@@ -18,7 +18,7 @@ export type RootStackParamList = {
 };
 
 import {C} from './data/constants';
-import {AppProvider} from './context/AppContext';
+import {AppProvider, useAppContext} from './context/AppContext';
 import {TabBarIcon} from './components/TabBarIcon';
 
 // Screens
@@ -41,6 +41,15 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function TabNavigator() {
+  const {pendingConfirmations, uploads, tasks} = useAppContext();
+
+  const uploadingCount = uploads.filter(
+    (u: {status: string}) => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing',
+  ).length;
+  const runningTaskCount = tasks.filter(
+    (t: {state: string}) => t.state === 'running' || t.state === 'todo',
+  ).length;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -59,6 +68,7 @@ function TabNavigator() {
       }}
     >
       {/* 底部五主功能：总览、对话、智能体、任务、我的 */}
+      {/* 待确认badge显示在「我的」(Profile) tab — pendingConfirmations */}
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
@@ -77,12 +87,25 @@ function TabNavigator() {
       <Tab.Screen
         name="Tasks"
         component={TaskScreen}
-        options={{tabBarIcon: ({focused}) => <TabBarIcon label="任务" emoji="📋" focused={focused} />}}
+        options={{tabBarIcon: ({focused}) => <TabBarIcon label="任务" emoji="📋" focused={focused} badge={runningTaskCount > 0 ? runningTaskCount : undefined} />}}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{tabBarIcon: ({focused}) => <TabBarIcon label="我的" emoji="👤" focused={focused} />}}
+        options={{tabBarIcon: ({focused}) => (
+          <TabBarIcon
+            label="我的"
+            emoji="👤"
+            focused={focused}
+            badge={
+              pendingConfirmations > 0
+                ? pendingConfirmations
+                : uploadingCount > 0
+                  ? uploadingCount
+                  : undefined
+            }
+          />
+        )}}
       />
     </Tab.Navigator>
   );
