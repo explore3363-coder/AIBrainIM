@@ -1,4 +1,5 @@
-import React, {useMemo, useState, useCallback} from 'react';
+import React, {useEffect, useMemo, useState, useCallback} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -103,6 +104,31 @@ function formatMemoryTimestamp(): string {
   return new Date().toLocaleDateString('zh-CN');
 }
 
+const MEMORY_STORE_ENTRIES_KEY = '@AIBrainIM:memoryEntries';
+
+// ─── Persistence helpers ─────────────────────────────────────────────────────
+async function _loadLocalEntries(): Promise<MemoryEntry[]> {
+  try {
+    const raw = await AsyncStorage.getItem(MEMORY_STORE_ENTRIES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as MemoryEntry[];
+    // Filter out any corrupted entries
+    return Array.isArray(parsed) ? parsed.filter(
+      e => e && typeof e.id === 'string' && typeof e.content === 'string',
+    ) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function _saveLocalEntries(entries: MemoryEntry[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(MEMORY_STORE_ENTRIES_KEY, JSON.stringify(entries));
+  } catch {
+    // Persisting locally is best-effort; non-fatal if it fails
+  }
+}
+
 export function MemoryStoreScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('全部');
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,6 +142,20 @@ export function MemoryStoreScreen() {
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
   const [localCreatedEntries, setLocalCreatedEntries] = useState<MemoryEntry[]>([]);
   const {dispatches, tasks, uploads, confirmations, registerMemoryCapture} = useAppContext();
+
+  // ── Load persisted entries on mount ────────────────────────────────────────
+  useEffect(() => {
+    _loadLocalEntries().then(loaded => {
+      if (loaded.length > 0) {
+        setLocalCreatedEntries(loaded);
+      }
+    });
+  }, []);
+
+  // ── Persist entries whenever they change ────────────────────────────────────
+  useEffect(() => {
+    _saveLocalEntries(localCreatedEntries);
+  }, [localCreatedEntries]);
 
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
   const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
