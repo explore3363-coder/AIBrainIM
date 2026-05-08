@@ -3,96 +3,82 @@ name: TestFlight Release
 on:
   push:
     tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+      - 'v0.1.*'
+    paths-ignore:
+      - '**.md'
+      - '**.txt'
+      - 'docs/**'
 
 env:
-  NODE_VERSION: "22"
+  APP_NAME: AIBrainIM
+  KEYCHAIN_NAME: build
+  KEYCHAIN_PASS: build-pass
+  ASC_KEY_ID: HWP45ALL8Y
+  ASC_ISSUER_ID: 0bc52ef9-a4c4-489e-810c-c8a80db0ab9a
 
 jobs:
-  testflight:
-    name: Build & Upload TestFlight
+  build:
     runs-on: macos-15
-    environment: App Store Connect
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ios/package-lock.json
 
       - name: Cache Pods
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: pods-${{ runner.os }}-
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
 
       - name: Install npm deps
         run: npm ci
 
       - name: Install Pods
-        run: cd ios && pod install && cd ..
+        run: cd ios && pod install
 
       - name: Set Info.plist build version
         run: |
-          BUILD_NUM=${{ github.run_number }}
-          PLIST=ios/AIBrainIM/Info.plist
-          if grep -q CFBundleVersion "$PLIST"; then
-            sed -i '' "s/<key>CFBundleVersion<\/key><string>[^<]*<\/string>/<key>CFBundleVersion<\/key><string>${BUILD_NUM}<\/string>/" "$PLIST"
-          fi
-          echo "Build number set to: ${BUILD_NUM}"
+          BUILD_NUMBER=$(date +%Y%m%d%H%M)
+          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $BUILD_NUMBER" ios/AIBrainIM/Info.plist
+          echo "Build number set to $BUILD_NUMBER"
 
-      # ── Step 1: Setup keychain ──────────────────────────────────────────────
+      # ── Setup keychain ────────────────────────────────────────────────────
       - name: Setup keychain
         run: |
-          mkdir -p ~/Library/Keychains
-          security create-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-          security set-keychain-settings -t 3600 -u ~/Library/Keychains/build.keychain-db
-          security list-keychains -s ~/Library/Keychains/build.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASS" ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db
+          security list-keychains -s ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db
+          security unlock-keychain -p "$KEYCHAIN_PASS" ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db
+          security set-keychain-setting -t 60 -u ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db 2>/dev/null || true
 
-          # Download WWDR G3
-          curl -s -o /tmp/wwdrg3.der http://certs.apple.com/wwdrg3.der
-          openssl x509 -inform DER -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
-          security import /tmp/wwdrg3.pem -k ~/Library/Keychains/build.keychain-db -T /usr/bin/codesign -T /usr/bin/security
-          echo "Keychain and WWDR G3 ready"
-
-      # ── Step 2: Decode p8 key ────────────────────────────────────────────────
       - name: Decode API key
         run: |
+          echo "$APPLE_API_KEY_CONTENT" | base64 -d > ~/cert_work/p8.key
           mkdir -p ~/cert_work
-          echo -n "${{ secrets.APPLE_API_KEY_CONTENT }}" | base64 -d > ~/cert_work/p8.key
-          echo "p8 key decoded: $(wc -c < ~/cert_work/p8.key) bytes"
+          echo "$APPLE_API_KEY_CONTENT" | base64 -d > ~/cert_work/p8.key
+          chmod 600 ~/cert_work/p8.key
 
-      # ── Step 3: Import distribution certificate from GitHub Secret ─────────────
       - name: Import signing certificate
         env:
           APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
         run: |
-          mkdir -p ~/cert_work
-          echo -n "$APPLE_DIST_P12" | base64 -d > ~/cert_work/dist.p12
-          echo "p12 size: $(wc -c < ~/cert_work/dist.p12) bytes"
-
-          security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
-          security import ~/cert_work/dist.p12 -k ~/Library/Keychains/build.keychain-db \
-            -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
-          security list-keychains -s ~/Library/Keychains/build.keychain-db
+          echo "$APPLE_DIST_P12" | base64 -d > /tmp/dist.p12
+          security import /tmp/dist.p12 -k ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db -P "" -T /usr/bin/codesign -T /usr/bin/security -T /Applications/Xcode.app/Contents/Developer/usr/bin/codesign -T /Applications/Xcode.app/Contents/Developer/Tools/oplutil -T /Applications/Xcode.app/Contents/Developer/usr/bin/plutil -P "" 2>&1
+          security set-key-partition-list -S apple: -k "$KEYCHAIN_PASS" ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db 2>/dev/null || true
+          rm -f /tmp/dist.p12
           echo "Certificate imported"
-          security find-identity -v -p codesigning ~/Library/Keychains/build.keychain-db
 
-      # ── Step 3: Install Python deps for ASC API ───────────────────────────────
       - name: Install Python deps for ASC API
         run: |
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT cryptography --quiet 2>&1 | tail -2
-          echo "Python deps installed"
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --quiet pyjwt cryptography 2>&1 | tail -3
 
-      # ── Step 4: Create provisioning profile via ASC API ─────────────────────
+      # ── Provisioning profile: deduplicate then create ────────────────────
       - name: Create provisioning profile via ASC API
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
@@ -110,12 +96,42 @@ jobs:
 
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
+          ctx = ssl.create_default_context()
 
-          # Bundle ID and cert ID are known
-          asc_bundle_id = '24W72MHCCF'  # com.openclaw.aibrainim
-          cert_id = '9L77KJ9P4B'  # iPhone Distribution: Hong Yang (7S96N8A32U)
+          asc_bundle_id = '24W72MHCCF'
+          cert_id = '9L77KJ9P4B'
 
-          # Create AppStore profile (no devices required)
+          # Step A: List ALL existing profiles with this name
+          req_pf = urllib.request.Request(
+              'https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AppStore&sort=-createdDate&limit=20',
+              headers=headers
+          )
+          with urllib.request.urlopen(req_pf, context=ctx, timeout=15) as resp:
+              pf_data = json.loads(resp.read().decode())
+
+          existing = pf_data.get('data', [])
+          print(f'Found {len(existing)} existing profile(s) named AIBrainIM-CI-AppStore')
+
+          # Step B: Keep the newest one, delete all others
+          if len(existing) > 1:
+            to_delete = existing[1:]
+            print(f'Deleting {len(to_delete)} duplicate profile(s)...')
+            for pf in to_delete:
+                del_id = pf['id']
+                del_req = urllib.request.Request(
+                    f'https://api.appstoreconnect.apple.com/v1/profiles/{del_id}',
+                    method='DELETE', headers=headers
+                )
+                try:
+                    with urllib.request.urlopen(del_req, context=ctx, timeout=15) as r:
+                        print(f'  Deleted {del_id}: {r.status}')
+                except Exception as ex:
+                    print(f'  Failed to delete {del_id}: {ex}')
+            print('Deduplication complete')
+          elif len(existing) == 1:
+            print(f'Using existing profile (no dedup needed): {existing[0]["id"]}')
+
+          # Step C: Create fresh profile (or use the one we kept)
           profile_payload = json.dumps({
               'data': {
                   'type': 'profiles',
@@ -130,8 +146,6 @@ jobs:
               }
           }).encode()
 
-          ctx = ssl.create_default_context()
-
           req_profile = urllib.request.Request(
               'https://api.appstoreconnect.apple.com/v1/profiles',
               data=profile_payload, method='POST', headers=headers
@@ -144,18 +158,7 @@ jobs:
           except urllib.error.HTTPError as e:
               err_body = e.read()
               print(f'Profile creation error: {err_body[:300]}')
-              # Try to find existing profile
-              req_pf = urllib.request.Request(
-                  'https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AppStore',
-                  headers=headers
-              )
-              with urllib.request.urlopen(req_pf, context=ctx, timeout=15) as resp:
-                  pf_data = json.loads(resp.read().decode())
-              if pf_data.get('data'):
-                  profile_id = pf_data['data'][0]['id']
-                  print(f'Using existing profile: {profile_id}')
-              else:
-                  raise Exception('No profile found')
+              raise Exception('Failed to create or find profile')
 
           # Download the profile (CMS-signed DER)
           req_download = urllib.request.Request(
@@ -166,10 +169,6 @@ jobs:
               pf_result = json.loads(resp.read().decode())
           profile_b64 = pf_result['data']['attributes']['profileContent']
           profile_bytes = base64.b64decode(profile_b64)
-          profile_path = '/tmp/profile.mobileprovision'
-          with open(profile_path, 'wb') as f:
-              f.write(profile_bytes)
-          # Copy raw CMS data as .mobileprovision (Xcode reads UUID from CMS metadata)
           os.makedirs(os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles'), exist_ok=True)
           out_path = os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles/AIBrainIM-CI-AppStore.mobileprovision')
           with open(out_path, 'wb') as f:
@@ -177,7 +176,7 @@ jobs:
           print(f'Profile installed: {out_path} ({len(profile_bytes)} bytes)')
           PYEOF
 
-      # ── Step 4: Archive with Manual signing ─────────────────────────────────────
+      # ── Archive with real signing (team ID embedded via CODE_SIGN_IDENTITY) ──
       - name: Build for Release (Archive)
         env:
           KEYCHAIN_PASSWORD: build-pass
@@ -197,7 +196,7 @@ jobs:
             DEVELOPMENT_TEAM=7S96N8A32U \
             PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
-      # ── Step 5: Export IPA ──────────────────────────────────────────────────
+      # ── Export IPA: do NOT re-sign (CODE_SIGN_IDENTITY=-), embed team via plist ─
       - name: Export IPA
         env:
           KEYCHAIN_PASSWORD: build-pass
@@ -214,7 +213,7 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             DEVELOPMENT_TEAM=7S96N8A32U
 
-      # ── Step 6: Upload to App Store Connect ──────────────────────────────────
+      # ── Upload to App Store Connect ─────────────────────────────────────
       - name: Upload to App Store Connect
         env:
           APPLE_DEV_EMAIL: ${{ vars.APPLE_DEV_EMAIL }}
