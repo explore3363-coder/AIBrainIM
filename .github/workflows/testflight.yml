@@ -181,7 +181,8 @@ jobs:
           with open(csr_path, 'rb') as f:
               csr_b64 = base64.b64encode(f.read()).decode()
 
-          # Submit CSR to ASC
+          # Try to create a fresh distribution certificate; if Apple refuses because
+          # one already exists, fall back to reusing the current certificate ID.
           cert_body = json.dumps({
               'data': {
                   'type': 'certificates',
@@ -195,6 +196,8 @@ jobs:
               'https://api.appstoreconnect.apple.com/v1/certificates',
               data=cert_body, headers=headers, method='POST'
           )
+          cert_id = None
+          cert_pem = None
           try:
               with urllib.request.urlopen(req_cert, context=ctx, timeout=30) as resp:
                   cert_data = json.loads(resp.read().decode())
@@ -204,27 +207,40 @@ jobs:
           except urllib.error.HTTPError as e:
               err_body = e.read().decode()
               print(f'Certificate creation failed: {e.code} {err_body[:500]}')
-              exit(1)
+              if e.code != 409:
+                  exit(1)
 
-          # Save cert
-          with open(os.path.expanduser('~/cert_work/dist.cer'), 'wb') as f:
-              f.write(base64.b64decode(cert_pem))
-          print('Certificate downloaded')
+              req_existing = urllib.request.Request(
+                  'https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=10',
+                  headers=headers
+              )
+              with urllib.request.urlopen(req_existing, context=ctx, timeout=30) as resp:
+                  existing = json.loads(resp.read().decode()).get('data', [])
+              if not existing:
+                  print('No reusable IOS_DISTRIBUTION certificate found after 409')
+                  exit(1)
+              cert_id = existing[0]['id']
+              print(f'Reusing existing certificate: {cert_id}')
 
-          # Convert .cer to .p12 using OpenSSL
-          p12_path = os.path.expanduser('~/cert_work/dist.p12')
-          result = subprocess.run(
-              ['openssl', 'pkcs12', '-export',
-               '-inkey', key_path,
-               '-in', os.path.expanduser('~/cert_work/dist.cer'),
-               '-out', p12_path,
-               '-passout', 'pass:'],
-              capture_output=True, text=True
-          )
-          if result.returncode != 0:
-              print('p12 conversion failed:', result.stderr)
-              exit(1)
-          print(f'p12 created: {os.path.getsize(p12_path)} bytes')
+          if cert_pem is not None:
+              with open(os.path.expanduser('~/cert_work/dist.cer'), 'wb') as f:
+                  f.write(base64.b64decode(cert_pem))
+              print('Certificate downloaded')
+
+              # Convert .cer to .p12 using OpenSSL
+              p12_path = os.path.expanduser('~/cert_work/dist.p12')
+              result = subprocess.run(
+                  ['openssl', 'pkcs12', '-export',
+                   '-inkey', key_path,
+                   '-in', os.path.expanduser('~/cert_work/dist.cer'),
+                   '-out', p12_path,
+                   '-passout', 'pass:'],
+                  capture_output=True, text=True
+              )
+              if result.returncode != 0:
+                  print('p12 conversion failed:', result.stderr)
+                  exit(1)
+              print(f'p12 created: {os.path.getsize(p12_path)} bytes')
 
           # Save cert_id for next step
           with open(os.path.expanduser('~/cert_work/cert_id.txt'), 'w') as f:
