@@ -8,8 +8,6 @@ on:
 
 env:
   NODE_VERSION: "22"
-  IOS_BUNDLE_ID: "com.openclaw.aibrainim"
-  APP_NAME: "AIBrainIM"
 
 jobs:
   testflight:
@@ -61,171 +59,26 @@ jobs:
 
           # Download WWDR G3
           curl -s -o /tmp/wwdrg3.der http://certs.apple.com/wwdrg3.der
-          openssl x509 -inform DER -outform PEM -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
+          openssl x509 -inform DER -in /tmp/wwdrg3.der -out /tmp/wwdrg3.pem
           security import /tmp/wwdrg3.pem -k ~/Library/Keychains/build.keychain-db -T /usr/bin/codesign -T /usr/bin/security
           echo "Keychain and WWDR G3 ready"
 
-      # ── Step 2: Decode p8 key from base64 secret ────────────────────────────
+      # ── Step 2: Decode p8 key ────────────────────────────────────────────────
       - name: Decode API key
         run: |
           mkdir -p ~/cert_work
-          echo "${{ secrets.APPLE_API_KEY_CONTENT }}" | base64 -d > ~/cert_work/p8.key
+          echo -n "${{ secrets.APPLE_API_KEY_CONTENT }}" | base64 -d > ~/cert_work/p8.key
           echo "p8 key decoded: $(wc -c < ~/cert_work/p8.key) bytes"
 
-      # ── Step 3: Get existing distribution cert from ASC and check match ──────
-      - name: Get distribution certificate from ASC
+      # ── Step 3: Import distribution certificate from GitHub Secret ─────────────
+      - name: Import signing certificate
+        env:
+          APPLE_DIST_P12: ${{ secrets.APPLE_DIST_P12 }}
         run: |
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT cryptography --quiet 2>&1 | tail -2
-
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, jwt as pyjwt, base64, subprocess, os
-
-          with open(os.path.expanduser('~/cert_work/p8.key'), 'r') as f:
-              p8_content = f.read().strip()
-
-          kid = 'HWP45ALL8Y'
-          iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
-
-          def apple_token():
-              payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
-
-          tok = apple_token()
-          headers = {'Authorization': f'Bearer {tok}', 'Accept': 'application/json'}
-
-          # Get all distribution certs
-          req = urllib.request.Request(
-              'https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION',
-              headers=headers
-          )
-          with urllib.request.urlopen(req, timeout=15) as resp:
-              data = json.loads(resp.read().decode())
-
-          certs = data['data']
-          print(f'Found {len(certs)} distribution certs')
-          for c in certs:
-              print(f"  ID: {c['id']} Serial: {c['attributes']['serialNumber']}")
-
-          # Download the first (newest) cert
-          cert_id = certs[0]['id']
-          req2 = urllib.request.Request(f'https://api.appstoreconnect.apple.com/v1/certificates/{cert_id}', headers=headers)
-          with urllib.request.urlopen(req2, timeout=15) as resp:
-              cert_data = json.loads(resp.read().decode())
-
-          cert_b64 = cert_data['data']['attributes']['certificateContent']
-          cert_bytes = base64.b64decode(cert_b64)
-          with open(os.path.expanduser('~/cert_work/dist.cer'), 'wb') as f:
-              f.write(cert_bytes)
-          print(f'Downloaded cert {cert_id}: {len(cert_bytes)} bytes')
-
-          # Save cert ID for later
-          with open(os.path.expanduser('~/cert_work/cert_id.txt'), 'w') as f:
-              f.write(cert_id)
-          with open(os.path.expanduser('~/cert_work/cert_serial.txt'), 'w') as f:
-              f.write(cert_data['data']['attributes']['serialNumber'])
-          PYEOF
-
-      # ── Step 4: Create matching private key + CSR via ASC API ───────────────
-      - name: Create matching private key and CSR via ASC API
-        run: |
-          # Generate new RSA keypair in runner
           mkdir -p ~/cert_work
-          openssl genrsa -out ~/cert_work/dist_private.key 2048
-          openssl req -new -key ~/cert_work/dist_private.key \
-            -out ~/cert_work/dist.csr \
-            -subj "/UID=7S96N8A32U/CN=iPhone Distribution: Hong Yang (7S96N8A32U)/OU=7S96N8A32U/O=Hong Yang/C=US"
-          echo "New keypair generated"
+          echo -n "$APPLE_DIST_P12" | base64 -d > ~/cert_work/dist.p12
+          echo "p12 size: $(wc -c < ~/cert_work/dist.p12) bytes"
 
-          # Submit CSR to ASC API to get signed certificate
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, jwt as pyjwt, base64, os
-
-          with open(os.path.expanduser('~/cert_work/p8.key'), 'r') as f:
-              p8_content = f.read().strip()
-          with open(os.path.expanduser('~/cert_work/dist.csr'), 'rb') as f:
-              csr_bytes = f.read()
-          csr_b64 = base64.b64encode(csr_bytes).decode()
-
-          kid = 'HWP45ALL8Y'
-          iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
-
-          def apple_token():
-              payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
-
-          tok = apple_token()
-          headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
-
-          payload = json.dumps({
-              'data': {
-                  'type': 'certificates',
-                  'attributes': {
-                      'certificateType': 'IOS_DISTRIBUTION',
-                      'csrContent': csr_b64
-                  }
-              }
-          }).encode()
-
-          req = urllib.request.Request(
-              'https://api.appstoreconnect.apple.com/v1/certificates',
-              data=payload, method='POST', headers=headers
-          )
-          try:
-              with urllib.request.urlopen(req, timeout=15) as resp:
-                  result = json.loads(resp.read().decode())
-              new_cert_id = result['data']['id']
-              print(f'New certificate created! ID: {new_cert_id}')
-          except Exception as e:
-              if hasattr(e, 'read') and b'already have a current' in e.read():
-                  print('Already have current certificate, will use existing')
-                  new_cert_id = None
-              else:
-                  raise
-
-          # Download the certificate
-          cert_id = new_cert_id if new_cert_id else '9L77KJ9P4B'
-          req2 = urllib.request.Request(
-              f'https://api.appstoreconnect.apple.com/v1/certificates/{cert_id}',
-              headers={'Authorization': f'Bearer {tok}', 'Accept': 'application/json'}
-          )
-          with urllib.request.urlopen(req2, timeout=15) as resp:
-              cert_resp = json.loads(resp.read().decode())
-          cert_b64 = cert_resp['data']['attributes']['certificateContent']
-          cert_bytes = base64.b64decode(cert_b64)
-          with open(os.path.expanduser('~/cert_work/dist_new.cer'), 'wb') as f:
-              f.write(cert_bytes)
-          print(f'Certificate saved, {len(cert_bytes)} bytes, serial: {cert_resp["data"]["attributes"]["serialNumber"]}')
-          PYEOF
-
-      # ── Step 5: Build .p12 from private key + signed certificate ───────────
-      - name: Build .p12 from key and certificate
-        run: |
-          # Convert certificate to PEM
-          openssl x509 -inform DER -in ~/cert_work/dist_new.cer -out ~/cert_work/dist.pem
-
-          # Verify private key matches certificate
-          CERT_MOD=$(openssl x509 -inform DER -in ~/cert_work/dist_new.cer -noout -modulus 2>/dev/null)
-          KEY_MOD=$(openssl rsa -in ~/cert_work/dist_private.key -noout -modulus 2>/dev/null)
-          if [ "$CERT_MOD" = "$KEY_MOD" ]; then
-            echo "✅ Private key matches certificate"
-          else
-            echo "❌ Private key does NOT match certificate"
-            exit 1
-          fi
-
-          # Create .p12
-          OPENSSL_CONF=/dev/null openssl pkcs12 -export \
-            -inkey ~/cert_work/dist_private.key \
-            -in ~/cert_work/dist.pem \
-            -certfile /tmp/wwdrg3.pem \
-            -out ~/cert_work/dist.p12 \
-            -password pass:ci-pass
-
-          echo "p12 created: $(wc -c < ~/cert_work/dist.p12) bytes"
-
-      # ── Step 6: Import .p12 to keychain ─────────────────────────────────────
-      - name: Import signing certificate to keychain
-        run: |
           security unlock-keychain -p "build-pass" ~/Library/Keychains/build.keychain-db
           security import ~/cert_work/dist.p12 -k ~/Library/Keychains/build.keychain-db \
             -P "ci-pass" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
@@ -233,11 +86,11 @@ jobs:
           echo "Certificate imported"
           security find-identity -v -p codesigning ~/Library/Keychains/build.keychain-db
 
-      # ── Step 7: Create provisioning profile via ASC API ─────────────────────
+      # ── Step 3: Create provisioning profile via ASC API ─────────────────────
       - name: Create provisioning profile via ASC API
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, jwt as pyjwt, base64, plistlib
+          import urllib.request, json, time, jwt as pyjwt, base64, plistlib, os
 
           with open(os.path.expanduser('~/cert_work/p8.key'), 'r') as f:
               p8_content = f.read().strip()
@@ -252,8 +105,9 @@ jobs:
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-          # Get bundle ID
           bundle_id = "com.openclaw.aibrainim"
+
+          # Get existing bundle ID or create
           req0 = urllib.request.Request(
               f'https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]={bundle_id}',
               headers=headers
@@ -287,11 +141,17 @@ jobs:
               else:
                   raise
 
-          # Get distribution cert ID
-          with open(os.path.expanduser('~/cert_work/cert_id.txt'), 'r') as f:
-              cert_id = f.read().strip()
+          # Get distribution cert ID from existing certs
+          req_certs = urllib.request.Request(
+              'https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION',
+              headers=headers
+          )
+          with urllib.request.urlopen(req_certs, timeout=15) as resp:
+              certs_data = json.loads(resp.read().decode())
+          cert_id = certs_data['data'][0]['id']
+          print(f'Using cert ID: {cert_id}')
 
-          # Create ADHOC provisioning profile
+          # Create ADHOC profile
           profile_payload = json.dumps({
               'data': {
                   'type': 'profiles',
@@ -318,18 +178,19 @@ jobs:
           except Exception as e:
               if hasattr(e, 'read'):
                   err_body = e.read()
-                  print(f'Profile creation error: {err_body[:300]}')
-              req_pf_list = urllib.request.Request(
+                  print(f'Profile creation error: {err_body[:200]}')
+              # Try to find existing profile
+              req_pf = urllib.request.Request(
                   'https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AdHoc',
                   headers=headers
               )
-              with urllib.request.urlopen(req_pf_list, timeout=15) as resp:
+              with urllib.request.urlopen(req_pf, timeout=15) as resp:
                   pf_data = json.loads(resp.read().decode())
               if pf_data.get('data'):
                   profile_id = pf_data['data'][0]['id']
                   print(f'Using existing profile: {profile_id}')
               else:
-                  raise Exception('No profile found')
+                  raise
 
           # Download the profile
           req_download = urllib.request.Request(
@@ -340,21 +201,13 @@ jobs:
               pf_result = json.loads(resp.read().decode())
           profile_b64 = pf_result['data']['attributes']['profileContent']
           profile_bytes = base64.b64decode(profile_b64)
-          with open(os.path.expanduser('~/cert_work/profile.mobileprovision'), 'wb') as f:
+          with open(os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles/AIBrainIM-CI-AdHoc.mobileprovision'), 'wb') as f:
               f.write(profile_bytes)
           pf_plist = plistlib.loads(profile_bytes)
-          print(f'Profile downloaded, {len(profile_bytes)} bytes, UUID: {pf_plist.get("UUID")}')
-          print(f'TeamName: {pf_plist.get("TeamName")}')
+          print(f'Profile downloaded, UUID: {pf_plist.get("UUID")}, TeamName: {pf_plist.get("TeamName")}')
           PYEOF
 
-      # ── Step 8: Install provisioning profile ────────────────────────────────
-      - name: Install provisioning profile
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp ~/cert_work/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          echo "Profile installed"
-
-      # ── Step 9: Archive with proper signing ────────────────────────────────
+      # ── Step 4: Archive with proper signing ────────────────────────────────
       - name: Build for Release (Archive)
         run: |
           security list-keychains -s ~/Library/Keychains/build.keychain-db
@@ -370,7 +223,7 @@ jobs:
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=1165010090
 
-      # ── Step 10: Export IPA ──────────────────────────────────────────────────
+      # ── Step 5: Export IPA ──────────────────────────────────────────────────
       - name: Export IPA
         run: |
           security list-keychains -s ~/Library/Keychains/build.keychain-db
@@ -384,7 +237,7 @@ jobs:
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
             DEVELOPMENT_TEAM=1165010090
 
-      # ── Step 11: Upload to App Store Connect ──────────────────────────────────
+      # ── Step 6: Upload to App Store Connect ──────────────────────────────────
       - name: Upload to App Store Connect
         env:
           APPLE_DEV_EMAIL: ${{ vars.APPLE_DEV_EMAIL }}
