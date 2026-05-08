@@ -171,7 +171,7 @@ jobs:
               f.write(profile_bytes)
           # Extract plist from CMS signature
           result = subprocess.run(['security', 'cms', '-D', '-i', profile_path],
-                                 capture_output=True, text=True, timeout=10)
+                                 capture_output=True, timeout=10)
           pf_plist = plistlib.loads(result.stdout)
           print(f'Profile UUID: {pf_plist.get("UUID")}, TeamName: {pf_plist.get("TeamName")}')
           os.makedirs(os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles'), exist_ok=True)
