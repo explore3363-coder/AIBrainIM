@@ -365,3 +365,28 @@ P1 可用版代码侧完全收口。唯一阻塞：Apple Developer 账号 + GitH
   - 每步新增 `stepDetail` 文本行，最多显示 3 行，字体 9px
   - 有 `detail` 才渲染该行，避免空白占位
 - 三板斧持续通过：TypeScript ✅ / Jest 82 tests ✅ / iOS Simulator Build ✅
+
+---
+
+# 第二十八轮（2026-05-08 09:58 · 每日巡检）
+
+## 本轮完成
+
+**三板斧巡检全部通过：**
+- TypeScript ✅
+- Jest 91 tests ✅
+- iOS Simulator Build ✅ BUILD SUCCEEDED
+
+**Git worktree：clean，已 push**
+
+## 当前状态
+
+代码侧 P1 可用版完全收口，无任何待办、无 TODO、无阻塞。
+
+## 还差什么（外部阻塞）
+
+Apple Developer 账号注册 + GitHub Secrets 配置完成后，执行：
+```bash
+git tag v0.1.0 && git push --tags origin main
+```
+GitHub Actions 自动构建并上传 TestFlight。
