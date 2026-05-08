@@ -38,7 +38,6 @@ jobs:
 
       - name: Install npm deps
         run: npm ci
-        working-directory: ios
 
       - name: Install Pods
         run: pod install
@@ -61,11 +60,44 @@ jobs:
       # ── Decode API key ────────────────────────────────────────────────────
       - name: Decode API key
         id: decode-key
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
         run: |
           mkdir -p ~/cert_work
-          echo "$APPLE_API_KEY_CONTENT" | base64 -d > ~/cert_work/p8.key
-          chmod 600 ~/cert_work/p8.key
-          echo "p8 key size: $(wc -c < ~/cert_work/p8.key) bytes"
+          python3 <<'PYEOF'
+          import os, base64, pathlib
+
+          raw = os.environ.get('APPLE_API_KEY_CONTENT', '')
+          out = pathlib.Path.home() / 'cert_work' / 'p8.key'
+
+          if not raw.strip():
+              raise SystemExit('APPLE_API_KEY_CONTENT is empty')
+
+          text = raw.strip()
+          data = None
+
+          if '-----BEGIN' in text:
+              data = text.encode('utf-8')
+              mode = 'raw-pem-text'
+          else:
+              try:
+                  decoded = base64.b64decode(text, validate=True)
+                  if decoded:
+                      data = decoded
+                      mode = 'base64-decoded'
+                  else:
+                      data = text.encode('utf-8')
+                      mode = 'raw-text-fallback'
+              except Exception:
+                  data = text.encode('utf-8')
+                  mode = 'raw-text-fallback'
+
+          out.write_bytes(data)
+          os.chmod(out, 0o600)
+          print(f'p8 key mode: {mode}')
+          print(f'p8 key size: {len(data)} bytes')
+          print(f'p8 first bytes: {data[:16].hex()}')
+          PYEOF
           xxd ~/cert_work/p8.key | head -3
 
       # ── Generate distribution certificate via ASC API ────────────────────
