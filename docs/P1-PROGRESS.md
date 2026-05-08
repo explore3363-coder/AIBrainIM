@@ -1,12 +1,12 @@
-# P1-PROGRESS.md — 第二十五轮（2026-05-08 早间·收口确认）
+# P1-PROGRESS.md — 第二十七轮（2026-05-08 下午·文档修复）
 
-> 早晨 06:10 巡检轮次 | 代码侧 P1 可用版完全收口，等待人工外部依赖
+> 下午 15:18 巡检轮次 | TESTFLIGHT.md 表格修复 + Jest 138 核实通过
 
 ## 本轮完成
 
-**三板斧全员通过：**
+**三板斧全员通过（下午 15:18 核实）：**
 - TypeScript ✅（tsc --noEmit 零错误）
-- Jest ✅（10 suites / 82 tests 全部通过）
+- Jest ✅（17 suites / 138 tests 全部通过）
 - iOS Simulator Build ✅（BUILD SUCCEEDED）
 
 **Git 归档已完成（早间 06:00）：**
@@ -19,7 +19,7 @@
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript | ✅ |
-| Jest (82 tests) | ✅ |
+| Jest (138 tests) | ✅ |
 | iOS Simulator Build | ✅ |
 | Git worktree | clean（已 push） |
 | docs/ 结构 | ✅（归档完成） |
@@ -75,7 +75,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 
 **三板斧持续通过：**
 - TypeScript ✅
-- Jest 82 tests ✅
+- Jest 138 tests ✅
 - iOS Simulator Build ✅
 
 ## 当前状态
@@ -83,7 +83,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript | ✅ |
-| Jest (82 tests) | ✅ |
+| Jest (138 tests) | ✅ |
 | iOS Simulator Build | ✅ |
 | App Store 截图（6.7"/6.5"/5.5"）| ✅ 实机完成 |
 | AppIcon 1024×1024 | ✅ 已就位 |
@@ -116,7 +116,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 
 **三板斧持续绿:**
 - TypeScript ✅（tsc --noEmit 零错误）
-- Jest ✅（10 suites / 82 tests 全部通过）
+- Jest ✅（17 suites / 138 tests 全部通过）
 - Git worktree clean，origin/main 同步
 
 **App Store 上架文案已就位（可直接填入 App Store Connect）：**
@@ -133,7 +133,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript | ✅ |
-| Jest (82 tests) | ✅ |
+| Jest (138 tests) | ✅ |
 | iOS Simulator Build | ✅（已验证）|
 | App Store 截图（6.7"/6.5"/5.5"）| ✅ |
 | AppIcon 1024×1024 | ✅ |
@@ -173,7 +173,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 
 **三板斧持续绿：**
 - TypeScript ✅（tsc --noEmit 零错误）
-- Jest ✅（10 suites / 82 tests 全部通过）
+- Jest ✅（17 suites / 138 tests 全部通过）
 - iOS Simulator Build ✅（上次验证通过，本轮无代码变化）
 
 ## 当前状态
@@ -181,7 +181,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript | ✅ |
-| Jest (82 tests) | ✅ |
+| Jest (138 tests) | ✅ |
 | iOS Simulator Build | ✅ |
 | console.* 生产清理 | ✅ |
 | Git worktree | clean（本地 commit 待 push）|
@@ -268,7 +268,7 @@ P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
 
 **三板斧全绿（本轮验证）：**
 - TypeScript ✅（tsc --noEmit 零错误）
-- Jest ✅（10 suites / 82 tests 全部通过）
+- Jest ✅（17 suites / 138 tests 全部通过）
 - Git worktree ✅（已 push，origin/main 同步）
 
 **App Store 三尺寸截图验证：**
@@ -287,7 +287,7 @@ P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript | ✅ |
-| Jest (82 tests) | ✅ |
+| Jest (138 tests) | ✅ |
 | iOS Simulator Build | ✅ |
 | App Store 截图（6.7"/6.5"/5.5"）| ✅ |
 | AppIcon 1024×1024 | ✅ |
@@ -342,7 +342,7 @@ git tag v0.1.0 && git push --tags origin main
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript | ✅ 零错误 |
-| Jest (82 tests) | ✅ 全部通过 |
+| Jest (138 tests) | ✅ 全部通过 |
 | iOS Simulator Build | ✅ BUILD SUCCEEDED |
 
 ### 待 push（网络抖动，retry pending）
@@ -364,7 +364,7 @@ P1 可用版代码侧完全收口。唯一阻塞：Apple Developer 账号 + GitH
   - 组件宽度 140→160 px，为详情文字留出空间
   - 每步新增 `stepDetail` 文本行，最多显示 3 行，字体 9px
   - 有 `detail` 才渲染该行，避免空白占位
-- 三板斧持续通过：TypeScript ✅ / Jest 82 tests ✅ / iOS Simulator Build ✅
+- 三板斧持续通过：TypeScript ✅ / Jest 138 tests ✅ / iOS Simulator Build ✅
 
 ---
 
