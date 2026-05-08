@@ -3,7 +3,7 @@ name: TestFlight Release
 on:
   push:
     tags:
-      - 'v0.1.*'
+      - 'v0.*'
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -12,10 +12,9 @@ on:
 
 env:
   APP_NAME: AIBrainIM
-  KEYCHAIN_NAME: build
-  KEYCHAIN_PASS: build-pass
   ASC_KEY_ID: HWP45ALL8Y
   ASC_ISSUER_ID: 0bc52ef9-a4c4-489e-810c-c8a80db0ab9a
+  APPLE_TEAM_ID: 7S96N8A32U
 
 jobs:
   build:
@@ -49,45 +48,28 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set CFBundleVersion $BUILD_NUMBER" ios/AIBrainIM/Info.plist
           echo "Build number set to $BUILD_NUMBER"
 
-      # ── Keychain setup ───────────────────────────────────────────────────
-      - name: Create keychain
-        run: |
-          security create-keychain -p "$KEYCHAIN_PASS" ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db
-          security list-keychains -s ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db
-          security unlock-keychain -p "$KEYCHAIN_PASS" ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db
-          security set-keychain-setting -t 60 -u ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db 2>/dev/null || true
-
-      # ── Decode API key ────────────────────────────────────────────────────
       - name: Decode API key
-        id: decode-key
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
         run: |
-          mkdir -p ~/cert_work
+          mkdir -p ~/private_keys
           python3 <<'PYEOF'
           import os, base64, pathlib
 
           raw = os.environ.get('APPLE_API_KEY_CONTENT', '')
-          out = pathlib.Path.home() / 'cert_work' / 'p8.key'
+          out = pathlib.Path.home() / 'private_keys' / 'AuthKey_HWP45ALL8Y.p8'
 
           if not raw.strip():
               raise SystemExit('APPLE_API_KEY_CONTENT is empty')
 
           text = raw.strip()
-          data = None
-
           if '-----BEGIN' in text:
               data = text.encode('utf-8')
               mode = 'raw-pem-text'
           else:
               try:
-                  decoded = base64.b64decode(text, validate=True)
-                  if decoded:
-                      data = decoded
-                      mode = 'base64-decoded'
-                  else:
-                      data = text.encode('utf-8')
-                      mode = 'raw-text-fallback'
+                  data = base64.b64decode(text, validate=True)
+                  mode = 'base64-decoded'
               except Exception:
                   data = text.encode('utf-8')
                   mode = 'raw-text-fallback'
@@ -98,324 +80,80 @@ jobs:
           print(f'p8 key size: {len(data)} bytes')
           print(f'p8 first bytes: {data[:16].hex()}')
           PYEOF
-          xxd ~/cert_work/p8.key | head -3
+          xxd ~/private_keys/AuthKey_HWP45ALL8Y.p8 | head -3
 
-      - name: Install Python deps for ASC API
+      - name: Create ExportOptions.plist
         run: |
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --quiet pyjwt cryptography
+          cat > /tmp/ExportOptions.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>7S96N8A32U</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>destination</key>
+            <string>export</string>
+          </dict>
+          </plist>
+          PLIST
+          plutil -p /tmp/ExportOptions.plist
 
-      # ── Generate distribution certificate via ASC API ────────────────────
-      - name: Generate certificate via ASC API
+      - name: Archive with automatic signing via ASC API key
         run: |
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, base64, ssl, os, subprocess
-          import jwt as pyjwt
-
-          p8_path = os.path.expanduser('~/cert_work/p8.key')
-          p8_pem_path = os.path.expanduser('~/cert_work/p8.pem')
-
-          with open(p8_path, 'rb') as f:
-              raw = f.read()
-
-          print(f'Raw p8 bytes: {len(raw)}, first 4 bytes: {raw[:4].hex()}')
-
-          # Auto-detect format and convert to PEM private key
-          if raw.startswith(b'-----BEGIN '):
-              # Already PEM format - use as-is
-              pem_content = raw.strip()
-              if not pem_content.endswith(b'-----END PRIVATE KEY-----'):
-                  pem_content = pem_content + b'\n'
-          elif raw.startswith(b'0\x30'):
-              # Raw PKCS#8 DER binary → wrap in PEM
-              pem_b64 = base64.b64encode(raw).decode('ascii')
-              pem_content = (
-                  '-----BEGIN PRIVATE KEY-----\n' + '\n'.join([pem_b64[i:i+64] for i in range(0,len(pem_b64),64)]) +
-                  '\n-----END PRIVATE KEY-----\n'
-              ).encode()
-          else:
-              # Possibly base64 of PEM text - try decode
-              try:
-                  decoded = base64.b64decode(raw)
-                  if decoded.startswith(b'-----BEGIN '):
-                      pem_content = decoded.strip() + b'\n'
-                  else:
-                      pem_content = raw.strip() + b'\n'
-              except:
-                  pem_content = raw.strip() + b'\n'
-
-          with open(p8_pem_path, 'wb') as f:
-              f.write(pem_content)
-          print(f'PEM header: {pem_content[:50]}')
-
-          kid = 'HWP45ALL8Y'
-          iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
-
-          tok = pyjwt.encode(
-              {
-                  'iss': iss,
-                  'iat': int(time.time()),
-                  'exp': int(time.time()) + 300,
-                  'aud': 'appstoreconnect-v1',
-              },
-              pem_content.decode('utf-8'),
-              algorithm='ES256',
-              headers={'kid': kid},
-          )
-          print(f'JWT: {tok[:60]}...')
-          open(os.path.expanduser('~/cert_work/jwt_token.txt'), 'w').write(tok)
-
-          # ── Now use JWT to call ASC API ──────────────────────────────────
-          headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
-          ctx = ssl.create_default_context()
-
-          # Generate RSA keypair for distribution cert CSR
-          key_path = os.path.expanduser('~/cert_work/dist_private.key')
-          subprocess.run(['openssl', 'genrsa', '-out', key_path, '2048'], check=True, capture_output=True)
-
-          # Generate CSR
-          csr_path = os.path.expanduser('~/cert_work/dist.csr')
-          subj = '/UID=7S96N8A32U/CN=iPhone Distribution: Hong Yang (7S96N8A32U)/OU=7S96N8A32U/O=Hong Yang/C=US'
-          subprocess.run(['openssl', 'req', '-new', '-key', key_path, '-out', csr_path,
-                         '-subj', subj], check=True, capture_output=True)
-
-          with open(csr_path, 'rb') as f:
-              csr_b64 = base64.b64encode(f.read()).decode()
-
-          # Try to create a fresh distribution certificate; if Apple refuses because
-          # one already exists, fall back to reusing the current certificate ID.
-          cert_body = json.dumps({
-              'data': {
-                  'type': 'certificates',
-                  'attributes': {
-                      'certificateType': 'IOS_DISTRIBUTION',
-                      'csrContent': csr_b64
-                  }
-              }
-          }).encode()
-          req_cert = urllib.request.Request(
-              'https://api.appstoreconnect.apple.com/v1/certificates',
-              data=cert_body, headers=headers, method='POST'
-          )
-          cert_id = None
-          cert_pem = None
-          try:
-              with urllib.request.urlopen(req_cert, context=ctx, timeout=30) as resp:
-                  cert_data = json.loads(resp.read().decode())
-                  cert_id = cert_data['data']['id']
-                  cert_pem = cert_data['data']['attributes']['certificateContent']
-                  print(f'Certificate created: {cert_id}')
-          except urllib.error.HTTPError as e:
-              err_body = e.read().decode()
-              print(f'Certificate creation failed: {e.code} {err_body[:500]}')
-              if e.code != 409:
-                  exit(1)
-
-              req_existing = urllib.request.Request(
-                  'https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=10',
-                  headers=headers
-              )
-              with urllib.request.urlopen(req_existing, context=ctx, timeout=30) as resp:
-                  existing = json.loads(resp.read().decode()).get('data', [])
-              if not existing:
-                  print('No reusable IOS_DISTRIBUTION certificate found after 409')
-                  exit(1)
-              cert_id = existing[0]['id']
-              print(f'Reusing existing certificate: {cert_id}')
-
-          if cert_pem is not None:
-              with open(os.path.expanduser('~/cert_work/dist.cer'), 'wb') as f:
-                  f.write(base64.b64decode(cert_pem))
-              print('Certificate downloaded')
-
-              # Convert .cer to .p12 using OpenSSL
-              p12_path = os.path.expanduser('~/cert_work/dist.p12')
-              result = subprocess.run(
-                  ['openssl', 'pkcs12', '-export',
-                   '-inkey', key_path,
-                   '-in', os.path.expanduser('~/cert_work/dist.cer'),
-                   '-out', p12_path,
-                   '-passout', 'pass:'],
-                  capture_output=True, text=True
-              )
-              if result.returncode != 0:
-                  print('p12 conversion failed:', result.stderr)
-                  exit(1)
-              print(f'p12 created: {os.path.getsize(p12_path)} bytes')
-
-          # Save cert_id for next step
-          with open(os.path.expanduser('~/cert_work/cert_id.txt'), 'w') as f:
-              f.write(cert_id)
-          PYEOF
-
-      # ── Import certificate into keychain ────────────────────────────────
-      - name: Import certificate
-        run: |
-          security import ~/cert_work/dist.p12 -k ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db -P "" -T /usr/bin/security 2>&1
-          security set-key-partition-list -S apple: -k "$KEYCHAIN_PASS" ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db 2>/dev/null || true
-          echo "Certificate imported"
-
-      # ── Download or create provisioning profile via ASC API ─────────────
-      - name: Create provisioning profile via ASC API
-        run: |
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, base64, ssl, os, subprocess
-          import jwt as pyjwt
-
-          p8_path = os.path.expanduser('~/cert_work/p8.key')
-          p8_pem_path = os.path.expanduser('~/cert_work/p8.pem')
-
-          with open(p8_path, 'rb') as f:
-              raw = f.read()
-
-          # Same format detection as previous step
-          if raw.startswith(b'-----BEGIN '):
-              pem_content = raw.strip() + b'\n'
-          elif raw.startswith(b'0\x30'):
-              pem_b64 = base64.b64encode(raw).decode('ascii')
-              pem_content = (
-                  '-----BEGIN PRIVATE KEY-----\n' + '\n'.join([pem_b64[i:i+64] for i in range(0,len(pem_b64),64)]) +
-                  '\n-----END PRIVATE KEY-----\n'
-              ).encode()
-          else:
-              try:
-                  decoded = base64.b64decode(raw)
-                  pem_content = decoded.strip() + b'\n' if decoded.startswith(b'-----BEGIN ') else raw.strip() + b'\n'
-              except:
-                  pem_content = raw.strip() + b'\n'
-
-          with open(p8_pem_path, 'wb') as f:
-              f.write(pem_content)
-
-          kid = 'HWP45ALL8Y'
-          iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
-
-          tok = pyjwt.encode(
-              {
-                  'iss': iss,
-                  'iat': int(time.time()),
-                  'exp': int(time.time()) + 300,
-                  'aud': 'appstoreconnect-v1',
-              },
-              pem_content.decode('utf-8'),
-              algorithm='ES256',
-              headers={'kid': kid},
-          )
-
-          headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
-          ctx = ssl.create_default_context()
-
-          asc_bundle_id = '24W72MHCCF'
-
-          # Read cert_id from previous step
-          cert_id = open(os.path.expanduser('~/cert_work/cert_id.txt')).read().strip()
-          print(f'Using certificate: {cert_id}')
-
-          # List existing profiles
-          req_pf = urllib.request.Request(
-              'https://api.appstoreconnect.apple.com/v1/profiles?filter[name]=AIBrainIM-CI-AppStore&sort=-createdDate&limit=5',
-              headers=headers
-          )
-          with urllib.request.urlopen(req_pf, context=ctx, timeout=15) as resp:
-              pf_data = json.loads(resp.read().decode())
-
-          existing = pf_data.get('data', [])
-          if existing:
-              pf_id = existing[0]['id']
-              print(f'Using existing profile: {pf_id}')
-              profile_content_b64 = existing[0]['attributes']['profileContent']
-          else:
-              # Create new profile
-              print('No existing profile, creating new one...')
-              create_body = json.dumps({
-                  'data': {
-                      'type': 'profiles',
-                      'attributes': {
-                          'name': 'AIBrainIM-CI-AppStore',
-                          'profileType': 'IOS_APP_STORE'
-                      },
-                      'relationships': {
-                          'bundleId': {'data': {'id': asc_bundle_id, 'type': 'bundleIds'}},
-                          'certificates': {'data': [{'id': cert_id, 'type': 'certificates'}]}
-                      }
-                  }
-              }).encode()
-              req_create = urllib.request.Request(
-                  'https://api.appstoreconnect.apple.com/v1/profiles',
-                  data=create_body, headers=headers, method='POST'
-              )
-              with urllib.request.urlopen(req_create, context=ctx, timeout=30) as resp:
-                  pf_data = json.loads(resp.read().decode())
-                  pf_id = pf_data['data']['id']
-                  profile_content_b64 = pf_data['data']['attributes']['profileContent']
-                  print(f'Created new profile: {pf_id}')
-
-          # Decode and save profile
-          with open(os.path.expanduser('~/cert_work/AIBrainIM-CI-AppStore.mobileprovision'), 'wb') as f:
-              f.write(base64.b64decode(profile_content_b64))
-          print(f'Profile saved: {os.path.getsize(os.path.expanduser("~/cert_work/AIBrainIM-CI-AppStore.mobileprovision"))} bytes')
-
-          # Import profile
-          result = subprocess.run(
-              ['security', 'cms', '-D', '-i', os.path.expanduser('~/cert_work/AIBrainIM-CI-AppStore.mobileprovision'),
-               '-o', os.path.expanduser('~/cert_work/profile.plist')],
-              capture_output=True, text=True
-          )
-          if result.returncode == 0:
-              uuid = subprocess.run(
-                  ['/usr/libexec/PlistBuddy', '-c', 'Print:UUID',
-                   os.path.expanduser('~/cert_work/profile.plist')],
-                  capture_output=True, text=True
-              )
-              profile_uuid = uuid.stdout.strip()
-              print(f'Profile UUID: {profile_uuid}')
-              dest = f'~/Library/MobileDevice/Provisioning Profiles/{profile_uuid}.mobileprovision'
-              subprocess.run(['mkdir', '-p', os.path.dirname(os.path.expanduser(dest))])
-              subprocess.run(['cp', os.path.expanduser('~/cert_work/AIBrainIM-CI-AppStore.mobileprovision'),
-                            os.path.expanduser(dest)])
-              print(f'Profile installed to {dest}')
-          else:
-              print('CMS decode failed:', result.stderr[:200])
-          PYEOF
-
-      # ── Build iOS app ───────────────────────────────────────────────────
-      - name: Build iOS app
-        run: |
-          xcodebuild -workspace ios/AIBrainIM.xcworkspace \
+          mkdir -p build
+          xcodebuild \
+            -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM=7S96N8A32U \
-            -derivedDataPath ios/build 2>&1 | tail -20
+            -archivePath build/AIBrainIM.xcarchive \
+            -derivedDataPath build/DerivedData \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_HWP45ALL8Y.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            archive
 
-      # ── Export to .ipa ───────────────────────────────────────────────────
-      - name: Export to IPA
+      - name: Export IPA with automatic signing
         run: |
-          mkdir -p ios/build/ipa
-          xcodebuild -exportOptionsPlist ios/ExportOptions.plist \
-            -exportArchive ios/build/Archive.xcarchive \
-            -exportPath ios/build/ipa 2>&1 | tail -10
+          xcodebuild -exportArchive \
+            -archivePath build/AIBrainIM.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_HWP45ALL8Y.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
       - name: Verify IPA
         run: |
-          IPA_PATH=$(ls ios/build/ipa/*.ipa 2>/dev/null | head -1)
-          if [ -f "$IPA_PATH" ]; then
-            echo "IPA size: $(du -h $IPA_PATH | cut -f1)"
-            echo "Upload..."
-
-            # Upload to TestFlight using altool
-            XPSWD_FILE=~/cert_work/xpwald_pass.txt
-            echo -n "$KEYCHAIN_PASS" > $XPSWD_FILE
-            xcrun altool --upload-app \
-              -f "$IPA_PATH" \
-              -t ios \
-              -u ${{ secrets.APPLE_DEV_EMAIL }} \
-              -p @file:$XPSWD_FILE \
-              --output-format json 2>&1 | tail -5
-          else
-            echo "ERROR: No IPA found!"
-            ls ios/build/ipa/
+          IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          if [ -z "$IPA_PATH" ] || [ ! -f "$IPA_PATH" ]; then
+            echo "ERROR: No IPA found"
+            find build -maxdepth 3 -type f | sort
             exit 1
           fi
+          echo "IPA_PATH=$IPA_PATH"
+          echo "IPA size: $(du -h "$IPA_PATH" | cut -f1)"
+
+      - name: Upload to App Store Connect
+        run: |
+          IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          xcrun altool \
+            --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
