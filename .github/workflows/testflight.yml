@@ -81,7 +81,7 @@ jobs:
           echo "${{ secrets.APPLE_API_KEY_CONTENT }}" | base64 -d > ~/cert_work/p8.key
           echo "p8 key decoded, $(wc -c < ~/cert_work/p8.key) bytes"
 
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT --quiet 2>&1 | tail -2
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT cryptography --quiet 2>&1 | tail -2
 
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, os
@@ -181,7 +181,7 @@ jobs:
       - name: Create provisioning profile via ASC API
         run: |
           # Install jwt to Xcode Python (same python3 used in this step)
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT --quiet 2>&1 | tail -2
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT cryptography --quiet 2>&1 | tail -2
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, plistlib
 
