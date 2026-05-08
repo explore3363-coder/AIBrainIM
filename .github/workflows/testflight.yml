@@ -3,7 +3,7 @@ name: TestFlight Release
 on:
   push:
     tags:
-      - 'v0.1.*'
+      - 'v*'
     paths-ignore:
       - '**.md'
       - '**.txt'
