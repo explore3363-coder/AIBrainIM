@@ -1,4 +1,58 @@
-# P1-PROGRESS.md — 第二十七轮（2026-05-08 下午·文档修复）
+# P1-PROGRESS.md — 第三十二轮（2026-05-08 下午 15:28 · Worktree 清理 + 构建验证）
+
+> 下午巡检轮次 | Stale worktree 清理 + iOS Build 确认
+
+## 本轮完成
+
+**废弃 Worktree 清理（2个）：**
+- `feature/alpha-ui` worktree（`/Users/zz/.tungsten_codex/worktrees/AIBrainIM-alpha-ui`）已移除，对应分支已删除
+- `feature/openclaw-bridge` worktree（`/Users/zz/.tungsten_codex/worktrees/AIBrainIM-openclaw-bridge`）已移除，对应分支已删除
+- 两个分支均停留在初始 commit `6f6b65d`，早已被 main (`26c5c07`) 超越，无保留价值
+
+**iOS Simulator Build 验证（本轮）：**
+- `xcodebuild ... -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO`
+- **BUILD SUCCEEDED** ✅
+- TypeScript 无错误（tsc --noEmit）✅
+
+**Git 状态：** worktree clean，origin/main 已同步
+
+## 当前状态（代码侧完全收口）
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (138 tests) | ✅ |
+| iOS Simulator Build | ✅ BUILD SUCCEEDED |
+| App Store 截图（6.7"/6.5"/5.5"）| ✅ |
+| AppIcon 1024×1024 | ✅ |
+| 隐私政策 GitHub Pages | ✅ |
+| 上架文案（APPSTORE_LISTING.md）| ✅ |
+| GitHub Actions TestFlight workflow | ✅ |
+| 生产安全（console.* 清理）| ✅ |
+| Worktree 清理 | ✅ |
+| Git | clean + 已 push |
+
+## 唯一阻塞（人工·外部）
+
+| 阻塞项 | 类型 | 行动 |
+|--------|------|------|
+| Apple Developer 账号 | 外部 | $99/年，注册后获取 Team ID |
+| GitHub Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_KEY_CONTENT`, `APPLE_APP_PASSWORD` |
+| GitHub Variables | 外部 | `APPLE_TEAM_ID`, `APPLE_DEV_EMAIL` |
+| App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
+
+## 就绪待触发
+
+```bash
+git tag v0.1.0 && git push --tags origin main
+```
+→ GitHub Actions 自动 Archive → TestFlight 上传
+
+P1 可用版代码侧完全收口，无任何待办、无阻塞、无 TODO。
+
+---
+
+# 第二十七轮（2026-05-08 下午·文档修复）
 
 > 下午 15:18 巡检轮次 | TESTFLIGHT.md 表格修复 + Jest 138 核实通过
 
