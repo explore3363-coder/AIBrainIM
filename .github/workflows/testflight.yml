@@ -177,10 +177,17 @@ jobs:
           print(f'Profile installed: {out_path} ({len(profile_bytes)} bytes)')
           PYEOF
 
-      # ── Step 4: Archive with team ID embedded (no actual signing) ─────────────
-      # CODE_SIGN_IDENTITY="" embeds team without cert verification — avoids OCSP hang
+      # ── Step 4: Archive with actual signing (team ID embedded via signing identity) ─
       - name: Build for Release (Archive)
+        env:
+          KEYCHAIN_PASSWORD: build-pass
         run: |
+          # Unlock keychain so OCSP/CRL check can succeed
+          security list-keychains -s ~/Library/Keychains/build.keychain-db
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/build.keychain-db
+          # Allow xcodebuild to access signing keys
+          security set-key-partition-list -S apple: -k "$KEYCHAIN_PASSWORD" ~/Library/Keychains/build.keychain-db 2>/dev/null || true
+
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Release \
@@ -188,19 +195,27 @@ jobs:
             -derivedDataPath build/DerivedData \
             archive \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM=7S96N8A32U
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
+            DEVELOPMENT_TEAM=7S96N8A32U \
+            PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
-      # ── Step 5: Export IPA (server-side signing via App Store Connect) ───────
-      # app-store-connect method: Apple servers sign using the team ID
+      # ── Step 5: Export IPA ──────────────────────────────────────────────────
       - name: Export IPA
+        env:
+          KEYCHAIN_PASSWORD: build-pass
         run: |
+          security list-keychains -s ~/Library/Keychains/build.keychain-db
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/build.keychain-db
+          security set-key-partition-list -S apple: -k "$KEYCHAIN_PASSWORD" ~/Library/Keychains/build.keychain-db 2>/dev/null || true
+
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/ExportOptions.plist \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=7S96N8A32U
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
+            DEVELOPMENT_TEAM=7S96N8A32U \
+            PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
       # ── Step 6: Upload to App Store Connect ──────────────────────────────────
       - name: Upload to App Store Connect

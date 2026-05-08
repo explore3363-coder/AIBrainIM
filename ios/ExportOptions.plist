@@ -3,11 +3,15 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>app-store-connect</string>
+    <string>ad-hoc</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
     <key>teamId</key>
     <string>7S96N8A32U</string>
+    <key>provisioningProfileSpecifier</key>
+    <string>AIBrainIM-CI-AppStore</string>
+    <key>signingCertificate</key>
+    <string>iPhone Distribution: Hong Yang (7S96N8A32U)</string>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadBitcode</key>
