@@ -1,6 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import type {AIFeedItem} from '../types';
 
 interface Props {

@@ -24,7 +24,7 @@ import {
 import DocumentPicker, {
   type DocumentPickerResponse,
 } from 'react-native-document-picker';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {sendMessage} from '../data/api';
 import {
   enqueueUpload,
@@ -500,22 +500,6 @@ export function ChatScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 上下文策略说明 - 长上下文 + 分层记忆 + 按需回补 */}
-        <View style={styles.contextBanner}>
-          <View style={styles.contextBannerLeft}>
-            <Text style={styles.contextBannerTitle}>📡 上下文策略</Text>
-            <Text style={styles.contextBannerSub}>
-              本轮 {messages.length - 1} 条消息 · 不做硬截断 · 后端分层记忆 + 按需回补
-            </Text>
-          </View>
-          <View style={styles.contextPill}>
-            <View style={styles.contextDot} />
-            <Text style={styles.contextPillText}>
-              {runtimeMode === 'live' ? 'AI 在线' : '本地模式'}
-            </Text>
-          </View>
-        </View>
-
         {runtimeMode === 'fallback' && (
           <View style={styles.gatewayBanner}>
             <Text style={styles.gatewayBannerText}>
@@ -819,31 +803,6 @@ const styles = StyleSheet.create({
   historyRestoredText: {color: '#34d399', fontSize: 11, fontWeight: '800'},
   gatewayBannerText: {color: '#f87171', fontSize: 11, fontWeight: '700'},
 
-  // 上下文策略说明 - 压缩为一行 mini indicator
-  contextBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.12)',
-  },
-  contextBannerLeft: {flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6},
-  contextBannerTitle: {color: C.textSecondary, fontSize: 11, fontWeight: '600'},
-  contextBannerSub:  {color: C.textMuted, fontSize: 11, lineHeight: 16},
-  contextPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 9, paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(52,211,153,0.1)',
-    borderWidth: 1, borderColor: 'rgba(52,211,153,0.25)',
-  },
-  contextDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: '#34d399'},
-  contextPillText: {color: '#34d399', fontSize: 10, fontWeight: '800'},
 
   chatContent:  {padding: 16, paddingBottom: 16},
 

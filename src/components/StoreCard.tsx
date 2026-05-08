@@ -1,6 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import type {BrainStore} from '../types';
 
 interface Props {

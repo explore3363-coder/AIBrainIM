@@ -17,7 +17,7 @@ export type RootStackParamList = {
   GatewaySettings: undefined;
 };
 
-import {C} from './data/mockData';
+import {C} from './data/constants';
 import {AppProvider} from './context/AppContext';
 import {TabBarIcon} from './components/TabBarIcon';
 

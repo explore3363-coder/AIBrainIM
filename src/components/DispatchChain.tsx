@@ -1,6 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import type {CommandTrace} from '../types';
 
 interface Props {

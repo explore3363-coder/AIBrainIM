@@ -3,7 +3,7 @@ import {ScrollView, Text, View, StyleSheet, TouchableOpacity, RefreshControl} fr
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import {TaskBadge} from '../components/TaskBadge';
 import type {Task, TaskState} from '../types';

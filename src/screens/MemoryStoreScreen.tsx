@@ -4,7 +4,7 @@ import {
   TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import {gatewayInvoke} from '../data/api';
 

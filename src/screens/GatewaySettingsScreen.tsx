@@ -4,7 +4,7 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {gatewayInvoke, listGatewaySessions} from '../data/api';
 import {useAppContext} from '../context/AppContext';
 import {

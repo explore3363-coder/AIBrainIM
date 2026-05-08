@@ -4,7 +4,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import type {CommandTrace, DispatchRecord} from '../types';
 import type {RootStackParamList} from '../App';

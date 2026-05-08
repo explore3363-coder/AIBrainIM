@@ -10,7 +10,8 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
-import {C, commandTraceMock, aiFeedMock} from '../data/mockData';
+import {C} from '../data/constants';
+import {commandTraceMock, aiFeedMock} from '../data/mockData';
 import {useAppContext} from '../context/AppContext';
 import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';

@@ -7,7 +7,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import {uploadService, enqueueUpload, type UploadFile, type UploadQueueStage} from '../services/uploadService';
 import {launchImageLibrary, type ImagePickerResponse} from 'react-native-image-picker';

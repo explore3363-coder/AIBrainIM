@@ -6,7 +6,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {launchImageLibrary} from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
-import {C} from '../data/mockData';
+import {C} from '../data/constants';
 import {enqueueUpload, uploadService, type UploadFile} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
