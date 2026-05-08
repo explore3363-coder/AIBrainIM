@@ -1,12 +1,13 @@
-# AIBrainIM P1 进展记录（2026-05-08 11:38 · 本轮）
+# AIBrainIM P1 进展记录（2026-05-08 12:00 · 本轮）
 
 ## 本轮完成
 
 | 验证项 | 状态 |
 |--------|------|
-| TypeScript check | ✅ 通过（无错误） |
+| ESLint (5 errors → 0) | ✅ lint cleanup: 删除测试文件中未使用的 imports/vars |
 | Jest (17 suites, 138 tests) | ✅ 全部通过 |
 | iOS Simulator Build | ✅ BUILD SUCCEEDED |
+| git commit | ✅ `1ac52c1` |
 
 ### App Store 素材全部就绪
 | 素材 | 状态 |
@@ -21,7 +22,7 @@
 
 ## 当前状态
 
-**P1 可用版代码 + 上线素材已全部完成，构建验证全部通过。**
+**P1 可用版代码 + 上线素材已全部完成，所有验证通过。**
 
 唯一阻塞项：**Apple Developer 账号 + GitHub Secrets 配置**（外部人工操作）。
 
