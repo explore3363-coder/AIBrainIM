@@ -96,7 +96,7 @@ jobs:
       - name: Create provisioning profile via ASC API
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, jwt as pyjwt, base64, plistlib, ssl, os, subprocess
+          import urllib.request, json, time, jwt as pyjwt, base64, ssl, os
 
           with open(os.path.expanduser('~/cert_work/p8.key'), 'r') as f:
               p8_content = f.read().strip()
@@ -169,16 +169,12 @@ jobs:
           profile_path = '/tmp/profile.mobileprovision'
           with open(profile_path, 'wb') as f:
               f.write(profile_bytes)
-          # Extract plist from CMS signature
-          result = subprocess.run(['security', 'cms', '-D', '-i', profile_path],
-                                 capture_output=True, timeout=10)
-          pf_plist = plistlib.loads(result.stdout)
-          print(f'Profile UUID: {pf_plist.get("UUID")}, TeamName: {pf_plist.get("TeamName")}')
+          # Copy raw CMS data as .mobileprovision (Xcode reads UUID from CMS metadata)
           os.makedirs(os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles'), exist_ok=True)
           out_path = os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles/AIBrainIM-CI-AppStore.mobileprovision')
           with open(out_path, 'wb') as f:
-              f.write(result.stdout)
-          print(f'Profile installed: {out_path}')
+              f.write(profile_bytes)
+          print(f'Profile installed: {out_path} ({len(profile_bytes)} bytes)')
           PYEOF
 
       # ── Step 4: Archive with proper signing ────────────────────────────────
