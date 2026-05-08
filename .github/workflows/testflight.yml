@@ -191,7 +191,7 @@ jobs:
             archive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=1165010090 \
+            DEVELOPMENT_TEAM=7S96N8A32U \
             PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
       # ── Step 5: Export IPA ──────────────────────────────────────────────────
@@ -206,7 +206,7 @@ jobs:
             -exportOptionsPlist ios/ExportOptions.plist \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" \
-            DEVELOPMENT_TEAM=1165010090 \
+            DEVELOPMENT_TEAM=7S96N8A32U \
             PROVISIONING_PROFILE=3d8fdd81-ba2a-4074-bb1a-3770fe705ee6
 
       # ── Step 6: Upload to App Store Connect ──────────────────────────────────
@@ -221,7 +221,7 @@ jobs:
             -t ios \
             -u "$APPLE_DEV_EMAIL" \
             -p "$APPLE_APP_PASSWORD" \
-            --team-id 1165010090 \
+            --team-id 7S96N8A32U \
             --upload WaitAfterProcessing 2>&1 | tail -20
 
       - name: Create GitHub Release
