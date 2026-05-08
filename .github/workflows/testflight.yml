@@ -65,7 +65,6 @@ jobs:
 
       - name: Decode API key
         run: |
-          echo "$APPLE_API_KEY_CONTENT" | base64 -d > ~/cert_work/p8.key
           mkdir -p ~/cert_work
           echo "$APPLE_API_KEY_CONTENT" | base64 -d > ~/cert_work/p8.key
           chmod 600 ~/cert_work/p8.key
