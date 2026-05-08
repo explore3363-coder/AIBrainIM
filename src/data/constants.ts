@@ -1,75 +1,86 @@
 /**
- * Design Tokens — shared across all screens and components.
- * Extracted from mockData.ts to follow single-responsibility principle.
- * mockData.ts now only contains seed data, not design system values.
+ * Design Tokens — 霓虹绿工业 OS v2.0
+ *
+ * 设计语言：Industrial Intelligence OS
+ * 背景：纯黑 OLED 友好
+ * 主色：霓虹绿 #00FF00
  */
 
-// ─── Design Tokens ─────────────────────────────────────────────────────────────
+// ─── Design Tokens ───────────────────────────────────────────────────────────────
 export const C = {
   // ── Backgrounds ──────────────────────────────────────────────────────────
-  bgRoot:      '#030810',
-  bgSurface:   '#080e1a',
-  bgCard:      'rgba(14,24,42,0.7)',
-  bgElevated:  '#0d1830',
-  bgOverlay:   'rgba(8,14,28,0.85)',
+  bgRoot:      '#000000',        // 纯黑 OLED
+  bgSurface:   '#0a0a0a',        // 次层背景
+  bgCard:      'rgba(20,20,20,0.85)',
+  bgElevated:  '#111111',
+  bgOverlay:   'rgba(0,0,0,0.92)',
+  bgGlass:     'rgba(20,20,20,0.70)',
 
-  // ── Borders ──────────────────────────────────────────────────────────────
-  borderSubtle:  'rgba(255,255,255,0.06)',
-  borderDefault: 'rgba(255,255,255,0.10)',
-  borderActive:  'rgba(56,189,248,0.5)',
+  // ── Borders ─────────────────────────────────────────────────────────────
+  borderSubtle:  'rgba(0,255,0,0.10)',
+  borderDefault:  'rgba(0,255,0,0.18)',
+  borderActive:  'rgba(0,255,0,0.60)',
 
-  // ── Accent / Primary ─────────────────────────────────────────────────────
-  primary:     '#38bdf8',
-  primaryDark: '#0284c7',
-  primaryGlow: 'rgba(56,189,248,0.25)',
-  accent:      '#22d3ee',
+  // ── Accent / Primary — 霓虹绿 ─────────────────────────────────────────────
+  primary:     '#00FF00',
+  primaryDark: '#00CC00',
+  primaryGlow: 'rgba(0,255,0,0.20)',
+  accent:      '#00FF9F',
 
   // ── Text ─────────────────────────────────────────────────────────────────
-  textPrimary:   '#f1f5f9',
-  textSecondary: '#94a3b8',
-  textMuted:     '#475569',
-  textDisabled:  '#1e293b',
-  textTitle:     '#f1f5f9',
-  textBody:      '#cbd5e1',
-  textDim:       '#334155',
+  textPrimary:   '#FFFFFF',
+  textSecondary: '#d4d4d4',
+  textMuted:     '#555555',
+  textDisabled:  '#222222',
+  textTitle:     '#FFFFFF',
+  textBody:      '#d4d4d4',
 
   // ── Status ────────────────────────────────────────────────────────────────
-  success:   '#34d399',
-  warning:   '#fbbf24',
-  error:     '#f87171',
-  info:      '#60a5fa',
+  success:   '#00FF00',
+  warning:   '#FFD700',
+  error:     '#FF3B3B',
+  info:      '#00BFFF',
 
   // ── Agent platform colours ────────────────────────────────────────────────
-  zhuli:    '#22d3ee',
-  renzhi:   '#a78bfa',
-  xunlong:  '#fbbf24',
-  wuyin:    '#34d399',
-  tansuo:   '#fb7185',
-  zhilian:  '#38bdf8',
-  heijin:   '#f97316',
-  kaifa:    '#4ade80',
+  zhuli:    '#00FF00',
+  renzhi:   '#B366FF',
+  xunlong:  '#FFD700',
+  wuyin:    '#00FF9F',
+  tansuo:   '#FF7185',
+  zhilian:  '#00BFFF',
+  heijin:   '#FF9100',
+  kaifa:    '#39FF14',
 
-  // ── Runtime / Agent status ─────────────────────────────────────────────────
-  online:       '#22d3ee',
-  working:      '#38bdf8',
-  idle:         '#94a3b8',
-  watching:     '#818cf8',
+  // ── Convenience aliases ─────────────────────────────────────────────────
+  working:  '#FFD700',
+  idle:     '#555555',
+  low:      '#FF9100',
+  highUrgency: '#FF3B3B',
+
+  // ── Status badge aliases ───────────────────────────────────────────────
+  online:       '#00FF00',
+  watching:     '#B366FF',
   stateRunning: '#1d4ed8',
   stateTodo:    '#1e293b',
   stateDone:    '#065f46',
   stateBlocked: '#881337',
-
-  // ── Tab bar ───────────────────────────────────────────────────────────────
-  tabBg:       'rgba(5,13,26,0.92)',
-  tabActive:   '#38bdf8',
-  tabInactive: '#64748b',
-
-  // ── Urgency ────────────────────────────────────────────────────────────────
-  highUrgency:  '#f87171',
   normalUrgency:'#fbbf24',
   lowUrgency:   '#34d399',
 
-  // ── Legacy aliases (for compatibility during migration) ────────────────────
-  bgGlass:     'rgba(14,24,42,0.65)',
-  borderGlass: 'rgba(255,255,255,0.08)',
+  // ── Tab Bar ───────────────────────────────────────────────────────────────
+  tabBg:      '#0a0a0a',
+  tabActive:  '#00FF00',
+  tabInactive: '#555555',
+} as const;
+
+// ─── Typography helpers ──────────────────────────────────────────────────────────
+export const TYPO = {
+  hero:  {fontSize: 28, fontWeight: '900' as const, lineHeight: 34},
+  h1:    {fontSize: 24, fontWeight: '800' as const, lineHeight: 31},
+  h2:    {fontSize: 20, fontWeight: '800' as const, lineHeight: 28},
+  h3:    {fontSize: 17, fontWeight: '700' as const, lineHeight: 25},
+  body:  {fontSize: 15, fontWeight: '400' as const, lineHeight: 24},
+  bodySmall: {fontSize: 14, fontWeight: '400' as const, lineHeight: 22},
+  caption: {fontSize: 12, fontWeight: '500' as const, lineHeight: 18},
+  micro:  {fontSize: 11, fontWeight: '600' as const, lineHeight: 15},
 } as const;

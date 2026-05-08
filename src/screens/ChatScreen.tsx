@@ -633,7 +633,7 @@ export function ChatScreen() {
                   const statusColor =
                     att.status === 'done' || att.status === 'dispatched' ? '#34d399'
                     : att.status === 'error' ? '#f87171'
-                    : att.status === 'uploading' ? '#38bdf8'
+                    : att.status === 'uploading' ? C.primary
                     : att.status === 'processing' ? '#fbbf24'
                     : '#64748b';
                   const statusLabel =
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
     padding: 14, borderRadius: 20, borderBottomRightRadius: 6,
     backgroundColor: 'rgba(2,132,199,0.35)',
     marginBottom: 12, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)',
-    shadowColor: '#38bdf8', shadowOffset: {width: 0, height: 2},
+    shadowColor: C.primary, shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2, shadowRadius: 8,
     elevation: 4,
   },

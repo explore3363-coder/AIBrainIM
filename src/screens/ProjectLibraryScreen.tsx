@@ -53,7 +53,7 @@ const PROJECT_CATALOG: Project[] = [
     owner: '黑金',
     priority: 'P0',
     updatedAt: '2026-05-08',
-    statusLine: 'P1 代码已完全收口：TypeScript ✅ / Jest 91 tests ✅ / iOS Build ✅，等待 Apple Developer 账号即可触发 TestFlight。',
+    statusLine: 'P1 代码已完全收口：TypeScript ✅ / Jest 138 tests ✅ / iOS Build ✅，等待 Apple Developer 账号即可触发 TestFlight。',
     focus: '总览 / 对话 / 智能体 / 任务 / 我的',
     primaryRoute: {screen: 'Tabs'},
     cta: '回到首页看驾驶舱',

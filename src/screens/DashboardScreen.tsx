@@ -185,7 +185,7 @@ export function DashboardScreen() {
         value: uploadingCount > 0 ? `${uploadingCount} 个上传中` : '随时可用',
         status: uploadingCount > 0 ? 'pending' as const : 'active' as const,
         detail: '图片 / 视频 / 文档 · AI 自动分派',
-        accent: uploadingCount > 0 ? '#fbbf24' : '#38bdf8',
+        accent: uploadingCount > 0 ? '#fbbf24' : C.primary,
         screen: 'Upload',
       },
     ];
@@ -393,7 +393,7 @@ export function DashboardScreen() {
         eyebrow: '项目闭环',
         title: 'P1 正在从样板走向可用驾驶舱',
         detail: projectSignal,
-        accent: '#38bdf8',
+        accent: C.primary,
         target: 'ProjectLibrary',
       },
     ];

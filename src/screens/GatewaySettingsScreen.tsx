@@ -453,10 +453,10 @@ const styles = StyleSheet.create({
   connectivityBanner: {
     padding: 16,
     borderRadius: 20,
-    backgroundColor: 'rgba(56,100,200,0.10)',
+    backgroundColor: 'rgba(0,255,0,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.28)',
-    shadowColor: '#38bdf8',
+    borderColor: C.borderSubtle,
+    shadowColor: C.primary,
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.15,
     shadowRadius: 10,
