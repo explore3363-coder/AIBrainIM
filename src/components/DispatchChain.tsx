@@ -26,6 +26,9 @@ export function DispatchChain({traces, activeStage}: Props) {
               {item.title}
             </Text>
             <Text style={styles.stepActor}>{item.actor}</Text>
+            {item.detail ? (
+              <Text style={styles.stepDetail} numberOfLines={3}>{item.detail}</Text>
+            ) : null}
           </View>
         );
       })}
@@ -33,7 +36,7 @@ export function DispatchChain({traces, activeStage}: Props) {
   );
 }
 
-const STEP_W = 140;
+const STEP_W = 160;
 const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
@@ -46,6 +49,7 @@ const styles = StyleSheet.create({
     width: STEP_W,
     alignItems: 'center',
     position: 'relative',
+    paddingHorizontal: 4,
   },
   connector: {
     position: 'absolute',
@@ -73,4 +77,5 @@ const styles = StyleSheet.create({
   stepTitle:  {color: C.textMuted, fontSize: 12, fontWeight: '700', marginTop: 8, textAlign: 'center'},
   stepTitleActive: {color: C.accent},
   stepActor:  {color: C.textMuted, fontSize: 10, marginTop: 4, textAlign: 'center'},
+  stepDetail: {color: C.textMuted, fontSize: 9, marginTop: 4, textAlign: 'center', lineHeight: 12},
 });

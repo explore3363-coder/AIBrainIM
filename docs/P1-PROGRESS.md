@@ -353,3 +353,15 @@ git tag v0.1.0 && git push --tags origin main
 ### 状态
 
 P1 可用版代码侧完全收口。唯一阻塞：Apple Developer 账号 + GitHub Secrets 配置后即可触发 TestFlight 上传。
+
+# 第二十七轮（2026-05-08 09:03 · 调度链详情展示增强）
+
+## 本轮完成
+
+**DispatchChain 组件细节展示修复：**
+- 问题：5 步调度链的水平步骤指示器（receive → dispatch → feedback → synthesis → deliver）只显示标题和角色，忽略了每步的 `detail` 文本——而 `detail` 包含了实际指令内容、taskId/dispatchId、session key、状态摘要等关键信息
+- 修复：
+  - 组件宽度 140→160 px，为详情文字留出空间
+  - 每步新增 `stepDetail` 文本行，最多显示 3 行，字体 9px
+  - 有 `detail` 才渲染该行，避免空白占位
+- 三板斧持续通过：TypeScript ✅ / Jest 82 tests ✅ / iOS Simulator Build ✅
