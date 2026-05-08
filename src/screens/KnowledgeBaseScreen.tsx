@@ -7,6 +7,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import {gatewayInvoke} from '../data/api';
+import {enqueueUpload} from '../services/uploadService';
 
 // ─── Feishu Wiki / Doc integration for "查看全文" ─────────────────────────────
 // P1 now goes through gatewayInvoke directly instead of relying on a global tool bridge.
@@ -72,6 +73,15 @@ export function KnowledgeBaseScreen() {
   // Per-doc loading: which doc ID is currently being read (null = none)
   const [readingDocId, setReadingDocId] = useState<string | null>(null);
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
+
+  // ── Knowledge creation composer ──────────────────────────────────────────────
+  const [showComposer, setShowComposer] = useState(false);
+  const [composerTitle, setComposerTitle] = useState('');
+  const [composerSummary, setComposerSummary] = useState('');
+  const [composerCategory, setComposerCategory] = useState<KBDoc['category']>('mining');
+  const [composerSaving, setComposerSaving] = useState(false);
+  const [composerNotice, setComposerNotice] = useState<string | null>(null);
+
   const {agents, tasks, uploads, dispatches, registerKnowledgeCapture} = useAppContext();
 
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
@@ -197,6 +207,60 @@ export function KnowledgeBaseScreen() {
     );
   }, [readingDocId]);
 
+  // ── Create new knowledge entry from scratch ────────────────────────────────────
+  const handleCreateKnowledge = useCallback(async () => {
+    const title = composerTitle.trim();
+    const summary = composerSummary.trim();
+    if (!title || !summary || composerSaving) return;
+
+    setComposerSaving(true);
+    setComposerNotice(null);
+    const memoryCategory = categoryToMemoryCategory(composerCategory);
+
+    // Store in remote memory layer via Gateway
+    let remoteOk = false;
+    try {
+      await gatewayInvoke('memory_store', 'remember', {
+        text: `${title}\n\n${summary}`,
+        category: memoryCategory,
+        importance: composerCategory === 'policy' ? 0.85 : 0.75,
+      });
+      remoteOk = true;
+    } catch {
+      remoteOk = false;
+    }
+
+    registerKnowledgeCapture({
+      title,
+      summary,
+      category: memoryCategory,
+      source: '移动端手动创建',
+      savedRemotely: remoteOk,
+    });
+
+    // Also enqueue as an upload to trigger the attachment pipeline
+    // Use encodeURIComponent to safely embed Chinese/ASCII text in a data URI
+    const noteText = `[知识条目] ${title}\n\n${summary}`;
+    const encodedNote = encodeURIComponent(noteText);
+    enqueueUpload(
+      `知识_${title.replace(/[/\\s]/g, '_').slice(0, 18)}.txt`,
+      `data:text/plain,${encodedNote}`,
+      'text/plain',
+      noteText.length,
+    );
+
+    setComposerSaving(false);
+    setComposerNotice(
+      remoteOk
+        ? '✓ 知识条目已写入记忆层，并进入附件处理链路。'
+        : '⚠️ 已保存在本地，Gateway 恢复后会自动补写到远程记忆层。',
+    );
+    setComposerTitle('');
+    setComposerSummary('');
+    setComposerCategory('mining');
+    setShowComposer(false);
+  }, [composerCategory, composerSaving, composerSummary, composerTitle, registerKnowledgeCapture]);
+
   const handleSaveToMemory = useCallback(async (doc: KBDoc) => {
     if (savingDocId !== null) {
       return;
@@ -274,6 +338,78 @@ export function KnowledgeBaseScreen() {
         </View>
         {searchResults !== null && (
           <Text style={styles.searchHint}>{filtered.length} 条匹配结果</Text>
+        )}
+
+        {/* ── Knowledge creation composer ── */}
+        {!showComposer ? (
+          <TouchableOpacity
+            style={styles.createKnowledgeBtn}
+            activeOpacity={0.8}
+            onPress={() => setShowComposer(true)}
+          >
+            <Text style={styles.createKnowledgeBtnText}>＋ 新建知识条目</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.kbComposerCard}>
+            <View style={styles.kbComposerHeader}>
+              <Text style={styles.kbComposerTitle}>新建知识条目</Text>
+              <TouchableOpacity onPress={() => { setShowComposer(false); setComposerNotice(null); }}>
+                <Text style={styles.kbComposerClose}>✕ 取消</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kbComposerChipRow}>
+              {(Object.entries(CAT_META) as [KBDoc['category'], typeof CAT_META[keyof typeof CAT_META]][]).map(([cat, meta]) => {
+                const active = composerCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.kbComposerChip, active && {backgroundColor: `${meta.color}22`, borderColor: meta.color}]}
+                    activeOpacity={0.8}
+                    onPress={() => setComposerCategory(cat)}
+                  >
+                    <Text style={styles.kbComposerChipEmoji}>{meta.emoji}</Text>
+                    <Text style={[styles.kbComposerChipText, active && {color: meta.color}]}>{meta.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TextInput
+              value={composerTitle}
+              onChangeText={setComposerTitle}
+              placeholder="知识条目标题…"
+              placeholderTextColor={C.textMuted}
+              style={styles.kbComposerTitleInput}
+              maxLength={80}
+            />
+            <TextInput
+              value={composerSummary}
+              onChangeText={setComposerSummary}
+              placeholder="知识条目摘要（事实、决策、规则等）…"
+              placeholderTextColor={C.textMuted}
+              style={styles.kbComposerSummaryInput}
+              multiline
+              textAlignVertical="top"
+              maxLength={600}
+            />
+            <View style={styles.kbComposerFooter}>
+              <Text style={styles.kbComposerHint}>
+                {composerSaving ? '正在写入记忆层与附件链路…' : '写入后会同步到 OpenClaw 记忆层，并进入附件处理链路。'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.kbComposerSaveBtn, (!composerTitle.trim() || !composerSummary.trim() || composerSaving) && styles.kbComposerSaveBtnDisabled]}
+                activeOpacity={0.8}
+                onPress={handleCreateKnowledge}
+                disabled={!composerTitle.trim() || !composerSummary.trim() || composerSaving}
+              >
+                <Text style={styles.kbComposerSaveBtnText}>
+                  {composerSaving ? '写入中…' : '保存并收录'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {composerNotice ? <Text style={styles.kbComposerNotice}>{composerNotice}</Text> : null}
+          </View>
         )}
       </View>
 
@@ -427,4 +563,80 @@ const styles = StyleSheet.create({
   readBtnText:{color: C.primary, fontSize: 12, fontWeight: '800'},
   saveMemoryBtnText:{color: '#34d399', fontSize: 12, fontWeight: '800'},
   footer:     {height: 24},
+
+  // ── Knowledge creation composer styles ──
+  createKnowledgeBtn: {
+    marginTop: 14,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.12)',
+    borderWidth: 1, borderColor: C.borderActive,
+    alignSelf: 'flex-start',
+  },
+  createKnowledgeBtnText: {color: C.primary, fontSize: 13, fontWeight: '900'},
+  kbComposerCard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8,18,36,0.7)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  kbComposerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  kbComposerTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900'},
+  kbComposerClose: {color: '#f87171', fontSize: 12, fontWeight: '800'},
+  kbComposerChipRow: {gap: 8, flexDirection: 'row', marginBottom: 12},
+  kbComposerChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.1)', borderWidth: 1, borderColor: C.borderSubtle,
+  },
+  kbComposerChipEmoji: {fontSize: 12},
+  kbComposerChipText: {color: C.textMuted, fontSize: 12, fontWeight: '800'},
+  kbComposerTitleInput: {
+    height: 40,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    color: C.textTitle,
+    backgroundColor: 'rgba(5,13,26,0.9)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  kbComposerSummaryInput: {
+    minHeight: 88,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: C.textTitle,
+    backgroundColor: 'rgba(5,13,26,0.9)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  kbComposerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  kbComposerHint: {color: C.textMuted, fontSize: 11, flex: 1, lineHeight: 16},
+  kbComposerSaveBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: 'rgba(52,211,153,0.15)',
+    borderWidth: 1, borderColor: '#34d399',
+  },
+  kbComposerSaveBtnDisabled: {opacity: 0.45},
+  kbComposerSaveBtnText: {color: '#34d399', fontSize: 12, fontWeight: '900'},
+  kbComposerNotice: {
+    color: C.primary, fontSize: 11, marginTop: 8, lineHeight: 16,
+    paddingHorizontal: 4,
+  },
 });
