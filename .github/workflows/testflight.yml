@@ -68,6 +68,7 @@ jobs:
       # ── Step 2: Decode p8 key from base64 secret ────────────────────────────
       - name: Decode API key
         run: |
+          mkdir -p ~/cert_work
           echo "${{ secrets.APPLE_API_KEY_CONTENT }}" | base64 -d > ~/cert_work/p8.key
           echo "p8 key decoded: $(wc -c < ~/cert_work/p8.key) bytes"
 
