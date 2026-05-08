@@ -9,13 +9,13 @@
 | 检查项 | 状态 |
 |--------|------|
 | TypeScript 零错误 | ✅ |
-| Jest 70 tests 全部通过 | ✅ |
+| Jest 91 tests 全部通过 | ✅ |
 | iOS Simulator Build | ✅ |
 | 五主功能（总览/对话/智能体/任务/我的）| ✅ |
 | 信息层五入口（记忆/知识/附件/项目/调度链）| ✅ |
 | 上传服务（分片/直传/断点续传/后台队列）| ✅ |
 | App Icon 1024×1024 PNG | ✅ |
-| App Store 三尺寸截图（6.7"/6.5"/5.5"）| ✅ |
+| App Store 三尺寸截图（6.7"/6.5"/5.5"）| ✅ | 五 Tab 全覆盖（总览/对话/智能体/任务/我的）|
 | 隐私政策 GitHub Pages 部署 | ✅ |
 | App Store listing 文案 | ✅ |
 | GitHub Actions CI | ✅ |
@@ -132,7 +132,14 @@ base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
 | iPhone 6.5 英寸（1284×2778） | 1-10 张 | `build/AppStoreScreenshots/*_65.png` |
 | iPhone 5.5 英寸（1242×2208） | 1-10 张 | `build/AppStoreScreenshots/*_55.png` |
 
-可直接从 `build/AppStoreScreenshots/` 目录上传。
+**五 Tab 截图全套（各尺寸）：**
+- `0_Dashboard_67.png` / `_65.png` / `_55.png` — 总览
+- `1_Chat_67.png` / `_65.png` / `_55.png` — 对话
+- `2_Agent_67.png` / `_65.png` / `_55.png` — 智能体
+- `3_Tasks_67.png` / `_65.png` / `_55.png` — 任务
+- `4_Profile_67.png` / `_65.png` / `_55.png` — 我的
+
+可直接从 `build/AppStoreScreenshots/` 目录上传（每尺寸上传对应 5 张 Tab 截图）。
 
 ### 3.3 填写 App 信息
 
