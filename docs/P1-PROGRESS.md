@@ -315,3 +315,41 @@ git tag v0.1.0 && git push --tags origin main
 ## 下一步
 
 等待用户提供 Apple Developer 账号信息（Team ID + 证书）后配置 GitHub Secrets，即可打 tag 触发 TestFlight。
+
+---
+
+## 第二十六轮（2026-05-08 07:52 · 修复两处生产级缺陷）
+
+> 代码侧两处修复：Chat输入框动态高度 + chunked upload字节读取
+
+### 本轮完成
+
+**修复 1: ChatScreen 多行输入框动态高度**
+- 问题：输入框高度固定 maxHeight:96px，长消息无法展开
+- 修复：`inputHeight` state + `onContentSizeChange` 实现真正的自动增长
+- 范围：44px → 144px（留出更多空间给长消息）
+- commit: `4d37308`
+
+**修复 2: chunked upload 字节读取**
+- 问题：`body: file.uri` 发送的是文件路径字符串，不是实际内容
+- 修复：新增 `src/utils/fileReader.ts` → `readFileSlice(uri, start, end)` 用 XMLHttpRequest + Range header 读取真实字节范围
+- chunked upload 现在提取每片字节范围作为 `ArrayBuffer` 发送
+- 添加 `Content-Range: bytes {start}-{end}/{size}` header，标准 resumable upload 格式
+- commit: `1d49873`
+
+### 三板斧确认
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ 零错误 |
+| Jest (82 tests) | ✅ 全部通过 |
+| iOS Simulator Build | ✅ BUILD SUCCEEDED |
+
+### 待 push（网络抖动，retry pending）
+
+- `4d37308` fix(chat): dynamic multiline input height
+- `1d49873` fix(upload): read byte ranges via XMLHttpRequest
+
+### 状态
+
+P1 可用版代码侧完全收口。唯一阻塞：Apple Developer 账号 + GitHub Secrets 配置后即可触发 TestFlight 上传。
