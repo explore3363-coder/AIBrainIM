@@ -86,7 +86,13 @@ jobs:
           echo "Certificate imported"
           security find-identity -v -p codesigning ~/Library/Keychains/build.keychain-db
 
-      # ── Step 3: Create provisioning profile via ASC API ─────────────────────
+      # ── Step 3: Install Python deps for ASC API ───────────────────────────────
+      - name: Install Python deps for ASC API
+        run: |
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install PyJWT cryptography --quiet 2>&1 | tail -2
+          echo "Python deps installed"
+
+      # ── Step 4: Create provisioning profile via ASC API ─────────────────────
       - name: Create provisioning profile via ASC API
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
