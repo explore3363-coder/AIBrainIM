@@ -89,8 +89,9 @@ jobs:
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
           def apple_token():
+              # APPLE_API_KEY_CONTENT is an RSA private key → use RS256
               payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, pem_content, algorithm='ES256', headers={'kid': kid})
+              return pyjwt.encode(payload, pem_content, algorithm='RS256', headers={'kid': kid})
 
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
@@ -196,8 +197,9 @@ jobs:
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
           def apple_token():
+              # APPLE_API_KEY_CONTENT is an RSA private key → use RS256
               payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, pem_content, algorithm='ES256', headers={'kid': kid})
+              return pyjwt.encode(payload, pem_content, algorithm='RS256', headers={'kid': kid})
 
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
