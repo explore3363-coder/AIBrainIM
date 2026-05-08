@@ -16,7 +16,7 @@
  * - 后端合并分片后触发 AI 分析流
  */
 
-// ─── Types (must be defined before export) ─────────────────────────────────────
+import {readFileSlice} from '../utils/fileReader';
 
 type UploadType = 'image' | 'video' | 'document' | 'archive';
 
@@ -318,15 +318,20 @@ async function _chunkedUpload(state: UploadState): Promise<void> {
     // Try real Gateway chunked upload
     if (gatewayUrl && gatewayToken && !file.uri.startsWith('demo://')) {
       try {
+        const chunkSize = Math.ceil(file.size / totalChunks);
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const buffer = await readFileSlice(file.uri, start, end);
         const chunkUrl = `${gatewayUrl}/upload/chunk?uploadId=${file.id}&chunkIndex=${i}&totalChunks=${totalChunks}`;
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
         const res = await fetch(chunkUrl, {
           method: 'PUT',
-          body: file.uri, // In RN, uri can be used as body directly
+          body: buffer,
           headers: {
             'Authorization': `Bearer ${gatewayToken}`,
             'Content-Type': file.mimeType,
+            'Content-Range': `bytes ${start}-${end - 1}/${file.size}`,
             'X-Chunk-Index': String(i),
             'X-Total-Chunks': String(totalChunks),
           },
