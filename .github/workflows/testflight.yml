@@ -100,11 +100,16 @@ jobs:
           PYEOF
           xxd ~/cert_work/p8.key | head -3
 
+      - name: Install Python deps for ASC API
+        run: |
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --quiet pyjwt cryptography
+
       # ── Generate distribution certificate via ASC API ────────────────────
       - name: Generate certificate via ASC API
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, base64, ssl, os, subprocess
+          import jwt as pyjwt
 
           p8_path = os.path.expanduser('~/cert_work/p8.key')
           p8_pem_path = os.path.expanduser('~/cert_work/p8.pem')
@@ -145,45 +150,17 @@ jobs:
           kid = 'HWP45ALL8Y'
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
-          # Generate JWT using OpenSSL RSA SHA256
-          header_json = json.dumps({'alg': 'RS256', 'typ': 'JWT', 'kid': kid}).encode()
-          payload_json = json.dumps({
-              'iss': iss, 'iat': int(time.time()),
-              'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'
-          }).encode()
-          header_b64 = base64.urlsafe_b64encode(header_json).rstrip(b'=')
-          payload_b64 = base64.urlsafe_b64encode(payload_json).rstrip(b'=')
-          jwt_message = header_b64 + b'.' + payload_b64
-
-          msg_file = os.path.expanduser('~/cert_work/jwt_msg.txt')
-          sig_file = os.path.expanduser('~/cert_work/jwt_sig.bin')
-          with open(msg_file, 'wb') as f:
-              f.write(jwt_message)
-
-          # Try standard PKCS#8 PEM first
-          r = subprocess.run(
-              ['openssl', 'pkeyutl', '-sign', '-inkey', p8_pem_path,
-               '-in', msg_file, '-out', sig_file, '-pkeyopt', 'digest:sha256'],
-              capture_output=True, text=True
+          tok = pyjwt.encode(
+              {
+                  'iss': iss,
+                  'iat': int(time.time()),
+                  'exp': int(time.time()) + 300,
+                  'aud': 'appstoreconnect-v1',
+              },
+              pem_content.decode('utf-8'),
+              algorithm='ES256',
+              headers={'kid': kid},
           )
-          if r.returncode != 0:
-              print('pkeyutl failed, trying RSA traditional format...')
-              # Try traditional RSA PEM format
-              r2 = subprocess.run(
-                  ['openssl', 'rsa', '-traditional', '-inkey', p8_pem_path,
-                   '-in', msg_file, '-out', sig_file],
-                  capture_output=True, text=True
-              )
-              if r2.returncode != 0:
-                  print('pkeyutl error:', r.stderr[:300])
-                  print('rsa error:', r2.stderr[:300])
-                  exit(1)
-              print('RSA traditional format worked!')
-          else:
-              print('OpenSSL pkeyutl signed successfully')
-
-          sig_b64 = base64.urlsafe_b64encode(open(sig_file, 'rb').read()).rstrip(b'=')
-          tok = (jwt_message + b'.' + sig_b64).decode()
           print(f'JWT: {tok[:60]}...')
           open(os.path.expanduser('~/cert_work/jwt_token.txt'), 'w').write(tok)
 
@@ -266,6 +243,7 @@ jobs:
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, base64, ssl, os, subprocess
+          import jwt as pyjwt
 
           p8_path = os.path.expanduser('~/cert_work/p8.key')
           p8_pem_path = os.path.expanduser('~/cert_work/p8.pem')
@@ -295,35 +273,17 @@ jobs:
           kid = 'HWP45ALL8Y'
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
-          # Generate JWT
-          header_b64 = base64.urlsafe_b64encode(
-              json.dumps({'alg': 'RS256', 'typ': 'JWT', 'kid': kid}).encode()
-          ).rstrip(b'=')
-          payload_b64 = base64.urlsafe_b64encode(
-              json.dumps({
-                  'iss': iss, 'iat': int(time.time()),
-                  'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'
-              }).encode()
-          ).rstrip(b'=')
-          jwt_message = header_b64 + b'.' + payload_b64
-
-          msg_file = os.path.expanduser('~/cert_work/jwt_msg.txt')
-          sig_file = os.path.expanduser('~/cert_work/jwt_sig.bin')
-          with open(msg_file, 'wb') as f:
-              f.write(jwt_message)
-          r = subprocess.run(
-              ['openssl', 'pkeyutl', '-sign', '-inkey', p8_pem_path,
-               '-in', msg_file, '-out', sig_file, '-pkeyopt', 'digest:sha256'],
-              capture_output=True, text=True
+          tok = pyjwt.encode(
+              {
+                  'iss': iss,
+                  'iat': int(time.time()),
+                  'exp': int(time.time()) + 300,
+                  'aud': 'appstoreconnect-v1',
+              },
+              pem_content.decode('utf-8'),
+              algorithm='ES256',
+              headers={'kid': kid},
           )
-          if r.returncode != 0:
-              subprocess.run(
-                  ['openssl', 'rsa', '-traditional', '-inkey', p8_pem_path,
-                   '-in', msg_file, '-out', sig_file],
-                  capture_output=True, text=True
-              )
-          sig_b64 = base64.urlsafe_b64encode(open(sig_file, 'rb').read()).rstrip(b'=')
-          tok = (jwt_message + b'.' + sig_b64).decode()
 
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
           ctx = ssl.create_default_context()
