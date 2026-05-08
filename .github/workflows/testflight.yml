@@ -51,7 +51,7 @@ jobs:
           fi
           echo "Build number set to: ${BUILD_NUM}"
 
-      # ── Step 1: Archive without signing ─────────────────────────────────────
+      # ── Step 1: Archive with ad-hoc signing to embed team ID ─────────────────
       - name: Build for Release (Archive)
         run: |
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
@@ -61,8 +61,8 @@ jobs:
             -derivedDataPath build/DerivedData \
             archive \
             CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY='-' \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM=1165010090
 
       # ── Step 2: Export IPA (unsigned, altool will re-sign) ─────────────────
