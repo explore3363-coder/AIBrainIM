@@ -7,7 +7,7 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 ## 状态
 
 **P1 可用版已收口**（2026-05-08）
-- TypeScript ✅ · Jest 113 tests ✅ · iOS Simulator Build ✅
+- TypeScript ✅ · Jest 138 tests ✅ · iOS Simulator Build ✅
 - 五主功能全部可交互（总览/对话/智能体/任务/我的）
 - 信息层五入口就绪（记忆库/知识库/附件库/调度链/项目库）
 - 上传服务 8 个 queueStage 完整（分片/断点续传/后台队列）
