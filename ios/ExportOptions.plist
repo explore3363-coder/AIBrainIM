@@ -5,11 +5,9 @@
     <key>method</key>
     <string>app-store-connect</string>
     <key>signingStyle</key>
-    <string>manual</string>
+    <string>automatic</string>
     <key>teamId</key>
     <string>7S96N8A32U</string>
-    <key>provisioningProfile</key>
-    <string>3d8fdd81-ba2a-4074-bb1a-3770fe705ee6</string>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadBitcode</key>
