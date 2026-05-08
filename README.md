@@ -13,6 +13,7 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 - 上传服务 8 个 queueStage 完整（分片/断点续传/后台队列）
 - GitHub Actions CI/CD 就绪
 - Git: clean，origin/main 已同步
+- 开发者工具已清除（控制台 tab 及相关屏幕已移除）
 
 **唯一阻塞：** Apple Developer 账号 + App Store Connect 记录 + GitHub Secrets/Vars 配置
 
