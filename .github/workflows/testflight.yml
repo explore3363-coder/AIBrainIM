@@ -3,7 +3,7 @@ name: TestFlight Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v0.1.*'
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -72,17 +72,20 @@ jobs:
 
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, ssl, os, subprocess
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.backends import default_backend
 
           p8_path = os.path.expanduser('~/cert_work/p8.key')
-          with open(p8_path, 'r') as f:
-              p8_content = f.read().strip()
+          with open(p8_path, 'rb') as f:
+              p8_bytes = f.read()
+          private_key = serialization.load_pem_private_key(p8_bytes, password=None, backend=default_backend())
 
           kid = 'HWP45ALL8Y'
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
           def apple_token():
               payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
+              return pyjwt.encode(payload, private_key, algorithm='ES256', headers={'kid': kid})
 
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
@@ -177,16 +180,19 @@ jobs:
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, ssl, os
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.backends import default_backend
 
-          with open(os.path.expanduser('~/cert_work/p8.key'), 'r') as f:
-              p8_content = f.read().strip()
+          with open(os.path.expanduser('~/cert_work/p8.key'), 'rb') as f:
+              p8_bytes = f.read()
+          private_key = serialization.load_pem_private_key(p8_bytes, password=None, backend=default_backend())
 
           kid = 'HWP45ALL8Y'
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
           def apple_token():
               payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
+              return pyjwt.encode(payload, private_key, algorithm='ES256', headers={'kid': kid})
 
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
