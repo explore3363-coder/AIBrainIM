@@ -62,9 +62,9 @@ bundle exec fastlane appstore   # App Store submission
 2. Create an App Store Connect API Key with "App Manager" role
 3. Download the `.p8` key file (only available at creation time!)
 4. Add as GitHub Secrets:
-   - `APPLE_API_KEY_ID` — the key ID shown in App Store Connect
-   - `APPLE_API_ISSUER_ID` — your Team ID (visible in App Store Connect → Users & Access → Keys)
-   - `APPLE_API_KEY_CONTENT_PEM` — base64-encoded `.p8` content:
+   - `APPLE_API_KEY_ID` — the key ID shown in App Store Connect (对应 testflight.yml 中 `env.ASC_KEY_ID`)
+   - `APPLE_API_ISSUER_ID` — your Team ID (visible in App Store Connect → Users & Access → Keys) (对应 testflight.yml 中 `env.ASC_ISSUER_ID`)
+   - `APPLE_API_KEY_CONTENT` — base64-encoded `.p8` content (GitHub Secret, 与 TESTFLIGHT.md 保持一致):
      ```bash
      base64 -i AuthKey_XXXXXX.p8 | tr -d '\n'
      ```

@@ -46,7 +46,7 @@
 
 | Variable 名称 | 值 | 说明 |
 |---------------|-----|------|
-| `APPLE_TEAM_ID` | `7S96N8A32U` | 你的 Apple Team ID（开发者账号页面可见） |
+| `APPLE_TEAM_ID` | **你自己的 Team ID**（见下方获取方式） | 你的 Apple Team ID（开发者账号页面可见） |
 | `APPLE_DEV_EMAIL` | 你的 Apple ID 邮箱 | 用于 altool 上传认证 |
 
 #### GitHub Secrets（Settings → Secrets → Actions）
@@ -58,6 +58,8 @@
 | `APPLE_API_KEY_CONTENT` | App Store Connect API 密钥的 .p8 文件内容 Base64 编码（见下方 1.3 节） |
 
 > ⚠️ `ASC_KEY_ID` 和 `ASC_ISSUER_ID` 已在 testflight.yml 中硬编码（不是 Secret，是 App Store Connect API 密钥的公开标识符）。如需更换，请同步修改 workflow 文件中的 `env.ASC_KEY_ID` 和 `env.ASC_ISSUER_ID`。
+>
+> **⚠️ 当前 workflow 中 ASC 值（HWP45ALL8Y / 0bc52ef9...）是占位符**，需替换为你自己创建的 App Store Connect API 密钥对应的值。否则证书生成步骤会失败。
 
 ### 1.3 创建 App Store Connect API 密钥（用于自动创建 Provisioning Profile）
 
@@ -174,6 +176,22 @@ base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
 ---
 
 ## 四、触发第一个 TestFlight Build
+
+### 4.0 发起前核对清单
+
+在运行 `git tag v0.1.0 && git push --tags` 之前，确认以下配置已完成：
+
+| 检查项 | 验证方式 |
+|--------|---------|
+| GitHub Secret `APPLE_API_KEY_CONTENT` | Settings → Secrets → Actions → 存在且非空 |
+| GitHub Secret `APPLE_DIST_P12` | 同上 |
+| GitHub Secret `APPLE_APP_PASSWORD` | 同上 |
+| GitHub Variable `APPLE_TEAM_ID` | Settings → Variables → Actions → 存在且非占位符 |
+| GitHub Variable `APPLE_DEV_EMAIL` | 同上 |
+| `ASC_KEY_ID` / `ASC_ISSUER_ID` 已替换 | 检查 `.github/workflows/testflight.yml` 中 env.ASC_KEY_ID / env.ASC_ISSUER_ID 是否为自己的密钥 ID |
+| App Store Connect App 记录存在 | appstoreconnect.apple.com → 我的 App → 能看到 AI协作平台 |
+
+**如果以上任何一项未完成就打 tag**，GitHub Actions 构建会失败。
 
 ### 4.1 一行命令触发
 
