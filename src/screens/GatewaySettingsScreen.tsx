@@ -48,6 +48,7 @@ export function GatewaySettingsScreen() {
     () => availableSessions.filter(item => item.key && item.key.includes('agent:')),
     [availableSessions],
   );
+  const isLocalhost = /127\.0\.0\.1|localhost/i.test(config.gatewayUrl);
 
   useEffect(() => {
     getGatewayConfig()
@@ -235,6 +236,14 @@ export function GatewaySettingsScreen() {
     }
   }, [config, navigation, registerDispatch, refresh, refreshGatewayStatus]);
 
+  const handleShowTailscaleHint = useCallback(() => {
+    patch('gatewayUrl', 'https://100.81.');
+    Alert.alert(
+      'Tailscale IP 查询',
+      '请在 Mac mini 终端运行：openclaw status\n找到 Tailscale IP（格式 100.81.xxx.xxx），替换 URL 并加上端口 18789，例如：\nhttps://100.81.xxx.xxx:18789',
+    );
+  }, [patch]);
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -244,6 +253,42 @@ export function GatewaySettingsScreen() {
           <Text style={styles.status}>当前状态：{loading ? '加载中…' : statusText}</Text>
           <Text style={styles.summary}>{loading ? '正在读取配置…' : summarizeGatewayConfig(config)}</Text>
         </View>
+
+        {isLocalhost && (
+          <View style={styles.connectivityBanner}>
+            <Text style={styles.connectivityBannerTitle}>📡 真机 / TestFlight 无法访问 localhost</Text>
+            <Text style={styles.connectivityBannerDesc}>
+              当前 Gateway URL 指向本机回环地址，App 在真机或 TestFlight 上无法连通。需要先打通网络通路：
+            </Text>
+            <View style={styles.connectivityOptions}>
+              <View style={styles.connectivityOption}>
+                <Text style={styles.connectivityOptionTitle}>① Tailscale（推荐，已配置）</Text>
+                <Text style={styles.connectivityOptionDesc}>
+                  在 Mac mini 终端运行 openclaw status 查找 Tailscale IP（100.81.xxx.xxx），替换 Gateway URL 为 https://TailscaleIP:18789
+                </Text>
+                <TouchableOpacity
+                  style={styles.connectivityAction}
+                  activeOpacity={0.8}
+                  onPress={handleShowTailscaleHint}
+                >
+                  <Text style={styles.connectivityActionText}>查看 Tailscale IP 方法</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.connectivityOption}>
+                <Text style={styles.connectivityOptionTitle}>② 同局域网（仅同 WiFi）</Text>
+                <Text style={styles.connectivityOptionDesc}>
+                  Mac mini 和 iPhone 连同一 WiFi 后，在 Mac 终端运行 ifconfig | grep "inet " 查找局域网 IP，替换为 http://192.168.x.x:18789
+                </Text>
+              </View>
+              <View style={styles.connectivityOption}>
+                <Text style={styles.connectivityOptionTitle}>③ ngrok 临时隧道</Text>
+                <Text style={styles.connectivityOptionDesc}>
+                  在 Mac 运行 ngrok http 18789，复制得到的 https URL 填入 Gateway URL（隧道会过期，适合短期测试）
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         <View style={styles.card}>
           <Text style={styles.label}>Gateway URL</Text>
@@ -405,6 +450,57 @@ const styles = StyleSheet.create({
   sub: {color: C.textBody, fontSize: 13, lineHeight: 20, marginTop: 8},
   status: {color: C.primary, fontSize: 12, marginTop: 10, fontWeight: '700'},
   summary: {color: C.textMuted, fontSize: 11, marginTop: 6, lineHeight: 17},
+  connectivityBanner: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(56,100,200,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.28)',
+    shadowColor: '#38bdf8',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  connectivityBannerTitle: {
+    color: C.primary,
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  connectivityBannerDesc: {
+    color: C.textBody,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  connectivityOptions: {gap: 14},
+  connectivityOption: {gap: 4},
+  connectivityOptionTitle: {
+    color: C.textTitle,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  connectivityOptionDesc: {
+    color: C.textMuted,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  connectivityAction: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.18)',
+    borderWidth: 1,
+    borderColor: C.borderActive,
+  },
+  connectivityActionText: {
+    color: C.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   card: {
     padding: 16,
     borderRadius: 20,
