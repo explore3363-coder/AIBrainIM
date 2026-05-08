@@ -96,7 +96,7 @@ jobs:
       - name: Create provisioning profile via ASC API
         run: |
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
-          import urllib.request, json, time, jwt as pyjwt, base64, plistlib, ssl
+          import urllib.request, json, time, jwt as pyjwt, base64, plistlib, ssl, os, subprocess
 
           with open(os.path.expanduser('~/cert_work/p8.key'), 'r') as f:
               p8_content = f.read().strip()
@@ -157,7 +157,6 @@ jobs:
               else:
                   raise Exception('No profile found')
 
-          import subprocess
           # Download the profile (CMS-signed DER)
           req_download = urllib.request.Request(
               f'https://api.appstoreconnect.apple.com/v1/profiles/{profile_id}',
@@ -178,7 +177,7 @@ jobs:
           os.makedirs(os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles'), exist_ok=True)
           out_path = os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles/AIBrainIM-CI-AppStore.mobileprovision')
           with open(out_path, 'wb') as f:
-              f.write(result.stdout.encode())
+              f.write(result.stdout)
           print(f'Profile installed: {out_path}')
           PYEOF
 
