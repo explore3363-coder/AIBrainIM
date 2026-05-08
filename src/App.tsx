@@ -35,10 +35,43 @@ import {DispatchChainScreen}  from './screens/DispatchChainScreen';
 import {ConfirmationsScreen}  from './screens/ConfirmationsScreen';
 import {UploadScreen}         from './screens/UploadScreen';
 import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
+import {SystemStatusScreen}   from './screens/SystemStatusScreen';
+import {CronManagerScreen}    from './screens/CronManagerScreen';
+import {CommandTerminalScreen} from './screens/CommandTerminalScreen';
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const ControlStackNav = createNativeStackNavigator();
+
+function ControlStack() {
+  return (
+    <ControlStackNav.Navigator
+      screenOptions={{
+        headerStyle: {backgroundColor: C.bgRoot},
+        headerTintColor: C.textTitle,
+        headerTitleStyle: {fontWeight: '800'},
+        contentStyle: {backgroundColor: C.bgRoot},
+      }}
+    >
+      <ControlStackNav.Screen
+        name="ControlHome"
+        component={SystemStatusScreen}
+        options={{headerShown: false}}
+      />
+      <ControlStackNav.Screen
+        name="CronManager"
+        component={CronManagerScreen}
+        options={{title: '定时任务', headerBackTitle: '返回'}}
+      />
+      <ControlStackNav.Screen
+        name="Terminal"
+        component={CommandTerminalScreen}
+        options={{title: '命令终端', headerBackTitle: '返回'}}
+      />
+    </ControlStackNav.Navigator>
+  );
+}
 
 function TabNavigator() {
   const {pendingConfirmations, uploads, tasks} = useAppContext();
@@ -106,6 +139,11 @@ function TabNavigator() {
             }
           />
         )}}
+      />
+      <Tab.Screen
+        name="Control"
+        component={ControlStack}
+        options={{tabBarIcon: ({focused}) => <TabBarIcon label="控制" emoji="🖥" focused={focused} />}}
       />
     </Tab.Navigator>
   );
