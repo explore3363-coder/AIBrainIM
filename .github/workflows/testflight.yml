@@ -68,21 +68,33 @@ jobs:
       # ── Generate cert + key via ASC API (no APPLE_DIST_P12 needed) ───────
       - name: Generate certificate via ASC API
         run: |
-          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install 'PyJWT<2.0' cryptography --quiet 2>&1 | tail -2
+          /Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --quiet pyjwt cryptography 2>&1 | tail -2
 
           /Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
           import urllib.request, json, time, jwt as pyjwt, base64, ssl, os, subprocess
 
           p8_path = os.path.expanduser('~/cert_work/p8.key')
+          # Read raw bytes first
+          with open(p8_path, 'rb') as f:
+              p8_bytes = f.read()
+          # Try text mode too
           with open(p8_path, 'r') as f:
-              p8_content = f.read().strip()
+              p8_text = f.read().strip()
 
           kid = 'HWP45ALL8Y'
           iss = '0bc52ef9-a4c4-489e-810c-c8a80db0ab9a'
 
           def apple_token():
               payload = {'iss': iss, 'iat': int(time.time()), 'exp': int(time.time()) + 300, 'aud': 'appstoreconnect-v1'}
-              return pyjwt.encode(payload, p8_content, algorithm='ES256', headers={'kid': kid})
+              # Try as bytes first (for raw PKCS#8)
+              try:
+                  return pyjwt.encode(payload, p8_bytes, algorithm='ES256', headers={'kid': kid})
+              except Exception as e1:
+                  # Fall back to text mode
+                  try:
+                      return pyjwt.encode(payload, p8_text, algorithm='ES256', headers={'kid': kid})
+                  except Exception as e2:
+                      raise RuntimeError(f'Both bytes ({e1}) and text ({e2}) failed') from e1
 
           tok = apple_token()
           headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
