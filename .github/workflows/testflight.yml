@@ -64,10 +64,13 @@ jobs:
           security set-keychain-setting -t 60 -u ~/Library/Keychains/$KEYCHAIN_NAME.keychain-db 2>/dev/null || true
 
       - name: Decode API key
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
         run: |
           mkdir -p ~/cert_work
           echo "$APPLE_API_KEY_CONTENT" | base64 -d > ~/cert_work/p8.key
           chmod 600 ~/cert_work/p8.key
+          echo "p8.key size: $(wc -c < ~/cert_work/p8.key) bytes"
 
       - name: Import signing certificate
         env:

@@ -390,3 +390,80 @@ Apple Developer 账号注册 + GitHub Secrets 配置完成后，执行：
 git tag v0.1.0 && git push --tags origin main
 ```
 GitHub Actions 自动构建并上传 TestFlight。
+
+---
+
+## 第三十一轮（2026-05-08 14:35 · 死组件清理 + 三板斧全绿）
+
+### 本轮完成
+
+**死组件文件清理（3个，共115行）：**
+- `OverviewCard.tsx` — 未被任何 screen 导入，纯死代码
+- `GlassCard.tsx` — 未被任何 screen 导入，纯死代码
+- `Icons.tsx` — 未被任何 screen 导入，纯死代码
+- `components/index.ts` 同步移除对应 export
+- commit: `9e9c14a`（本地，待 push）
+
+**上一轮 TaskScreen 小改进（已 push）：**
+- commit `931085e`: "优先级"替代任务ID展示；done状态隐藏trace摘要
+
+**三板斧验证（本轮）：**
+| 检查项 | 结果 |
+|--------|------|
+| TypeScript | ✅ 零错误 |
+| Jest | ✅ 17 suites / 138 tests 全部通过 |
+| iOS Simulator Build | ✅ BUILD SUCCEEDED |
+
+### 当前状态
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (138 tests) | ✅ |
+| iOS Simulator Build | ✅ |
+| App Store 截图（6.7"/6.5"/5.5"）| ✅ |
+| AppIcon 1024×1024 | ✅ |
+| 隐私政策 GitHub Pages | ✅ |
+| 上架文案 | ✅ |
+| GitHub Actions TestFlight workflow | ✅ |
+| 生产安全（console.* 清理）| ✅ |
+| 死组件文件清理 | ✅（本地 commit 待 push）|
+| Git worktree | clean（2 commits 本地待 push）|
+
+### 还差什么（外部阻塞）
+
+| 阻塞项 | 类型 | 行动 |
+|--------|------|------|
+| Apple Developer 账号 | 外部 | $99/年，注册后获取 Team ID |
+| GitHub Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_KEY_CONTENT`, `APPLE_APP_PASSWORD` |
+| GitHub Variables | 外部 | `APPLE_TEAM_ID`, `APPLE_DEV_EMAIL` |
+| App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
+
+### 就绪待触发
+
+```bash
+git push origin main  # 推送本轮清理 commit
+git tag v0.1.0 && git push --tags origin main
+```
+→ GitHub Actions 自动 Archive → TestFlight 上传
+
+### 本轮完成（2026-05-08 14:48 · 截图收口 + 文档补全）
+
+**截图收口（15张 App Store 素材全部就绪）：**
+- 脚本：`scripts/capture-screenshots.sh`（已验证可执行）
+- 输出：`build/AppStoreScreenshots/`（5 Tab × 3 尺寸 = 15 张）
+- 尺寸：6.7"（1290×2796）/ 6.5"（1284×2778）/ 5.5"（1242×2208）
+- 上轮运行结果：全部 ✅，无失败
+
+**文档补全：**
+- `TESTFLIGHT.md`：新增 1.3 节「创建 App Store Connect API 密钥」，含 .p8 文件 Base64 编码说明
+- `.github/workflows/testflight.yml`：为 `APPLE_API_KEY_CONTENT` 添加 `secrets.APPLE_API_KEY_CONTENT` 引用（之前缺失 env 声明，导致空值）
+
+**剩余阻塞（仅人工可解决）：**
+- GitHub Secrets 未配置（`APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_API_KEY_CONTENT`）
+- GitHub Variables 未配置（`APPLE_TEAM_ID` / `APPLE_DEV_EMAIL`）
+- Apple Developer 账号 + App Store Connect App 记录待创建
+- Bundle ID `com.openclaw.aibrainim` 在 App Store Connect 中首次创建
+
+**代码侧状态：**
+- TypeScript ✅ · Jest 138 ✅ · iOS Build ✅ · CI ✅ · 截图 ✅ · 隐私政策 ✅ · 文档 ✅

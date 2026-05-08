@@ -54,6 +54,23 @@
 |-------------|---------|
 | `APPLE_DIST_P12` | 签名证书的 Base64 编码（见下方步骤） |
 | `APPLE_APP_PASSWORD` | Apple ID → 安全 → 专用密码（见下方步骤） |
+| `APPLE_API_KEY_CONTENT` | App Store Connect API 密钥的 .p8 文件内容 Base64 编码（见下方 1.3 节） |
+
+> ⚠️ `ASC_KEY_ID` 和 `ASC_ISSUER_ID` 已在 testflight.yml 中硬编码（不是 Secret，是 App Store Connect API 密钥的公开标识符）。如需更换，请同步修改 workflow 文件中的 `env.ASC_KEY_ID` 和 `env.ASC_ISSUER_ID`。
+
+### 1.3 创建 App Store Connect API 密钥（用于自动创建 Provisioning Profile）
+
+1. 登录 [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → **Users and Access**
+2. **Keys** → **+** 创建新密钥：
+   - 名称：`AIBrainIM CI`
+   - 角色：**App Manager**（需要能创建 provisioning profile）
+3. 下载 `.p8` 文件（只出现一次，请妥善保存）
+4. 将 Key ID（`HWP45ALL8Y`）和 Issuer ID（`0bc52ef9-a4c4-489e-810c-c8a80db0ab9a`）同步到 testflight.yml 中的 `env.ASC_KEY_ID` 和 `env.ASC_ISSUER_ID`
+5. Base64 编码并添加为 GitHub Secret `APPLE_API_KEY_CONTENT`：
+   ```bash
+   base64 -i ~/Downloads/AuthKey_HWP45ALL8Y.p8 | tr -d '\n'
+   ```
+   将输出结果添加到 GitHub Secret `APPLE_API_KEY_CONTENT`
 
 ---
 
