@@ -610,3 +610,52 @@ git add -A && git commit -m "feat: Tab Bar badge for tasks and pending confirmat
 git tag v0.1.0 && git push --tags origin main
 ```
 → GitHub Actions 自动 Archive → TestFlight 上传
+=== 第三十五轮（2026-05-08 晚 22:30 · ESLint 收口 + iOS Build 验证） ===
+
+本轮完成：
+
+**ESLint 收口（5 个 react/no-unstable-nested-components warning 消除）：**
+- 问题根源：Tab.Screen 的 tabBarIcon 选项中内联箭头函数，每次渲染创建新组件类型
+- 解决方案：将工厂函数提升至模块作用域（TabNavigator 外部），用 eslint-disable-next-line react/display-name 标记
+- 文件：App.tsx 重写（-82/+37 行），结构更清晰
+
+**全量质量基线验证（本轮）：**
+| 检查项 | 状态 |
+|--------|------|
+| ESLint App.tsx | ✅ 0 error / 0 warning（ESLint auto-fix 清除 2 个 eslint-comments 残留）|
+| TypeScript | ✅ 0 error（已验证）|
+| Jest (138 tests) | ✅ 17 suites |
+| iOS Simulator Build | ✅ BUILD SUCCEEDED |
+| Git | clean + 已 push |
+
+**Git：** 已 push origin/main（commit 63e905e）
+
+**当前状态（P1 完全收口 · 2026-05-08 晚）**
+
+| 检查项 | 状态 |
+|--------|------|
+| TypeScript | ✅ |
+| Jest (138 tests) | ✅ |
+| iOS Simulator Build | ✅ |
+| ESLint | ✅ 0 error / 0 warning（App.tsx 完全清除）|
+| Tab Bar Badge | ✅ |
+| App Store 截图（6.7"/6.5"/5.5"）| ✅ |
+| AppIcon 1024×1024 | ✅ |
+| 隐私政策 GitHub Pages | ✅ |
+| 上架文案（APPSTORE_LISTING.md）| ✅ |
+| GitHub Actions TestFlight workflow | ✅ |
+| 生产安全（console.* 清理）| ✅ |
+| Worktree 清理 | ✅ |
+| Git | clean + 已 push |
+
+**唯一阻塞（仅人工可解决）：**
+- Apple Developer 账号（$99/年）+ Team ID
+- GitHub Secrets：APPLE_API_KEY_ID / APPLE_API_KEY_CONTENT / APPLE_APP_PASSWORD
+- GitHub Variables：APPLE_TEAM_ID / APPLE_DEV_EMAIL
+- App Store Connect App 记录（Bundle ID: com.openclaw.aibrainim）
+
+**就绪待触发：**
+```bash
+git tag v0.1.0 && git push --tags origin main
+# → GitHub Actions 自动 Archive → TestFlight 上传
+```
