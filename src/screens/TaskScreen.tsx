@@ -55,7 +55,7 @@ function TaskCard({task, onPress}: {task: Task; onPress?: () => void}) {
       {task.priority ? <Text style={styles.taskId}>优先级：{task.priority}</Text> : null}
       <View style={styles.metaBadgeRow}>
         {task.attachmentCount ? (
-          <View style={[styles.sourceBadge, {backgroundColor: '#6366f1'}]}>
+          <View style={styles.sourceBadgePurple}>
             <Text style={styles.sourceBadgeText}>📎 {task.attachmentCount}</Text>
           </View>
         ) : null}
@@ -560,6 +560,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(148,163,184,0.12)',
     borderWidth: 1, borderColor: C.borderSubtle,
+  },
+  sourceBadgePurple: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: '#6366f1',
+    borderWidth: 1, borderColor: '#6366f1',
   },
   sourceBadgeText: {color: C.textBody, fontSize: 10, fontWeight: '800'},
   taskMeta:  {color: C.textMuted, fontSize: 11, marginTop: 5},

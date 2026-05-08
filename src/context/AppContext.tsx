@@ -1001,7 +1001,7 @@ export function AppProvider({children}: {children: ReactNode}) {
       }
     };
 
-    void tick();
+    tick();
     const poll = setInterval(() => {
       tick().catch(() => {});
     }, 4000);

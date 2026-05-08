@@ -407,6 +407,7 @@ export function ProfileScreen() {
           <View style={styles.releaseChecklist}>
             {readinessChecklist.map((item, i) => (
               <View key={i} style={styles.checkItem}>
+                {/* eslint-disable-next-line react-native/no-inline-styles */}
                 <Text style={[styles.checkIcon, {color: item.done ? '#34d399' : C.textMuted}]}> 
                   {item.done ? '✅' : '⬜'}
                 </Text>
@@ -437,6 +438,7 @@ export function ProfileScreen() {
             <Text style={styles.releaseFocusTitle}>Apple 物料缺口</Text>
             {appleMaterials.map((item, index) => (
               <View key={index} style={styles.materialItem}>
+                {/* eslint-disable-next-line react-native/no-inline-styles */}
                 <Text style={[styles.materialDot, {color: item.done ? '#34d399' : '#f97316'}]}>
                   {item.done ? '●' : '○'}
                 </Text>

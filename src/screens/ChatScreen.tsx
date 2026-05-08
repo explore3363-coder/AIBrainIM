@@ -235,7 +235,7 @@ export function ChatScreen() {
           const name = asset.fileName ?? `image_${Date.now()}`;
           const size = asset.fileSize ?? 0;
           const mime = asset.type ?? 'image/jpeg';
-          void enqueueUpload(name, asset.uri, mime, size).then(_f => {
+          enqueueUpload(name, asset.uri, mime, size).then(_f => {
             const fileId = _f.id;
             trackAttachment(fileId, true);
             syncAttachments();
@@ -290,7 +290,7 @@ export function ChatScreen() {
           const name = asset.fileName ?? `photo_${Date.now()}.jpg`;
           const size = asset.fileSize ?? 0;
           const mime = asset.type ?? 'image/jpeg';
-          void enqueueUpload(name, asset.uri, mime, size).then(_f => {
+          enqueueUpload(name, asset.uri, mime, size).then(_f => {
             trackAttachment(_f.id, true);
             syncAttachments();
             setMessages(m => [
@@ -312,7 +312,7 @@ export function ChatScreen() {
       .then((results: DocumentPickerResponse[]) => {
         results.forEach(doc => {
           if (!doc.uri) return;
-          void enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0).then(_f => {
+          enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0).then(_f => {
             trackAttachment(_f.id, true);
             syncAttachments();
             setMessages(m => [
@@ -409,7 +409,7 @@ export function ChatScreen() {
 
       // Sync the rest of the app (Dashboard AI feed, Agent status, Task/Kanban)
       // so the send action immediately reflects everywhere without requiring pull-to-refresh.
-      void refresh();
+      refresh();
 
       if (sent && hasAttachmentContext) {
         setMessages(m => [
@@ -582,7 +582,7 @@ export function ChatScreen() {
           {typing && (
             <View style={styles.msgIn}>
               <Text style={styles.msgName}>助理</Text>
-              <View style={{flexDirection:'row', alignItems:'center', paddingTop:4, gap:5}}>
+              <View style={styles.typingDotsRow}>
                 {[dot1, dot2, dot3].map((dot, i) => (
                   <Animated.Text
                     key={i}
@@ -719,7 +719,7 @@ export function ChatScreen() {
               onChangeText={setDraft}
               placeholder="输入 AI 调度指令..."
               placeholderTextColor={C.textMuted}
-              style={[styles.input, {borderColor: 'rgba(255,255,255,0.08)', minHeight: Math.max(44, Math.min(inputHeight, 120))}]}
+              style={[styles.input, styles.inputAltBorder, {minHeight: Math.max(44, Math.min(inputHeight, 120))}]}
               multiline
               editable={!sending}
               onContentSizeChange={e => { setInputHeight(e.nativeEvent.contentSize.height); }}
@@ -826,6 +826,7 @@ const styles = StyleSheet.create({
   },
   msgName: {color: C.primary, fontSize: 11, fontWeight: '800', marginBottom: 4},
   typingDot: {color: C.primary, fontSize: 18, marginRight: 4, lineHeight: 22},
+  typingDotsRow: {flexDirection: 'row', alignItems: 'center', paddingTop: 4, gap: 5},
   msgText: {color: C.textBody, fontSize: 14, lineHeight: 20},
 
   dispatchStatusCard: {
@@ -883,6 +884,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.borderSubtle,
     fontSize: 14,
   },
+  inputAltBorder: {borderColor: 'rgba(255,255,255,0.08)'},
   inputHint: {
     color: C.textMuted,
     fontSize: 11,

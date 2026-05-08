@@ -1,5 +1,5 @@
 import React from 'react';
-import {StatusBar} from 'react-native';
+import {StatusBar, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -148,12 +148,16 @@ function RootNavigator() {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  rootSafeArea: {flex: 1, backgroundColor: C.bgRoot},
+});
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
         <NavigationContainer>
-          <SafeAreaView style={{flex: 1, backgroundColor: C.bgRoot}} edges={['top']}>
+          <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
             <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
             <RootNavigator />
           </SafeAreaView>

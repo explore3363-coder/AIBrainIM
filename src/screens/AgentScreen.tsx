@@ -193,7 +193,7 @@ export function AgentScreen() {
               <Text style={styles.summaryHint}>说明系统当前可被即时调度</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, {color: '#f87171'}]}>待确认</Text>
+              <Text style={styles.summaryLabelWarning}>待确认</Text>
               <Text style={styles.summaryValue}>{Math.max(pendingConfirmations, blockedTasks.length)}</Text>
               <Text style={styles.summaryHint}>人工拍板会直接影响推进</Text>
             </View>
@@ -354,6 +354,7 @@ const styles = StyleSheet.create({
     borderColor: C.borderSubtle,
   },
   summaryLabel: {fontSize: 11, fontWeight: '900'},
+  summaryLabelWarning: {fontSize: 11, fontWeight: '900', color: '#f87171'},
   summaryValue: {color: C.textTitle, fontSize: 20, fontWeight: '900', marginTop: 6},
   summaryHint: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5},
   actionRow: {gap: 10, marginBottom: 14},

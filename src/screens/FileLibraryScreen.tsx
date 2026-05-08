@@ -77,7 +77,7 @@ export function FileLibraryScreen() {
             (res.assets ?? []).forEach(asset => {
               if (!asset.uri) return;
               const name = asset.fileName ?? `file_${Date.now()}`;
-              void enqueueUpload(name, asset.uri, asset.type ?? 'application/octet-stream', asset.fileSize ?? 0);
+              enqueueUpload(name, asset.uri, asset.type ?? 'application/octet-stream', asset.fileSize ?? 0);
             });
             if (res.assets && res.assets.length > 0) {
               Alert.alert('已开始上传', `${res.assets.length} 个文件已加入上传队列`);
@@ -89,7 +89,7 @@ export function FileLibraryScreen() {
             .then(results => {
               results.forEach(doc => {
                 if (!doc.uri) return;
-                void enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0);
+                enqueueUpload(doc.name ?? '文档', doc.uri, doc.type ?? 'application/octet-stream', doc.size ?? 0);
               });
               if (results.length > 0) {
                 Alert.alert('已开始上传', `${results.length} 个文件已加入上传队列`);

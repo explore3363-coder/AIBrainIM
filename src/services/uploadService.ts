@@ -451,7 +451,7 @@ export async function enqueueUpload(
 ): Promise<UploadFile> {
   const file = buildFileEntry(name, uri, mimeType, size);
   _queue.push(file);
-  void processUpload(file.id); // fire-and-forget
+  processUpload(file.id); // fire-and-forget
   return file;
 }
 
@@ -529,7 +529,7 @@ export function retryUpload(id: string): void {
     file.uploadedChunks = file.transferMode === 'chunked' ? 0 : undefined;
   }
 
-  void processUpload(file.id);
+  processUpload(file.id);
 }
 
 export function markFileForNextDispatch(id: string): void {
@@ -597,7 +597,7 @@ export function enqueueDemoUpload(index?: number): UploadFile {
     timestamp: new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}),
   };
   _queue.push(file);
-  void processUpload(file.id);
+  processUpload(file.id);
   return file;
 }
 
