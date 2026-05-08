@@ -94,8 +94,6 @@ interface AppContextValue {
     mode: 'created' | 'updated' | 'resynced';
   }) => void;
   recentCaptures: CaptureEntry[];
-  /** Demo mode: injects sample dispatches and tasks for QA / showcase */
-  injectDemoData: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -271,7 +269,6 @@ const AppContext = createContext<AppContextValue>({
   registerKnowledgeCapture: () => {},
   registerMemoryCapture: () => {},
   recentCaptures: [],
-  injectDemoData: () => {},
 });
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -818,113 +815,6 @@ export function AppProvider({children}: {children: ReactNode}) {
     ].slice(0, 10));
   }, []);
 
-  /** Demo mode: inject 3 sample dispatches + 3 sample tasks for QA / showcase */
-  const injectDemoData = useCallback(() => {
-    const now = Date.now();
-    const demoDispatches: DispatchRecord[] = [
-      {
-        id: `demo-dp-${now}-1`,
-        userText: '检查今日钨矿价格走势',
-        reply: '✓ 寻龙 [钨矿研判] 已完成本轮执行 · 已运行 12s',
-        taskId: `demo-task-${now}-1`,
-        dispatchId: `demo-d-${now}-1`,
-        sessionKey: 'demo:xunlong:subagent:1',
-        createdAt: now - 90000,
-        updatedAt: now - 80000,
-        status: 'completed',
-        source: 'chat',
-        agentId: 'xunlong',
-        label: '钨矿研判',
-        stageText: '寻龙 · 钨矿研判 · 12s',
-      },
-      {
-        id: `demo-dp-${now}-2`,
-        userText: '更新聚源三维项目进度',
-        reply: '🛰 聚源三维 [数字孪生] 正在执行 · 已运行 28s',
-        taskId: `demo-task-${now}-2`,
-        dispatchId: `demo-d-${now}-2`,
-        sessionKey: 'demo:wuyin:subagent:2',
-        createdAt: now - 60000,
-        updatedAt: now - 50000,
-        status: 'dispatched',
-        source: 'chat',
-        agentId: 'wuyin',
-        label: '数字孪生',
-        stageText: '无垠 · 数字孪生 · 28s',
-      },
-      {
-        id: `demo-dp-${now}-3`,
-        userText: 'XRT 选矿参数优化建议',
-        reply: '✓ 探索 [XRT参数] 已完成本轮执行 · 已运行 18s',
-        taskId: `demo-task-${now}-3`,
-        dispatchId: `demo-d-${now}-3`,
-        sessionKey: 'demo:tansuo:subagent:3',
-        createdAt: now - 30000,
-        updatedAt: now - 20000,
-        status: 'completed',
-        source: 'chat',
-        agentId: 'tansuo',
-        label: 'XRT参数',
-        stageText: '探索 · XRT参数 · 18s',
-      },
-    ];
-
-    const demoTasks: Task[] = [
-      {
-        id: `demo-task-${now}-1`,
-        title: '检查今日钨矿价格走势',
-        owner: '寻龙 / 对话链路',
-        state: 'done',
-        eta: '已完成',
-        next: '结果已回流到首页 AI 产出流',
-        priority: 'P1',
-        agentId: 'xunlong',
-        sessionKey: 'demo:xunlong:subagent:1',
-        updatedAt: now - 80000,
-        sourceType: 'chat',
-        traceSummary: '对话链路 · 钨矿研判',
-      },
-      {
-        id: `demo-task-${now}-2`,
-        title: '更新聚源三维项目进度',
-        owner: '无垠 / 对话链路',
-        state: 'running',
-        eta: '执行中',
-        next: '项目数字孪生模型更新推进中',
-        priority: 'P0',
-        agentId: 'wuyin',
-        sessionKey: 'demo:wuyin:subagent:2',
-        updatedAt: now - 50000,
-        sourceType: 'chat',
-        traceSummary: '对话链路 · 数字孪生',
-      },
-      {
-        id: `demo-task-${now}-3`,
-        title: 'XRT 选矿参数优化建议',
-        owner: '探索 / 对话链路',
-        state: 'done',
-        eta: '已完成',
-        next: '结果已同步到选矿专家系统',
-        priority: 'P1',
-        agentId: 'tansuo',
-        sessionKey: 'demo:tansuo:subagent:3',
-        updatedAt: now - 20000,
-        sourceType: 'chat',
-        traceSummary: '对话链路 · XRT参数',
-      },
-    ];
-
-    setDispatches(items => {
-      const combined = [...demoDispatches, ...items].slice(0, 20);
-      return combined;
-    });
-    setTasks(items => {
-      const existingIds = new Set(items.map(t => t.id));
-      const newItems = demoTasks.filter(t => !existingIds.has(t.id));
-      return [...newItems, ...items].slice(0, 20);
-    });
-  }, []);
-
   useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
@@ -1150,7 +1040,6 @@ export function AppProvider({children}: {children: ReactNode}) {
         registerKnowledgeCapture,
         registerMemoryCapture,
         recentCaptures,
-        injectDemoData,
       }}
     >
       {children}
