@@ -151,14 +151,23 @@ jobs:
 
       - name: Upload to App Store Connect
         run: |
+          set -o pipefail
           IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          echo "Uploading $IPA_PATH to App Store Connect..."
           xcrun altool \
             --upload-app \
             -f "$IPA_PATH" \
             -t ios \
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --verbose
+            --verbose 2>&1 | tee build/upload.log
+          UPLOAD_STATUS=$?
+          if [ $UPLOAD_STATUS -ne 0 ]; then
+            echo "ERROR: altool exited with status $UPLOAD_STATUS"
+            cat build/upload.log
+            exit $UPLOAD_STATUS
+          fi
+          echo "Upload successful!"
 
       - name: Upload build logs artifact
         if: always()
