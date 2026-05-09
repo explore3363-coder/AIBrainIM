@@ -117,6 +117,24 @@ describe('ChatScreen attachment dispatch', () => {
     });
   }
 
+  it('shows selected attachment context card in dispatch status area', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<ChatScreen />);
+      await Promise.resolve();
+    });
+
+    const texts = tree!.root.findAllByType(Text).map(node => {
+      const child = node.props.children;
+      return Array.isArray(child) ? child.join('') : String(child);
+    });
+
+    expect(texts).toContain('下一条消息将携带附件上下文');
+    expect(texts.some(text => text.includes('1 个附件已就绪'))).toBe(true);
+    expect(texts.some(text => text.includes('矿山日报.pdf'))).toBe(true);
+  });
+
   it('allows sending attachment-only analysis request', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
 

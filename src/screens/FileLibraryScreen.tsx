@@ -52,11 +52,57 @@ function getFileType(f: AnyFile): string {
   return f.type;
 }
 
+function buildTransferSummary(file: UploadFile): string | null {
+  if (file.status === 'error') {
+    return file.error ? `失败原因：${file.error}` : '上传失败，请重试';
+  }
+
+  if (file.transferMode === 'chunked') {
+    const uploadedChunks = file.uploadedChunks ?? 0;
+    const totalChunks = file.totalChunks ?? 0;
+
+    if (file.status === 'queued') {
+      return totalChunks > 0
+        ? `分片准备中 · ${uploadedChunks}/${totalChunks} 片`
+        : '分片准备中';
+    }
+
+    if (file.status === 'uploading') {
+      return totalChunks > 0
+        ? `分片上传中 · ${uploadedChunks}/${totalChunks} 片 · ${file.progress}%`
+        : `分片上传中 · ${file.progress}%`;
+    }
+
+    if (file.status === 'processing') {
+      return '上传已完成，后台正在解析与分派';
+    }
+  }
+
+  if (file.status === 'processing') {
+    return '上传已完成，后台正在解析与分派';
+  }
+
+  if (file.status === 'dispatched') {
+    return file.agent ? `已分派给 ${file.agent}` : '已进入调度链';
+  }
+
+  if (file.status === 'done') {
+    return file.agent ? `${file.agent} 已完成处理` : '处理已完成';
+  }
+
+  return null;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export function FileLibraryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [activeType, setActiveType] = useState<FilterType>('全部');
+  const [queuedVersion, setQueuedVersion] = useState(0);
   const {uploads} = useAppContext();
+
+  const refreshQueuedContext = useCallback(() => {
+    setQueuedVersion(version => version + 1);
+  }, []);
 
   const allFiles = useMemo(() => sortByTimestamp(uploads), [uploads]);
 
@@ -111,6 +157,19 @@ export function FileLibraryScreen() {
 
   const totalCount = allFiles.length;
   const uploadingCount = uploads.filter(f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing').length;
+  const failedFiles = useMemo(
+    () => allFiles.filter(file => file.status === 'error'),
+    [allFiles],
+  );
+  const queuedIds = useMemo(
+    () => uploadService.getFilesForNextDispatch().map(file => file.id),
+    [uploads, queuedVersion],
+  );
+  const queuedIdSet = useMemo(() => new Set(queuedIds), [queuedIds]);
+  const queuedFiles = useMemo(
+    () => allFiles.filter(file => queuedIdSet.has(file.id)),
+    [allFiles, queuedIdSet],
+  );
 
   const openDispatchChain = useCallback((file: UploadFile) => {
     navigation.navigate('DispatchChain', {
@@ -122,12 +181,27 @@ export function FileLibraryScreen() {
 
   const continueInChat = useCallback((file: UploadFile) => {
     uploadService.markFileForNextDispatch(file.id);
+    refreshQueuedContext();
     navigation.navigate('Tabs', {screen: 'Chat'});
-  }, [navigation]);
+  }, [navigation, refreshQueuedContext]);
+
+  const removeFromQueuedContext = useCallback((file: UploadFile) => {
+    uploadService.unmarkFileForNextDispatch(file.id);
+    refreshQueuedContext();
+  }, [refreshQueuedContext]);
+
+  const clearQueuedContext = useCallback(() => {
+    queuedFiles.forEach(file => uploadService.unmarkFileForNextDispatch(file.id));
+    refreshQueuedContext();
+  }, [queuedFiles, refreshQueuedContext]);
 
   const retryFile = useCallback((file: UploadFile) => {
     uploadService.retryUpload(file.id);
   }, []);
+
+  const retryAllFailedFiles = useCallback(() => {
+    failedFiles.forEach(file => uploadService.retryUpload(file.id));
+  }, [failedFiles]);
 
   const removeFile = useCallback((file: UploadFile) => {
     Alert.alert('移除附件', `确定从附件库移除「${file.name}」？`, [
@@ -183,6 +257,62 @@ export function FileLibraryScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {failedFiles.length > 0 && (
+          <View style={styles.errorBanner}>
+            <View style={styles.errorBannerHeader}>
+              <View style={styles.errorBannerTextWrap}>
+                <Text style={styles.errorBannerTitle}>有 {failedFiles.length} 个附件处理失败</Text>
+                <Text style={styles.errorBannerSub}>可以直接重试，不用逐个翻卡片处理。</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.errorBannerBtn}
+                activeOpacity={0.8}
+                onPress={retryAllFailedFiles}
+              >
+                <Text style={styles.errorBannerBtnText}>全部重试</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {queuedFiles.length > 0 && (
+          <View style={styles.contextBanner}>
+            <View style={styles.contextBannerHeader}>
+              <View style={styles.contextBannerTextWrap}>
+                <Text style={styles.contextBannerTitle}>已加入下一轮对话上下文</Text>
+                <Text style={styles.contextBannerSub}>{queuedFiles.length} 个附件会随下一条消息一起进入调度链</Text>
+              </View>
+              <View style={styles.contextBannerActions}>
+                <TouchableOpacity
+                  style={styles.contextBannerGhostBtn}
+                  activeOpacity={0.8}
+                  onPress={clearQueuedContext}
+                >
+                  <Text style={styles.contextBannerGhostBtnText}>全部移出</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.contextBannerBtn}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('Tabs', {screen: 'Chat'})}
+                >
+                  <Text style={styles.contextBannerBtnText}>去对话</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.contextBannerChips}>
+              {queuedFiles.slice(0, 3).map(file => (
+                <View key={file.id} style={styles.contextChip}>
+                  <Text style={styles.contextChipText} numberOfLines={1}>{file.name}</Text>
+                </View>
+              ))}
+              {queuedFiles.length > 3 ? (
+                <View style={styles.contextChipMuted}>
+                  <Text style={styles.contextChipMutedText}>+{queuedFiles.length - 3}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        )}
         {/* Empty state — user-facing, no developer noise */}
         {allFiles.length === 0 && (
           <View style={styles.emptyState}>
@@ -235,10 +365,12 @@ export function FileLibraryScreen() {
           const statusMeta = STATUS_META[fileStatus] ?? STATUS_META.pending;
           const fileSize = uploadService.formatBytes(file.size);
           const fileTime = file.timestamp ?? '';
-          const isLargeFile = file.size > LARGE_FILE_THRESHOLD;
-          const isChunked = isLargeFile && file.size > 0;
+          const isLargeFile = file.transferMode === 'chunked' || file.size > LARGE_FILE_THRESHOLD;
+          const isChunked = file.transferMode === 'chunked' || file.size === 0 || file.size > LARGE_FILE_THRESHOLD;
+          const queuedForChat = queuedIdSet.has(file.id);
+          const transferSummary = buildTransferSummary(file);
 
-          // Build pipeline step label for large files
+          // Build pipeline step label for chunked/background pipeline files
           const pipelineStep =
             file.status === 'queued' && isChunked ? '分片中'
             : file.status === 'uploading' && isChunked ? `上传 ${file.progress}%`
@@ -261,6 +393,14 @@ export function FileLibraryScreen() {
                   )}
                 </View>
                 <Text style={styles.fileMeta}>{fileSize} · {fileAgent} · {fileTime}</Text>
+                {transferSummary ? (
+                  <Text style={[
+                    styles.transferSummary,
+                    file.status === 'error' && styles.transferSummaryError,
+                  ]}>
+                    {transferSummary}
+                  </Text>
+                ) : null}
                 {/* Large file pipeline step */}
                 {pipelineStep ? (
                   <View style={[styles.pipelineBadge, {borderColor: statusMeta.color + '44', backgroundColor: `${statusMeta.color}11`}]}>
@@ -272,8 +412,15 @@ export function FileLibraryScreen() {
                     )}
                   </View>
                 ) : null}
-                <View style={[styles.statusBadge, {borderColor: statusMeta.color + '44'}]}>
-                  <Text style={[styles.statusText, {color: statusMeta.color}]}>{statusMeta.label}</Text>
+                <View style={styles.fileMetaRow}>
+                  <View style={[styles.statusBadge, {borderColor: statusMeta.color + '44'}]}>
+                    <Text style={[styles.statusText, {color: statusMeta.color}]}>{statusMeta.label}</Text>
+                  </View>
+                  {queuedForChat ? (
+                    <View style={styles.queuedContextBadge}>
+                      <Text style={styles.queuedContextBadgeText}>已带入下一轮对话</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={styles.fileActions}>
                   {file.dispatchId ? (
@@ -286,13 +433,23 @@ export function FileLibraryScreen() {
                     </TouchableOpacity>
                   ) : null}
                   {(file.status === 'done' || file.status === 'dispatched' || file.status === 'processing') ? (
-                    <TouchableOpacity
-                      style={styles.fileActionBtn}
-                      activeOpacity={0.78}
-                      onPress={() => continueInChat(file)}
-                    >
-                      <Text style={styles.fileActionText}>带入对话</Text>
-                    </TouchableOpacity>
+                    queuedForChat ? (
+                      <TouchableOpacity
+                        style={[styles.fileActionBtn, styles.fileActionQueuedBtn]}
+                        activeOpacity={0.78}
+                        onPress={() => removeFromQueuedContext(file)}
+                      >
+                        <Text style={[styles.fileActionText, styles.fileActionQueuedText]}>取消带入</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.fileActionBtn}
+                        activeOpacity={0.78}
+                        onPress={() => continueInChat(file)}
+                      >
+                        <Text style={styles.fileActionText}>带入对话</Text>
+                      </TouchableOpacity>
+                    )
                   ) : null}
                   {file.status === 'error' ? (
                     <TouchableOpacity
@@ -356,6 +513,92 @@ const styles = StyleSheet.create({
   filterText:      {color: C.textMuted, fontSize: 13, fontWeight: '700'},
   filterTextActive:{color: C.primary},
   content:    {padding: 16, paddingBottom: 100, gap: 10},
+  errorBanner: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(248,113,113,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.2)',
+    gap: 10,
+  },
+  errorBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  errorBannerTextWrap: {flex: 1},
+  errorBannerTitle: {color: '#fda4af', fontSize: 13, fontWeight: '900'},
+  errorBannerSub: {color: C.textBody, fontSize: 11, marginTop: 3},
+  errorBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(248,113,113,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.28)',
+  },
+  errorBannerBtnText: {color: '#fda4af', fontSize: 12, fontWeight: '900'},
+  contextBanner: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(52,211,153,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.2)',
+    gap: 10,
+  },
+  contextBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  contextBannerTextWrap: {flex: 1},
+  contextBannerTitle: {color: '#34d399', fontSize: 13, fontWeight: '900'},
+  contextBannerSub: {color: C.textBody, fontSize: 11, marginTop: 3},
+  contextBannerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  contextBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(52,211,153,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.28)',
+  },
+  contextBannerBtnText: {color: '#34d399', fontSize: 12, fontWeight: '900'},
+  contextBannerGhostBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148,163,184,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.18)',
+  },
+  contextBannerGhostBtnText: {color: C.textMuted, fontSize: 12, fontWeight: '800'},
+  contextBannerChips: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  contextChip: {
+    maxWidth: '80%',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  contextChipText: {color: C.textTitle, fontSize: 11, fontWeight: '700'},
+  contextChipMuted: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  contextChipMutedText: {color: C.textMuted, fontSize: 11, fontWeight: '800'},
   card: {
     flexDirection: 'row', gap: 12,
     padding: 14, borderRadius: 18,
@@ -370,6 +613,8 @@ const styles = StyleSheet.create({
   cardBody:   {flex: 1, justifyContent: 'center'},
   fileName:   {color: C.textTitle, fontSize: 14, fontWeight: '800'},
   fileMeta:   {color: C.textMuted, fontSize: 11, marginTop: 4},
+  transferSummary: {color: C.textBody, fontSize: 11, marginTop: 4, lineHeight: 16},
+  transferSummaryError: {color: '#fca5a5'},
   fileNameRow: {flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap'},
   largeFileBadge: {
     paddingHorizontal: 5,
@@ -390,12 +635,22 @@ const styles = StyleSheet.create({
   },
   pipelineText: {fontSize: 10, fontWeight: '800'},
   pipelineSub: {fontSize: 10, fontWeight: '700'},
+  fileMetaRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5},
   statusBadge: {
     alignSelf: 'flex-start', marginTop: 5,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1,
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   statusText: {fontSize: 10, fontWeight: '800'},
+  queuedContextBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(52,211,153,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.26)',
+  },
+  queuedContextBadgeText: {color: '#34d399', fontSize: 10, fontWeight: '800'},
   fileActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -411,6 +666,11 @@ const styles = StyleSheet.create({
     borderColor: C.borderActive,
   },
   fileActionText: {color: C.primary, fontSize: 11, fontWeight: '900'},
+  fileActionQueuedBtn: {
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    borderColor: 'rgba(52,211,153,0.3)',
+  },
+  fileActionQueuedText: {color: '#34d399'},
   retryActionBtn: {
     backgroundColor: 'rgba(248,113,113,0.1)',
     borderColor: 'rgba(248,113,113,0.35)',

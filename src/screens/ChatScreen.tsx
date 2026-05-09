@@ -202,6 +202,19 @@ export function ChatScreen() {
     [safeAttachments, queuedAttachmentIds],
   );
 
+  const queuedReadyCount = useMemo(
+    () => queuedAttachmentSummaries.filter(att => att.status === 'done' || att.status === 'dispatched' || att.status === 'processing').length,
+    [queuedAttachmentSummaries],
+  );
+
+  const queuedWaitingCount = Math.max(0, queuedAttachmentSummaries.length - queuedReadyCount);
+
+  const queuedAttachmentStatusText = queuedAttachmentSummaries.length > 0
+    ? queuedWaitingCount > 0
+      ? `${queuedAttachmentSummaries.length} 个附件已选 · ${queuedWaitingCount} 个仍在上传/排队，发送后会按当前状态进入调度链`
+      : `${queuedAttachmentSummaries.length} 个附件已就绪，可直接发给 AI 分析`
+    : '';
+
   const clearQueuedAttachment = useCallback((id: string) => {
     uploadService.unmarkFileForNextDispatch(id);
     setQueuedAttachmentIds(ids => ids.filter(item => item !== id));
@@ -444,6 +457,7 @@ export function ChatScreen() {
     clearQueuedAttachment,
     draft,
     queuedAttachmentSummaries,
+    queuedAttachmentStatusText,
     registerDispatch,
     refresh,
     sending,
@@ -548,9 +562,43 @@ export function ChatScreen() {
                   : '暂无调度记录'}
             </Text>
             {queuedAttachmentSummaries.length > 0 ? (
-              <Text style={styles.dispatchAttachmentHint}>
-                当前待随消息一并进入调度链的附件:{queuedAttachmentSummaries.length} 个
-              </Text>
+              <View style={styles.queuedAttachmentCard}>
+                <View style={styles.queuedAttachmentTopRow}>
+                  <View style={styles.queuedAttachmentTextWrap}>
+                    <Text style={styles.queuedAttachmentTitle}>下一条消息将携带附件上下文</Text>
+                    <Text style={styles.queuedAttachmentSubtitle}>{queuedAttachmentStatusText}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.queuedAttachmentClearBtn}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      uploadService.clearFilesForNextDispatch(queuedAttachmentSummaries.map(att => att.id));
+                      queuedAttachmentSummaries.forEach(att => clearQueuedAttachment(att.id));
+                      syncAttachments();
+                    }}
+                  >
+                    <Text style={styles.queuedAttachmentClearText}>清空</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.queuedAttachmentChips}>
+                  {queuedAttachmentSummaries.slice(0, 3).map(att => (
+                    <TouchableOpacity
+                      key={att.id}
+                      style={styles.queuedAttachmentChip}
+                      activeOpacity={0.75}
+                      onPress={() => clearQueuedAttachment(att.id)}
+                    >
+                      <Text style={styles.queuedAttachmentChipText} numberOfLines={1}>{att.name}</Text>
+                      <Text style={styles.queuedAttachmentChipRemove}>×</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {queuedAttachmentSummaries.length > 3 ? (
+                    <View style={styles.queuedAttachmentMoreChip}>
+                      <Text style={styles.queuedAttachmentMoreText}>+{queuedAttachmentSummaries.length - 3}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
             ) : null}
             {latestDispatch ? (
               <Text style={styles.dispatchStatusMeta}>
@@ -852,6 +900,57 @@ const styles = StyleSheet.create({
   dispatchStatusSummary: {color: C.textSecondary, fontSize: 12, lineHeight: 16, flex: 1},
   dispatchStatusMeta: {color: C.textMuted, fontSize: 10, lineHeight: 14},
   dispatchAttachmentHint: {color: C.primary, fontSize: 10, lineHeight: 14, fontWeight: '700'},
+  queuedAttachmentCard: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(52,211,153,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.22)',
+    gap: 8,
+  },
+  queuedAttachmentTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  queuedAttachmentTextWrap: {flex: 1},
+  queuedAttachmentTitle: {color: '#34d399', fontSize: 12, fontWeight: '900'},
+  queuedAttachmentSubtitle: {color: C.textBody, fontSize: 10, lineHeight: 14, marginTop: 3},
+  queuedAttachmentClearBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  queuedAttachmentClearText: {color: C.textMuted, fontSize: 10, fontWeight: '800'},
+  queuedAttachmentChips: {flexDirection: 'row', flexWrap: 'wrap', gap: 6},
+  queuedAttachmentChip: {
+    maxWidth: '78%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  queuedAttachmentChipText: {color: C.textTitle, fontSize: 10, fontWeight: '700', maxWidth: 160},
+  queuedAttachmentChipRemove: {color: C.textMuted, fontSize: 12, fontWeight: '900', marginTop: -1},
+  queuedAttachmentMoreChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  queuedAttachmentMoreText: {color: C.textMuted, fontSize: 10, fontWeight: '800'},
 
   uploadPanel: {
     padding: 13, borderRadius: 18,

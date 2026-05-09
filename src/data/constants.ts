@@ -1,31 +1,37 @@
 /**
- * Design Tokens — 霓虹绿工业 OS v2.0
+ * Design Tokens — Industrial Intelligence OS (Final Design v3)
+ * Based on reference screenshots: dual ambient glow + glass-morphism + electric green accent
  *
- * 设计语言：Industrial Intelligence OS
- * 背景：纯黑 OLED 友好
- * 主色：霓虹绿 #00FF00
+ * 设计语言：工业智能操作系统
+ * 背景：深炭黑 #0D0D0D + 双色氛围光（翠绿右上角 + 深蓝左下角）
+ * 主色：荧光绿 #00FF41（激活态 / CTA / 状态点）
+ * 卡片：玻璃拟态半透明深灰面板，12-16px大圆角
  */
 
 // ─── Design Tokens ───────────────────────────────────────────────────────────────
 export const C = {
-  // ── Backgrounds ──────────────────────────────────────────────────────────
-  bgRoot:      '#000000',        // 纯黑 OLED
-  bgSurface:   '#0a0a0a',        // 次层背景
-  bgCard:      'rgba(20,20,20,0.85)',
-  bgElevated:  '#111111',
-  bgOverlay:   'rgba(0,0,0,0.92)',
+  // ── Backgrounds — 深炭黑 + 氛围光 ──────────────────────────────────────────
+  bgRoot:      '#0D0D0D',        // 深炭黑底
+  bgSurface:   '#141414',        // 次层背景
+  bgCard:      'rgba(20,20,20,0.85)',  // 玻璃拟态卡片
+  bgElevated:  '#1A1A1A',        // 抬升元素
+  bgOverlay:   'rgba(13,13,13,0.92)',
   bgGlass:     'rgba(20,20,20,0.70)',
 
-  // ── Borders ─────────────────────────────────────────────────────────────
-  borderSubtle:  'rgba(0,255,0,0.10)',
-  borderDefault:  'rgba(0,255,0,0.18)',
-  borderActive:  'rgba(0,255,0,0.60)',
+  // ── Borders — 极淡绿色描边 ───────────────────────────────────────────────
+  borderSubtle:  'rgba(255,255,255,0.06)',
+  borderDefault:  'rgba(255,255,255,0.10)',
+  borderActive:  'rgba(0,255,65,0.60)',
 
-  // ── Accent / Primary — 霓虹绿 ─────────────────────────────────────────────
-  primary:     '#00FF00',
-  primaryDark: '#00CC00',
-  primaryGlow: 'rgba(0,255,0,0.20)',
-  accent:      '#00FF9F',
+  // ── Accent / Primary — 荧光绿 ──────────────────────────────────────────────
+  primary:     '#00FF41',        // 荧光绿（激活态 / CTA / 状态点）
+  primaryDark: '#00CC33',
+  primaryGlow: 'rgba(0,255,65,0.20)',
+  accent:      '#00D97A',         // 薄荷绿点缀
+
+  // ── Ambient Glow Colors ──────────────────────────────────────────────────
+  glowGreen:  'rgba(0,255,65,0.08)',   // 右上角翠绿光晕
+  glowBlue:   'rgba(30,80,200,0.06)',  // 左下角深蓝光晕
 
   // ── Text ─────────────────────────────────────────────────────────────────
   textPrimary:   '#FFFFFF',
@@ -36,13 +42,13 @@ export const C = {
   textBody:      '#d4d4d4',
 
   // ── Status ────────────────────────────────────────────────────────────────
-  success:   '#00FF00',
+  success:   '#00FF41',
   warning:   '#FFD700',
   error:     '#FF3B3B',
   info:      '#00BFFF',
 
   // ── Agent platform colours ────────────────────────────────────────────────
-  zhuli:    '#00FF00',
+  zhuli:    '#00FF41',
   renzhi:   '#B366FF',
   xunlong:  '#FFD700',
   wuyin:    '#00FF9F',
@@ -58,7 +64,7 @@ export const C = {
   highUrgency: '#FF3B3B',
 
   // ── Status badge aliases ───────────────────────────────────────────────
-  online:       '#00FF00',
+  online:       '#00FF41',
   watching:     '#B366FF',
   stateRunning: '#1d4ed8',
   stateTodo:    '#1e293b',
@@ -68,9 +74,10 @@ export const C = {
   lowUrgency:   '#34d399',
 
   // ── Tab Bar ───────────────────────────────────────────────────────────────
-  tabBg:      '#0a0a0a',
-  tabActive:  '#00FF00',
-  tabInactive: '#555555',
+  tabBg:      '#0D0D0D',
+  tabActive:  '#00FF41',
+  tabInactive: '#6B7280',
+  tabDivider:  'rgba(255,255,255,0.08)',
 } as const;
 
 // ─── Typography helpers ──────────────────────────────────────────────────────────
