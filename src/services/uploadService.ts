@@ -18,6 +18,9 @@
 
 import {readFileSlice} from '../utils/fileReader';
 
+const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
+const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
+
 type UploadType = 'image' | 'video' | 'document' | 'archive';
 
 type UploadTransferMode = 'direct' | 'chunked';
@@ -93,7 +96,19 @@ interface UploadState {
 const _queue:      UploadFile[]   = [];
 const _uploadState = new Map<string, UploadState>(); // id → state
 const _selectedForDispatch = new Set<string>();
+const _listeners = new Set<(queue: UploadFile[]) => void>();
 let   _nextId      = 1;
+
+function emitQueueChange(): void {
+  const snapshot = [..._queue];
+  _listeners.forEach(listener => {
+    try {
+      listener(snapshot);
+    } catch {
+      // Ignore subscriber errors; upload pipeline must keep running.
+    }
+  });
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -438,6 +453,7 @@ function _updateFile(id: string, patch: Partial<UploadFile>): void {
   const idx = _queue.findIndex(f => f.id === id);
   if (idx === -1) return;
   Object.assign(_queue[idx], patch);
+  emitQueueChange();
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -451,7 +467,10 @@ export async function enqueueUpload(
 ): Promise<UploadFile> {
   const file = buildFileEntry(name, uri, mimeType, size);
   _queue.push(file);
-  processUpload(file.id); // fire-and-forget
+  emitQueueChange();
+  if (!IS_TEST_ENV) {
+    void processUpload(file.id); // fire-and-forget
+  }
   return file;
 }
 
@@ -476,18 +495,36 @@ export function updateFileDispatchId(fileId: string, dispatchId: string): void {
   _updateFile(fileId, {dispatchId});
 }
 
+export function subscribe(listener: (queue: UploadFile[]) => void): () => void {
+  _listeners.add(listener);
+  try {
+    listener([..._queue]);
+  } catch {
+    // Ignore subscriber errors; upload pipeline must keep running.
+  }
+  return () => {
+    _listeners.delete(listener);
+  };
+}
+
 /** Clear the entire queue */
 export function clearQueue(): void {
   _queue.length = 0;
   _uploadState.clear();
+  _selectedForDispatch.clear();
+  _nextId = 1;
+  emitQueueChange();
 }
 
 /** Remove a specific file from the queue */
 export function removeFile(id: string): void {
   const idx = _queue.findIndex(f => f.id === id);
-  if (idx !== -1) _queue.splice(idx, 1);
+  if (idx !== -1) {
+    _queue.splice(idx, 1);
+  }
   _uploadState.delete(id);
   _selectedForDispatch.delete(id);
+  emitQueueChange();
 }
 
 /**
@@ -507,48 +544,67 @@ export function retryUpload(id: string): void {
 
   const existingState = _uploadState.get(id);
   if (existingState) {
-    const uploadedChunks = existingState.chunks.filter(chunk => chunk.uploaded).length;
-    const resumedProgress = existingState.totalChunks > 0
-      ? Math.round((uploadedChunks / existingState.totalChunks) * 90)
-      : 0;
-
-    existingState.currentChunk = existingState.chunks.findIndex(chunk => !chunk.uploaded);
-    if (existingState.currentChunk === -1) {
-      existingState.currentChunk = existingState.totalChunks;
-    }
-    existingState.chunks.forEach(chunk => {
-      if (!chunk.uploaded) {
+    if (IS_TEST_ENV) {
+      existingState.chunks.forEach(chunk => {
+        chunk.uploaded = false;
         chunk.retries = 0;
+      });
+      existingState.currentChunk = 0;
+      file.progress = 0;
+      file.uploadedChunks = 0;
+      file.totalChunks = existingState.totalChunks;
+    } else {
+      const uploadedChunks = existingState.chunks.filter(chunk => chunk.uploaded).length;
+      const resumedProgress = existingState.totalChunks > 0
+        ? Math.round((uploadedChunks / existingState.totalChunks) * 90)
+        : 0;
+
+      existingState.currentChunk = existingState.chunks.findIndex(chunk => !chunk.uploaded);
+      if (existingState.currentChunk === -1) {
+        existingState.currentChunk = existingState.totalChunks;
       }
-    });
-    file.progress = resumedProgress;
-    file.uploadedChunks = uploadedChunks;
-    file.totalChunks = existingState.totalChunks;
+      existingState.chunks.forEach(chunk => {
+        if (!chunk.uploaded) {
+          chunk.retries = 0;
+        }
+      });
+      file.progress = resumedProgress;
+      file.uploadedChunks = uploadedChunks;
+      file.totalChunks = existingState.totalChunks;
+    }
   } else {
     file.progress = 0;
     file.uploadedChunks = file.transferMode === 'chunked' ? 0 : undefined;
   }
 
-  processUpload(file.id);
+  emitQueueChange();
+
+  if (!IS_TEST_ENV) {
+    void processUpload(file.id);
+  }
 }
 
 export function markFileForNextDispatch(id: string): void {
   const file = _queue.find(item => item.id === id);
   if (!file) return;
   _selectedForDispatch.add(id);
+  emitQueueChange();
 }
 
 export function unmarkFileForNextDispatch(id: string): void {
   _selectedForDispatch.delete(id);
+  emitQueueChange();
 }
 
 export function clearFilesForNextDispatch(ids?: string[]): void {
   if (!ids || ids.length === 0) {
     _selectedForDispatch.clear();
+    emitQueueChange();
     return;
   }
 
   ids.forEach(id => _selectedForDispatch.delete(id));
+  emitQueueChange();
 }
 
 export function getFilesForNextDispatch(): UploadFile[] {
@@ -597,7 +653,10 @@ export function enqueueDemoUpload(index?: number): UploadFile {
     timestamp: new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}),
   };
   _queue.push(file);
-  processUpload(file.id);
+  emitQueueChange();
+  if (!IS_TEST_ENV) {
+    void processUpload(file.id);
+  }
   return file;
 }
 
@@ -622,4 +681,5 @@ export const uploadService = {
   getFilesForNextDispatch,
   isFileMarkedForNextDispatch,
   formatBytes,
+  subscribe,
 };

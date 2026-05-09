@@ -4,11 +4,14 @@ import {
   Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {launchImageLibrary} from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
 import {C} from '../data/constants';
 import {enqueueUpload, uploadService, type UploadFile} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
+import type {RootStackParamList} from '../App';
 
 const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024; // 10 MB — matches uploadService threshold
 
@@ -51,6 +54,7 @@ function getFileType(f: AnyFile): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export function FileLibraryScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [activeType, setActiveType] = useState<FilterType>('全部');
   const {uploads} = useAppContext();
 
@@ -107,6 +111,34 @@ export function FileLibraryScreen() {
 
   const totalCount = allFiles.length;
   const uploadingCount = uploads.filter(f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing').length;
+
+  const openDispatchChain = useCallback((file: UploadFile) => {
+    navigation.navigate('DispatchChain', {
+      focusDispatchId: file.dispatchId,
+      focusTaskId: `upload-${file.id}`,
+      focusSessionKey: file.dispatchId,
+    });
+  }, [navigation]);
+
+  const continueInChat = useCallback((file: UploadFile) => {
+    uploadService.markFileForNextDispatch(file.id);
+    navigation.navigate('Tabs', {screen: 'Chat'});
+  }, [navigation]);
+
+  const retryFile = useCallback((file: UploadFile) => {
+    uploadService.retryUpload(file.id);
+  }, []);
+
+  const removeFile = useCallback((file: UploadFile) => {
+    Alert.alert('移除附件', `确定从附件库移除「${file.name}」？`, [
+      {text: '取消', style: 'cancel'},
+      {
+        text: '移除',
+        style: 'destructive',
+        onPress: () => uploadService.removeFile(file.id),
+      },
+    ]);
+  }, []);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -243,6 +275,42 @@ export function FileLibraryScreen() {
                 <View style={[styles.statusBadge, {borderColor: statusMeta.color + '44'}]}>
                   <Text style={[styles.statusText, {color: statusMeta.color}]}>{statusMeta.label}</Text>
                 </View>
+                <View style={styles.fileActions}>
+                  {file.dispatchId ? (
+                    <TouchableOpacity
+                      style={styles.fileActionBtn}
+                      activeOpacity={0.78}
+                      onPress={() => openDispatchChain(file)}
+                    >
+                      <Text style={styles.fileActionText}>调度链</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {(file.status === 'done' || file.status === 'dispatched' || file.status === 'processing') ? (
+                    <TouchableOpacity
+                      style={styles.fileActionBtn}
+                      activeOpacity={0.78}
+                      onPress={() => continueInChat(file)}
+                    >
+                      <Text style={styles.fileActionText}>带入对话</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {file.status === 'error' ? (
+                    <TouchableOpacity
+                      style={[styles.fileActionBtn, styles.retryActionBtn]}
+                      activeOpacity={0.78}
+                      onPress={() => retryFile(file)}
+                    >
+                      <Text style={[styles.fileActionText, styles.retryActionText]}>重试</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.fileActionGhostBtn}
+                    activeOpacity={0.78}
+                    onPress={() => removeFile(file)}
+                  >
+                    <Text style={styles.fileActionGhostText}>移除</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           );
@@ -328,6 +396,35 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   statusText: {fontSize: 10, fontWeight: '800'},
+  fileActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  fileActionBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.12)',
+    borderWidth: 1,
+    borderColor: C.borderActive,
+  },
+  fileActionText: {color: C.primary, fontSize: 11, fontWeight: '900'},
+  retryActionBtn: {
+    backgroundColor: 'rgba(248,113,113,0.1)',
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  retryActionText: {color: '#f87171'},
+  fileActionGhostBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148,163,184,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.18)',
+  },
+  fileActionGhostText: {color: C.textMuted, fontSize: 11, fontWeight: '800'},
   footer:     {height: 24},
 
   // Empty state

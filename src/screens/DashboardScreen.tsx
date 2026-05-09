@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {
   ScrollView,
   Text,
@@ -17,20 +17,12 @@ import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';
 import {StoreCard} from '../components/StoreCard';
 import {FeedItem} from '../components/FeedItem';
+import type {RootStackParamList} from '../App';
 import type {BrainStore, AIFeedItem, CommandTrace} from '../types';
-
-type RootStackParamList = {
-  Tabs: {screen?: 'Dashboard' | 'Chat' | 'Agent' | 'Tasks' | 'Profile'} | undefined;
-  MemoryStore: undefined;
-  KnowledgeBase: undefined;
-  FileLibrary: undefined;
-  Upload: undefined;
-  ProjectLibrary: undefined;
-  Confirmations: undefined;
-  DispatchChain: undefined;
-  GatewaySettings: undefined;
-  Profile: undefined;
-};
+import {
+  computeReleaseReadiness,
+  prioritizeReleaseChecklist,
+} from '../utils/releaseReadiness';
 
 type SpotlightCard = {
   id: string;
@@ -38,15 +30,31 @@ type SpotlightCard = {
   title: string;
   detail: string;
   accent: string;
-  target: keyof RootStackParamList;
+  onPress: () => void;
 };
 
 function buildLaunchSpotlight(params: {
   pendingConfirmations: number;
   runtimeMode: 'live' | 'fallback';
+  gatewayConfigValid: boolean;
+  gatewayWarningCount: number;
   latestBlockedConfirmation?: {title: string; description: string} | undefined;
+  onOpenConfirmations: () => void;
+  onOpenGatewaySettings: () => void;
+  onOpenProfile: () => void;
+  releaseProgressText?: string;
 }): SpotlightCard {
-  const {pendingConfirmations, runtimeMode, latestBlockedConfirmation} = params;
+  const {
+    pendingConfirmations,
+    runtimeMode,
+    gatewayConfigValid,
+    gatewayWarningCount,
+    latestBlockedConfirmation,
+    onOpenConfirmations,
+    onOpenGatewaySettings,
+    onOpenProfile,
+    releaseProgressText,
+  } = params;
 
   if (pendingConfirmations > 0) {
     return {
@@ -57,7 +65,7 @@ function buildLaunchSpotlight(params: {
         ? `先清掉「${latestBlockedConfirmation.title}」这一类人工确认项，上线链路才不会卡在最后一公里。`
         : '上线准备已经进入人工拍板阶段，先把待确认项收口。',
       accent: C.highUrgency,
-      target: 'Confirmations',
+      onPress: onOpenConfirmations,
     };
   }
 
@@ -68,17 +76,34 @@ function buildLaunchSpotlight(params: {
       title: '上线前先打通真实 Gateway',
       detail: '没有真实 Gateway 回流，TestFlight 包只能演示样板，不能验证完整 AI 闭环。',
       accent: '#f97316',
-      target: 'GatewaySettings',
+      onPress: onOpenGatewaySettings,
+    };
+  }
+
+  if (!gatewayConfigValid || gatewayWarningCount > 0) {
+    return {
+      id: 'spotlight-launch',
+      eyebrow: '上线链路',
+      title: !gatewayConfigValid
+        ? '上线前先补齐 Gateway 配置'
+        : `上线前还有 ${gatewayWarningCount} 个 Gateway 提醒`,
+      detail: !gatewayConfigValid
+        ? '真实调度链还没完全就绪，先把 Gateway 配置补齐，再去提 TestFlight 才不会只剩壳子。'
+        : '现在不是继续堆页面的时候，先把真实链路里的提醒项清掉，避免提测后只剩演示态。',
+      accent: '#f97316',
+      onPress: onOpenGatewaySettings,
     };
   }
 
   return {
     id: 'spotlight-launch',
     eyebrow: '上线链路',
-    title: 'TestFlight / App Store 已进入收口阶段',
+    title: releaseProgressText
+      ? `TestFlight / App Store 已进入收口阶段 · ${releaseProgressText}`
+      : 'TestFlight / App Store 已进入收口阶段',
     detail: '当前重点不再是补概念页，而是持续压实真实运行态、确认项和交付物一致性。',
     accent: '#34d399',
-    target: 'Profile',
+    onPress: onOpenProfile,
   };
 }
 
@@ -116,9 +141,17 @@ export function DashboardScreen() {
     refreshing,
     refresh,
     runtimeMode,
+    runtimeError,
     recentCaptures,
     lastSyncedAt,
     sessionCount,
+    gatewaySummary,
+    gatewayConfigValid,
+    gatewayWarningCount,
+    applePrerequisitesReady,
+    appleReleaseSummary,
+    appleReleaseSource,
+    appleReleaseValidatedAt,
   } = useAppContext();
 
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
@@ -131,6 +164,38 @@ export function DashboardScreen() {
     [safeConfirmations],
   );
   const uploadingCount = useMemo(() => safeUploads.filter(u => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing').length, [safeUploads]);
+  const releaseReadiness = useMemo(() => computeReleaseReadiness({
+    runtimeMode,
+    pendingConfirmations,
+    tasks: safeTasks,
+    dispatches: safeDispatches,
+    activeUploads: uploadingCount,
+    applePrerequisitesReady,
+  }), [applePrerequisitesReady, pendingConfirmations, runtimeMode, safeDispatches, safeTasks, uploadingCount]);
+  const prioritizedReleaseChecklist = useMemo(
+    () => prioritizeReleaseChecklist(releaseReadiness.checklist, 4),
+    [releaseReadiness.checklist],
+  );
+  const appleReleaseMeta = useMemo(() => {
+    const sourceLabel = appleReleaseSource === 'global-override'
+      ? '运行态覆盖'
+      : appleReleaseSource === 'env'
+        ? '环境注入'
+        : '默认未配置';
+
+    const validatedLabel = appleReleaseValidatedAt
+      ? new Date(appleReleaseValidatedAt).toLocaleString('zh-CN', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : null;
+
+    return validatedLabel
+      ? `${sourceLabel} · 最近校验 ${validatedLabel}`
+      : sourceLabel;
+  }, [appleReleaseSource, appleReleaseValidatedAt]);
 
   // Dynamic brain store entries driven by real context data — no hardcoded mock counts
   const brainStores = useMemo<BrainStore[]>(() => {
@@ -203,13 +268,36 @@ export function DashboardScreen() {
   const latestRunningTask = safeTasks.find(task => task.state === 'running');
   const latestBlockedConfirmation = pendingConfirmationItems[0];
   const hottestUpload = safeUploads.find(item => item.status === 'uploading' || item.status === 'processing' || item.status === 'dispatched');
+
+  const openFocusedDispatch = useCallback(() => navigation.navigate('DispatchChain', {
+    focusDispatchId: latestDispatch?.dispatchId,
+    focusTaskId: latestDispatch?.taskId,
+    focusSessionKey: latestDispatch?.sessionKey,
+  }), [latestDispatch?.dispatchId, latestDispatch?.sessionKey, latestDispatch?.taskId, navigation]);
+
+  const openFocusedConfirmations = useCallback(() => navigation.navigate('Confirmations', {
+    focusConfirmationId: latestBlockedConfirmation?.id,
+    focusTaskId: latestBlockedConfirmation?.followUpTaskId,
+    focusDispatchId: latestBlockedConfirmation?.followUpDispatchId,
+  }), [latestBlockedConfirmation?.followUpDispatchId, latestBlockedConfirmation?.followUpTaskId, latestBlockedConfirmation?.id, navigation]);
+
+  const openFocusedUpload = useCallback(() => navigation.navigate('Upload', {
+    focusFileId: hottestUpload?.id,
+    focusDispatchId: hottestUpload?.dispatchId,
+  }), [hottestUpload?.dispatchId, hottestUpload?.id, navigation]);
+
+  const openProfile = useCallback(() => navigation.navigate('Tabs', {screen: 'Profile'}), [navigation]);
+  const openGatewaySettings = useCallback(() => navigation.navigate('GatewaySettings'), [navigation]);
+
   const focusDescription = latestDispatch
     ? `最新调度「${latestDispatchMeta?.label ?? latestDispatch.status}」：${latestDispatch.userText.slice(0, 42)}${latestDispatch.userText.length > 42 ? '…' : ''}`
     : latestRunningTask
       ? `当前最需要盯住的是「${latestRunningTask.title}」，它正在从任务流向结果交付收口。`
       : runtimeMode === 'fallback'
-        ? '还没连通真实 Gateway，先在「对话」中发一条消息，验证基础调度链路是否正常。'
-        : '当前没有进行中的调度单，系统运转正常。';
+        ? `还没连通真实 Gateway，先在「对话」中发一条消息，验证基础调度链路是否正常。${runtimeError ? ` 当前异常：${runtimeError}` : ''}`
+        : gatewayConfigValid
+          ? `当前没有进行中的调度单，系统运转正常。${gatewayWarningCount > 0 ? ` 但 Gateway 配置还有 ${gatewayWarningCount} 个提醒待处理。` : ''}`
+          : `当前没有进行中的调度单，但 Gateway 配置还没完全就绪。${gatewaySummary ? ` ${gatewaySummary}` : ''}`;
   const liveFeed = useMemo<AIFeedItem[]>(() => {
     const safeCaptures = Array.isArray(recentCaptures) ? recentCaptures : [];
 
@@ -284,7 +372,7 @@ export function DashboardScreen() {
         title: `先盯这条调度：${latestDispatchMeta.label}`,
         detail: latestDispatch.reply,
         accent: latestDispatchMeta.accent,
-        onPress: () => navigation.navigate('DispatchChain'),
+        onPress: openFocusedDispatch,
       });
     }
 
@@ -295,7 +383,7 @@ export function DashboardScreen() {
         title: latestBlockedConfirmation.title,
         detail: latestBlockedConfirmation.description,
         accent: URGENCY_COLOR[latestBlockedConfirmation.urgency],
-        onPress: () => navigation.navigate('Confirmations'),
+        onPress: openFocusedConfirmations,
       });
     }
 
@@ -306,7 +394,10 @@ export function DashboardScreen() {
         title: latestRunningTask.title,
         detail: latestRunningTask.next,
         accent: C.working,
-        onPress: () => navigation.navigate('DispatchChain'),
+        onPress: () => navigation.navigate('DispatchChain', {
+          focusTaskId: latestRunningTask.id,
+          focusSessionKey: latestRunningTask.sessionKey,
+        }),
       });
     }
 
@@ -321,7 +412,7 @@ export function DashboardScreen() {
             ? `已经分派给 ${hottestUpload.agent ?? '对应智能体'}，现在要盯执行结果。`
             : `当前进度 ${hottestUpload.progress}% ，前端上传链路保持在线。`,
         accent: '#34d399',
-        onPress: () => navigation.navigate('Upload'),
+        onPress: openFocusedUpload,
       });
     }
 
@@ -354,50 +445,6 @@ export function DashboardScreen() {
 
     return queue.slice(0, 3);
   }, [hottestUpload, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, latestRunningTask, navigation, pendingConfirmationItems]);
-
-  const spotlightCards = useMemo<SpotlightCard[]>(() => {
-    const projectSignal = dispatchActiveCount > 0
-      ? `AI 产出、调度状态和任务链已经开始共用真实运行态数据，当前还有 ${dispatchActiveCount} 条链路在前台可见。`
-      : '当前没有新的执行堆积，适合继续推进产品闭环或做真机验证。';
-
-    const launchSpotlight = buildLaunchSpotlight({
-      pendingConfirmations,
-      runtimeMode,
-      latestBlockedConfirmation,
-    });
-
-    return [
-      {
-        id: 'spotlight-output',
-        eyebrow: '首页主线',
-        title: latestDispatchMeta ? `AI 产出正在${latestDispatchMeta.label}` : 'AI 产出流已收口到首页',
-        detail: latestDispatch
-          ? `${latestDispatch.reply}${latestDispatch.agentId ? ` · 执行方 ${latestDispatch.agentId}` : ''}`
-          : '当前首页会优先顶出最新 AI 结果，不再让工程噪音抢首屏。',
-        accent: latestDispatchMeta?.accent ?? C.primary,
-        target: 'DispatchChain',
-      },
-      {
-        id: 'spotlight-confirm',
-        eyebrow: '人工决策',
-        title: pendingConfirmations > 0 ? `还有 ${pendingConfirmations} 项待拍板` : '确认链路当前比较干净',
-        detail: latestBlockedConfirmation
-          ? `${latestBlockedConfirmation.title} · ${latestBlockedConfirmation.description}`
-          : '已经处理过的事项不会继续占首页，只有真正待确认的内容会被顶上来。',
-        accent: pendingConfirmations > 0 ? C.highUrgency : '#34d399',
-        target: 'Confirmations',
-      },
-      launchSpotlight,
-      {
-        id: 'spotlight-project',
-        eyebrow: '项目闭环',
-        title: 'P1 正在从样板走向可用驾驶舱',
-        detail: projectSignal,
-        accent: C.primary,
-        target: 'ProjectLibrary',
-      },
-    ];
-  }, [dispatchActiveCount, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, pendingConfirmations, runtimeMode]);
 
   const summaryCards = useMemo(() => {
     const summary: Array<{
@@ -439,10 +486,60 @@ export function DashboardScreen() {
     return summary;
   }, [blockedCount, dispatchActiveCount, doneCount, latestDispatchMeta, runningCount, uploadDoneCount, uploadingCount]);
 
-  const handleStorePress = (store: BrainStore) => {
+  const handleStorePress = useCallback((store: BrainStore) => {
     const screen = NAV_MAP[store.id];
     if (screen) navigation.navigate(screen);
-  };
+  }, [navigation]);
+
+  const spotlightCards = useMemo<SpotlightCard[]>(() => {
+    const projectSignal = dispatchActiveCount > 0
+      ? `AI 产出、调度状态和任务链已经开始共用真实运行态数据，当前还有 ${dispatchActiveCount} 条链路在前台可见。`
+      : '当前没有新的执行堆积，适合继续推进产品闭环或做真机验证。';
+
+    const launchSpotlight = buildLaunchSpotlight({
+      pendingConfirmations,
+      runtimeMode,
+      gatewayConfigValid,
+      gatewayWarningCount,
+      latestBlockedConfirmation,
+      onOpenConfirmations: openFocusedConfirmations,
+      onOpenGatewaySettings: openGatewaySettings,
+      onOpenProfile: openProfile,
+      releaseProgressText: `${releaseReadiness.doneCount}/${releaseReadiness.totalCount}`,
+    });
+
+    return [
+      {
+        id: 'spotlight-output',
+        eyebrow: '首页主线',
+        title: latestDispatchMeta ? `AI 产出正在${latestDispatchMeta.label}` : 'AI 产出流已收口到首页',
+        detail: latestDispatch
+          ? `${latestDispatch.reply}${latestDispatch.agentId ? ` · 执行方 ${latestDispatch.agentId}` : ''}`
+          : '当前首页会优先顶出最新 AI 结果，不再让工程噪音抢首屏。',
+        accent: latestDispatchMeta?.accent ?? C.primary,
+        onPress: openFocusedDispatch,
+      },
+      {
+        id: 'spotlight-confirm',
+        eyebrow: '人工决策',
+        title: pendingConfirmations > 0 ? `还有 ${pendingConfirmations} 项待拍板` : '确认链路当前比较干净',
+        detail: latestBlockedConfirmation
+          ? `${latestBlockedConfirmation.title} · ${latestBlockedConfirmation.description}`
+          : '已经处理过的事项不会继续占首页，只有真正待确认的内容会被顶上来。',
+        accent: pendingConfirmations > 0 ? C.highUrgency : '#34d399',
+        onPress: openFocusedConfirmations,
+      },
+      launchSpotlight,
+      {
+        id: 'spotlight-project',
+        eyebrow: '项目闭环',
+        title: 'P1 正在从样板走向可用驾驶舱',
+        detail: projectSignal,
+        accent: C.primary,
+        onPress: () => navigation.navigate('ProjectLibrary'),
+      },
+    ];
+  }, [dispatchActiveCount, gatewayConfigValid, gatewayWarningCount, latestBlockedConfirmation, latestDispatch, latestDispatchMeta, navigation, openFocusedConfirmations, openFocusedDispatch, openGatewaySettings, openProfile, pendingConfirmations, releaseReadiness.doneCount, releaseReadiness.totalCount, runtimeMode]);
 
   return (
     <ScrollView
@@ -481,13 +578,13 @@ export function DashboardScreen() {
           <View style={styles.demoHintText}>
             <Text style={styles.demoHintTitle}>尚未连接 OpenClaw Gateway</Text>
             <Text style={styles.demoHintSub}>
-              当前显示本地数据；去「我的 → Gateway 配置」连接后可体验完整实时闭环。
+              当前显示本地数据；去「我的 → Gateway 配置」连接后可体验完整实时闭环。{runtimeError ? ` 当前异常：${runtimeError}` : ''}
             </Text>
           </View>
           <TouchableOpacity
             style={styles.demoSettingsBtn}
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('GatewaySettings')}
+            onPress={openGatewaySettings}
           >
             <Text style={styles.demoSettingsBtnText}>去配置</Text>
           </TouchableOpacity>
@@ -522,14 +619,33 @@ export function DashboardScreen() {
           </View>
         </View>
         <Text style={styles.focusDesc}>{focusDescription}</Text>
+        <Text style={styles.focusMeta}>
+          {runtimeMode === 'live'
+            ? (gatewayConfigValid
+              ? `Gateway：${gatewaySummary}${gatewayWarningCount > 0 ? ` · ${gatewayWarningCount} 个提醒待处理` : ''}`
+              : `Gateway 待完善：${gatewaySummary}`)
+            : `当前为本地回退模式${runtimeError ? ` · ${runtimeError}` : ''}`}
+        </Text>
         <View style={styles.quickActionRow}>
-          <TouchableOpacity style={styles.quickActionChip} activeOpacity={0.8} onPress={() => navigation.navigate('DispatchChain')}>
+          <TouchableOpacity
+            style={styles.quickActionChip}
+            activeOpacity={0.8}
+            onPress={openFocusedDispatch}
+          >
             <Text style={styles.quickActionText}>看调度链</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionChip} activeOpacity={0.8} onPress={() => navigation.navigate('Confirmations')}>
+          <TouchableOpacity
+            style={styles.quickActionChip}
+            activeOpacity={0.8}
+            onPress={openFocusedConfirmations}
+          >
             <Text style={styles.quickActionText}>处理确认项</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionChip} activeOpacity={0.8} onPress={() => navigation.navigate('Upload')}>
+          <TouchableOpacity
+            style={styles.quickActionChip}
+            activeOpacity={0.8}
+            onPress={openFocusedUpload}
+          >
             <Text style={styles.quickActionText}>看上传队列</Text>
           </TouchableOpacity>
         </View>
@@ -542,7 +658,7 @@ export function DashboardScreen() {
             key={card.id}
             style={styles.spotlightCard}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate(card.target)}
+            onPress={card.onPress}
           >
             <Text style={[styles.spotlightEyebrow, {color: card.accent}]}>{card.eyebrow}</Text>
             <Text style={styles.spotlightTitle}>{card.title}</Text>
@@ -561,6 +677,56 @@ export function DashboardScreen() {
             <Text style={styles.summaryDetail}>{card.detail}</Text>
           </View>
         ))}
+      </View>
+
+      <SectionTitle title="提测收口" hint="直接看 TestFlight 还差什么" />
+      <View style={styles.releaseCard}>
+        <View style={styles.releaseHeaderRow}>
+          <View style={styles.releaseHeaderTextBlock}>
+            <Text style={styles.releaseEyebrow}>TESTFLIGHT READINESS</Text>
+            <Text style={styles.releaseTitle}>{releaseReadiness.readiness}</Text>
+            <Text style={styles.releaseDesc}>{releaseReadiness.readinessDesc}</Text>
+          </View>
+          <View style={[styles.releaseBadge, {borderColor: releaseReadiness.readinessAccent, backgroundColor: `${releaseReadiness.readinessAccent}22`}]}>
+            <Text style={[styles.releaseBadgeText, {color: releaseReadiness.readinessAccent}]}>
+              {releaseReadiness.doneCount}/{releaseReadiness.totalCount}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.releaseChecklistRow}>
+          {prioritizedReleaseChecklist.map(item => (
+            <View key={item.text} style={styles.releaseChecklistItem}>
+              <Text style={styles.releaseChecklistIcon}>{item.done ? '✅' : '⬜'}</Text>
+              <Text style={[styles.releaseChecklistText, !item.done && styles.releaseChecklistTextPending]} numberOfLines={2}>
+                {item.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.releaseFocusBox}>
+          <Text style={styles.releaseFocusTitle}>当前缺口</Text>
+          {releaseReadiness.blockers.length > 0 ? (
+            releaseReadiness.blockers.slice(0, 2).map(item => (
+              <Text key={item} style={styles.releaseFocusText}>• {item}</Text>
+            ))
+          ) : (
+            <Text style={styles.releaseFocusText}>• 代码侧已基本收口，下一步重点是 Apple 账号、App Store Connect 和真实 LIVE 闭环验证。</Text>
+          )}
+          <Text style={styles.releaseFocusText}>• {appleReleaseSummary}</Text>
+          <Text style={styles.releaseFocusText}>• Apple 校验来源：{appleReleaseMeta}</Text>
+          <Text style={styles.releaseFocusText}>• 建议下一步：{releaseReadiness.nextActions[0]}</Text>
+        </View>
+
+        <View style={styles.releaseActionRow}>
+          <TouchableOpacity style={styles.releasePrimaryBtn} activeOpacity={0.82} onPress={openProfile}>
+            <Text style={styles.releasePrimaryBtnText}>去看完整上线准备</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.releaseSecondaryBtn} activeOpacity={0.82} onPress={openFocusedConfirmations}>
+            <Text style={styles.releaseSecondaryBtnText}>先清需确认项</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <SectionTitle title="现在要处理什么" hint="把 AI 产出流、调度状态、需确认项顶到最前" />
@@ -591,7 +757,7 @@ export function DashboardScreen() {
       <SectionTitle
         title="调度链"
         hint="当前指令流转状态"
-        action={{label: '展开链路', onPress: () => navigation.navigate('DispatchChain')}}
+        action={{label: '展开链路', onPress: openFocusedDispatch}}
       />
       <View style={styles.dispatchBox}>
         {dispatchTrace.map((trace, i) => (
@@ -610,7 +776,7 @@ export function DashboardScreen() {
       <SectionTitle
         title="需确认项"
         hint={`${pendingConfirmations} 项待确认`}
-        action={{label: '查看全部', onPress: () => navigation.navigate('Confirmations')}}
+        action={{label: '查看全部', onPress: openFocusedConfirmations}}
       />
       <View style={styles.confirmList}>
         {pendingConfirmationItems.length > 0 ? pendingConfirmationItems.slice(0, 3).map(item => {
@@ -764,6 +930,77 @@ const styles = StyleSheet.create({
   summaryValue: {color: C.textTitle, fontSize: 17, fontWeight: '900', marginTop: 6},
   summaryDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
   actionQueueList: {gap: 10, marginBottom: 24},
+  releaseCard: {
+    marginBottom: 24,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8,18,36,0.62)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+    gap: 12,
+  },
+  releaseHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  releaseHeaderTextBlock: {flex: 1},
+  releaseEyebrow: {color: C.accent, fontSize: 11, fontWeight: '900', letterSpacing: 0.6},
+  releaseTitle: {color: C.textTitle, fontSize: 18, fontWeight: '900', marginTop: 6},
+  releaseDesc: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
+  releaseBadge: {
+    minWidth: 62,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  releaseBadgeText: {fontSize: 12, fontWeight: '900'},
+  releaseChecklistRow: {gap: 8},
+  releaseChecklistItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  releaseChecklistIcon: {fontSize: 13, lineHeight: 18},
+  releaseChecklistText: {flex: 1, color: C.textBody, fontSize: 12, lineHeight: 18},
+  releaseChecklistTextPending: {color: C.textMuted},
+  releaseFocusBox: {
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    gap: 6,
+  },
+  releaseFocusTitle: {color: C.textTitle, fontSize: 13, fontWeight: '900'},
+  releaseFocusText: {color: C.textBody, fontSize: 12, lineHeight: 18},
+  releaseActionRow: {flexDirection: 'row', gap: 10},
+  releasePrimaryBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+  },
+  releasePrimaryBtnText: {color: C.bgRoot, fontSize: 13, fontWeight: '900'},
+  releaseSecondaryBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: 'rgba(56,100,200,0.1)',
+    borderWidth: 1,
+    borderColor: C.borderActive,
+    alignItems: 'center',
+  },
+  releaseSecondaryBtnText: {color: C.primary, fontSize: 13, fontWeight: '800'},
   actionQueueCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -820,6 +1057,7 @@ const styles = StyleSheet.create({
   },
   focusBadgeText: {color: '#f97316', fontSize: 11, fontWeight: '900'},
   focusDesc: {color: C.textBody, fontSize: 13, lineHeight: 20, marginTop: 10},
+  focusMeta: {color: C.textMuted, fontSize: 11, lineHeight: 17, marginTop: 8},
   quickActionRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12},
   quickActionChip: {
     paddingHorizontal: 10,

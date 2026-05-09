@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {
   ScrollView,
   Text,
@@ -14,6 +14,10 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/constants';
 import {MetricCard} from '../components/MetricCard';
 import {useAppContext} from '../context/AppContext';
+import {
+  computeReleaseReadiness,
+  prioritizeReleaseChecklist,
+} from '../utils/releaseReadiness';
 
 type RootStackParamList = {
   Tabs: undefined;
@@ -69,6 +73,10 @@ export function ProfileScreen() {
     gatewaySummary,
     gatewayConfigValid,
     gatewayWarningCount,
+    applePrerequisitesReady,
+    appleReleaseSummary,
+    appleReleaseSource,
+    appleReleaseValidatedAt,
     refreshing,
     refresh,
   } = useAppContext();
@@ -106,84 +114,72 @@ export function ProfileScreen() {
   const blockedTasks = safeTasks.filter(task => task.state === 'blocked').length;
   const doneTasks = safeTasks.filter(task => task.state === 'done').length;
 
-  const releaseSignals = useMemo(() => {
-    const blockers: string[] = [];
-    const nextActions: string[] = [];
+  const releaseSignals = useMemo(() => computeReleaseReadiness({
+    runtimeMode,
+    pendingConfirmations,
+    tasks: safeTasks,
+    dispatches: safeDispatches,
+    activeUploads,
+    applePrerequisitesReady,
+  }), [activeUploads, applePrerequisitesReady, pendingConfirmations, runtimeMode, safeDispatches, safeTasks]);
 
-    if (runtimeMode !== 'live') {
-      blockers.push('当前仍在本地回退模式，TestFlight 前需至少验证一轮 LIVE 闭环。');
-      nextActions.push('优先恢复 Gateway 连通性并验证真实调度链。');
-    }
+  const appleReleaseMeta = useMemo(() => {
+    const sourceLabel = appleReleaseSource === 'global-override'
+      ? '运行态覆盖'
+      : appleReleaseSource === 'env'
+        ? '环境注入'
+        : '默认未配置';
 
-    if (pendingConfirmations > 0) {
-      blockers.push(`还有 ${pendingConfirmations} 条需确认项未拍板，会上线体验里留下“待人工决策”缺口。`);
-      nextActions.push('先清掉需确认项，确保闭环不是卡在人工拍板。');
-    }
+    const validatedLabel = appleReleaseValidatedAt
+      ? new Date(appleReleaseValidatedAt).toLocaleString('zh-CN', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : null;
 
-    if (blockedTasks > 0) {
-      blockers.push(`当前有 ${blockedTasks} 条阻塞任务，提测前应至少收口到可解释状态。`);
-      nextActions.push('进入任务页处理阻塞项，避免 TestFlight 首屏出现未解释异常。');
-    }
+    return validatedLabel
+      ? `校验来源：${sourceLabel} · 最近校验 ${validatedLabel}`
+      : `校验来源：${sourceLabel}`;
+  }, [appleReleaseSource, appleReleaseValidatedAt]);
 
-    if (activeUploads > 0) {
-      nextActions.push(`当前有 ${activeUploads} 条附件链路在跑，建议补看上传管理页确认回流正常。`);
-    }
+  const readinessChecklist = useMemo(
+    () => prioritizeReleaseChecklist(releaseSignals.checklist),
+    [releaseSignals.checklist],
+  );
+  const appleMaterials = releaseSignals.appleMaterials;
+  const readinessDoneCount = releaseSignals.doneCount;
+  const readinessTotalCount = releaseSignals.totalCount;
 
-    if (dispatchInFlight > 0) {
-      nextActions.push(`当前有 ${dispatchInFlight} 条调度仍在推进，建议补看调度链确认状态回流。`);
-    }
+  const handleShowAppStoreGuide = useCallback(() => {
+    Alert.alert(
+      '📋 App Store 上线清单',
+      [
+        `当前判定：${releaseSignals.readiness} · ${readinessDoneCount}/${readinessTotalCount}`,
+        releaseSignals.readinessDesc,
+        '',
+        '运行态收口：',
+        ...(releaseSignals.blockers.length
+          ? releaseSignals.blockers.map((item, index) => `${index + 1}. ${item}`)
+          : ['1. 运行态主闭环已收口，可转入 Apple 物料准备']),
+        '',
+        'Apple 链路：',
+        '1. Apple Developer 账号（$99/年）',
+        '2. App Store Connect → 创建 App（Bundle ID: com.openclaw.aibrainim）',
+        '3. 上传已生成的 App Icon 与三尺寸截图',
+        '4. 创建 App Store Connect API Key',
+        '5. 配置 GitHub Variables / Secrets',
+        '6. 填写隐私信息、年龄分级、支持链接',
+        '7. 运行: git tag v0.1.0 && git push --tags origin main',
+        '8. GitHub Actions 自动构建并上传 TestFlight',
+        '9. App Store Connect → TestFlight → 添加测试人员',
+      ].join('\n'),
+      [{text: '知道了'}],
+    );
+  }, [readinessDoneCount, readinessTotalCount, releaseSignals.blockers, releaseSignals.readiness, releaseSignals.readinessDesc]);
 
-    if (!nextActions.length) {
-      nextActions.push('P1 闭环状态稳定，可转入图标、截图、TestFlight 提交流程。');
-    }
-
-    const readiness = blockers.length === 0
-      ? '可提测'
-      : blockers.length <= 2
-        ? '待收口'
-        : '未就绪';
-
-    return {
-      blockers,
-      nextActions,
-      readiness,
-      readinessAccent: readiness === '可提测' ? '#34d399' : readiness === '待收口' ? '#fbbf24' : '#f97316',
-      readinessDesc: readiness === '可提测'
-        ? '五主功能已形成可演示闭环，剩余工作主要是提测物料与 Apple 链路。'
-        : readiness === '待收口'
-          ? '主功能已基本贯通，但还有少量运行态缺口要先补齐。'
-          : '当前仍存在明显运行态缺口，先别急着做上架物料。',
-    };
-  }, [activeUploads, blockedTasks, dispatchInFlight, pendingConfirmations, runtimeMode]);
-
-  const readinessChecklist = useMemo(() => {
-    return [
-      {done: true, text: 'React Native 主工程 + iOS 构建'},
-      {done: true, text: '五主功能（总览 / 对话 / 智能体 / 任务 / 我的）'},
-      {done: true, text: '记忆库 / 知识库 / 附件入口 / 调度链已接入前台'},
-      {done: true, text: 'GitHub Actions + Fastlane TestFlight 链路已预置'},
-      {done: runtimeMode === 'live', text: '至少完成一轮 LIVE 网关闭环验证'},
-      {done: pendingConfirmations === 0, text: '需确认项清零或压到可解释范围'},
-      {done: blockedTasks === 0, text: '阻塞任务收口到可提测状态'},
-      {done: false, text: 'Apple Developer / App Store Connect / 截图 / 图标'},
-    ];
-  }, [blockedTasks, pendingConfirmations, runtimeMode]);
-
-  const appleMaterials = useMemo(() => {
-    return [
-      {done: false, label: 'Apple Developer 账号与 Team ID'},
-      {done: false, label: 'App Store Connect App 记录'},
-      {done: true,  label: '1024×1024 App Icon'},
-      {done: false, label: 'iPhone 6.7" / 6.5" / 5.5" 截图'},
-      {done: false, label: '隐私信息 / 年龄分级 / 支持链接'},
-      {done: false, label: '第一个 TestFlight Build 上传'},
-    ];
-  }, []);
-
-  const readinessDoneCount = readinessChecklist.filter(item => item.done).length;
-  const readinessTotalCount = readinessChecklist.length;
-
-  const handleJoinTestFlight = () => {
+  const handleJoinTestFlight = useCallback(() => {
     // Replace with actual TestFlight public link from App Store Connect
     Alert.alert(
       '加入 TestFlight',
@@ -193,40 +189,14 @@ export function ProfileScreen() {
         {text: '好的'},
       ],
     );
-  };
+  }, [handleShowAppStoreGuide]);
 
-  const handleShowAppStoreGuide = () => {
-    Alert.alert(
-      '📋 App Store 上线清单',
-      [
-        `当前判定：${releaseSignals.readiness} · ${readinessDoneCount}/${readinessTotalCount}`,
-        releaseSignals.readinessDesc,
-        '',
-        '运行态收口：',
-        ...releaseSignals.blockers.length
-          ? releaseSignals.blockers.map((item, index) => `${index + 1}. ${item}`)
-          : ['1. 运行态主闭环已收口，可转入 Apple 物料准备'],
-        '',
-        'Apple 链路：',
-        '1. Apple Developer 账号（$99/年）',
-        '2. App Store Connect → 创建 App（Bundle ID: com.openclaw.aibrainim）',
-        '3. 配置 App Icon（1024×1024）',
-        '4. 添加截图（iPhone 6.7" / 6.5" / 5.5"）',
-        '5. 填写隐私信息、年龄分级',
-        '6. 运行: git tag v0.1.0 && git push --tags',
-        '7. GitHub Actions 自动构建并上传 TestFlight',
-        '8. App Store Connect → TestFlight → 添加测试人员',
-      ].join('\n'),
-      [{text: '知道了'}],
-    );
-  };
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     Alert.alert('退出登录', '确定要退出当前账号吗?', [
       {text: '取消', style: 'cancel'},
       {text: '退出', style: 'destructive', onPress: () => {}},
     ]);
-  };
+  }, []);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -423,8 +393,10 @@ export function ProfileScreen() {
             {releaseSignals.blockers.length > 0 ? releaseSignals.blockers.map((item, index) => (
               <Text key={index} style={styles.releaseFocusText}>• {item}</Text>
             )) : (
-              <Text style={styles.releaseFocusText}>• 运行态已基本收口，下一步优先准备 App Icon、截图与 TestFlight 提测物料。</Text>
+              <Text style={styles.releaseFocusText}>• 运行态已基本收口；Icon 与截图已经就绪，下一步优先补 Apple Developer / App Store Connect / API Key 配置。</Text>
             )}
+            <Text style={styles.releaseFocusText}>• {appleReleaseSummary}</Text>
+            <Text style={styles.releaseFocusText}>• {appleReleaseMeta}</Text>
           </View>
 
           <View style={styles.releaseFocusBox}>
@@ -435,7 +407,7 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.releaseFocusBox}>
-            <Text style={styles.releaseFocusTitle}>Apple 物料缺口</Text>
+            <Text style={styles.releaseFocusTitle}>Apple 上线缺口</Text>
             {appleMaterials.map((item, index) => (
               <View key={index} style={styles.materialItem}>
                 {/* eslint-disable-next-line react-native/no-inline-styles */}

@@ -4,7 +4,7 @@
 
 ---
 
-## 当前状态（2026-05-08 更新）
+## 当前状态（2026-05-09 更新）
 
 | 检查项 | 状态 |
 |--------|------|
@@ -21,8 +21,9 @@
 | App Store listing 文案 | ✅ |
 | GitHub Actions CI | ✅ |
 | GitHub Actions TestFlight workflow | ✅ |
+| Tag 触发规则与文档一致 (`v*.*.*`) | ✅ |
 | Apple Developer 账号配置 | 🔲 待配置 |
-| GitHub Secrets & Variables | 🔲 待配置 |
+| GitHub Secrets & Variables | 🔲 待配置（已改为标准化 Variables/Secrets 驱动，不再在 workflow 写死 Apple 标识） |
 | App Store Connect App 记录 | 🔲 待创建 |
 | 第一个 TestFlight Build | 🔲 待触发 |
 
@@ -36,92 +37,64 @@
 |------|------|
 | Apple Developer 账号 | $99/年，apple developer.apple.com |
 | App Store Connect 访问权限 | 用同一 Apple ID 登录 appstoreconnect.apple.com |
-| macOS Keychain Access | 用于导出签名证书 |
+| App Store Connect API Key | 用于 GitHub Actions 自动导出与上传 |
 
 ### 1.2 在 GitHub Repo 设置 Secrets 和 Variables
 
-前往 `https://github.com/explore3363-coder/AIBrainIM/settings/secrets`：
+前往：
+- Variables: `https://github.com/explore3363-coder/AIBrainIM/settings/variables/actions`
+- Secrets: `https://github.com/explore3363-coder/AIBrainIM/settings/secrets/actions`
 
 #### GitHub Variables（Settings → Variables → Actions）
 
 | Variable 名称 | 值 | 说明 |
 |---------------|-----|------|
-| `APPLE_TEAM_ID` | **你自己的 Team ID**（见下方获取方式） | 你的 Apple Team ID（开发者账号页面可见） |
-| `APPLE_DEV_EMAIL` | 你的 Apple ID 邮箱 | 用于 altool 上传认证 |
+| `APPLE_API_KEY_ID` | 你在 App Store Connect 创建的 API Key ID | 对应 workflow 的 `ASC_KEY_ID` |
+| `APPLE_API_ISSUER_ID` | 你在 App Store Connect 的 Issuer ID | 对应 workflow 的 `ASC_ISSUER_ID` |
+| `APPLE_TEAM_ID` | 你自己的 Team ID | 用于签名与导出 |
+| `APPLE_DEV_EMAIL` | 你的 Apple ID 邮箱 | 仅供文档 / 本地操作参考，当前 `testflight.yml` 不直接消费 |
 
 #### GitHub Secrets（Settings → Secrets → Actions）
 
 | Secret 名称 | 获取方式 |
 |-------------|---------|
-| `APPLE_DIST_P12` | 签名证书的 Base64 编码（见下方步骤） |
-| `APPLE_APP_PASSWORD` | Apple ID → 安全 → 专用密码（见下方步骤） |
-| `APPLE_API_KEY_CONTENT` | App Store Connect API 密钥的 .p8 文件内容 Base64 编码（见下方 1.3 节） |
+| `APPLE_API_KEY_CONTENT` | App Store Connect API 密钥的 `.p8` 文件内容 Base64 编码 |
 
-> ⚠️ `ASC_KEY_ID` 和 `ASC_ISSUER_ID` 已在 testflight.yml 中硬编码（不是 Secret，是 App Store Connect API 密钥的公开标识符）。如需更换，请同步修改 workflow 文件中的 `env.ASC_KEY_ID` 和 `env.ASC_ISSUER_ID`。
->
-> **⚠️ 当前 workflow 中 ASC 值（HWP45ALL8Y / 0bc52ef9...）是占位符**，需替换为你自己创建的 App Store Connect API 密钥对应的值。否则证书生成步骤会失败。
+> 当前 GitHub Actions `testflight.yml` 只依赖 App Store Connect API Key + GitHub Variables，不再消费 `APPLE_DIST_P12` 或 `APPLE_APP_PASSWORD`。
 
-### 1.3 创建 App Store Connect API 密钥（用于自动创建 Provisioning Profile）
+### 1.3 创建 App Store Connect API 密钥
 
 1. 登录 [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → **Users and Access**
 2. **Keys** → **+** 创建新密钥：
    - 名称：`AIBrainIM CI`
-   - 角色：**App Manager**（需要能创建 provisioning profile）
+   - 角色：**App Manager**
 3. 下载 `.p8` 文件（只出现一次，请妥善保存）
-4. 将 Key ID（`HWP45ALL8Y`）和 Issuer ID（`0bc52ef9-a4c4-489e-810c-c8a80db0ab9a`）同步到 testflight.yml 中的 `env.ASC_KEY_ID` 和 `env.ASC_ISSUER_ID`
-5. Base64 编码并添加为 GitHub Secret `APPLE_API_KEY_CONTENT`：
+4. 将 Key ID 填入 GitHub Variable `APPLE_API_KEY_ID`
+5. 将 Issuer ID 填入 GitHub Variable `APPLE_API_ISSUER_ID`
+6. Base64 编码并添加为 GitHub Secret `APPLE_API_KEY_CONTENT`：
    ```bash
-   base64 -i ~/Downloads/AuthKey_HWP45ALL8Y.p8 | tr -d '\n'
+   base64 -i ~/Downloads/AuthKey_XXXXXX.p8 | tr -d '\n'
    ```
-   将输出结果添加到 GitHub Secret `APPLE_API_KEY_CONTENT`
 
 ---
 
-## 二、生成 APPLE_DIST_P12（签名证书）
+## 二、签名与证书说明（按当前 workflow）
 
-### 2.1 在 Mac 上生成签名请求
+当前 `testflight.yml` 走的是这条链路：
 
-1. 打开 **Keychain Access** → **证书助理** → **从证书颁发机构请求证书**
-2. 填写：
-   - 邮箱：你的 Apple Developer 账号邮箱
-   - 常用名称：`AIBrainIM Distribution`
-   - 存储到磁盘：✅
-3. 保存为 `certificate_signing_request.certSigningRequest`
+1. `xcodebuild archive` 先生成归档
+2. `xcodebuild -exportArchive` 时通过 App Store Connect API Key + `-allowProvisioningUpdates` 让 Apple 侧自动处理签名与导出
+3. 最后再上传到 App Store Connect
 
-### 2.2 在 Apple Developer Portal 创建证书
+这意味着**当前自动化链路不要求你把 `.p12` 和 app-specific password 塞进 GitHub Secrets**。真正必须补齐的是：
 
-1. 登录 [developer.apple.com](https://developer.apple.com) → **Certificates, Identifiers & Profiles**
-2. **Certificates** → **+** → **iOS Distribution (App Store and Ad Hoc)**
-3. 上传 2.1 生成的 `.certSigningRequest` 文件
-4. 下载生成的证书（双击自动导入 Keychain）
+- `APPLE_API_KEY_ID`
+- `APPLE_API_ISSUER_ID`
+- `APPLE_TEAM_ID`
+- `APPLE_API_KEY_CONTENT`
+- App Store Connect 中已存在对应 App 记录
 
-### 2.3 导出 p12 并编码
-
-在 Mac 上运行：
-
-```bash
-# 1. 确认证书名称（Keychain Access 搜索 "AIBrainIM" 或 "Distribution"）
-security find-identity -v -p codesigning | grep -i distribution
-
-# 2. 导出 p12（替换 "iPhone Distribution: 你的名字" 为实际证书名）
-security export -k ~/Library/Keychains/login.keychain-db \
-  -t cert -s "iPhone Distribution: 你的名字 (TEAM_ID)" \
-  -P "ci-pass" \
-  -o ~/Desktop/certificate.p12
-
-# 3. 转为 Base64（在 Mac Terminal 运行）
-base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
-```
-
-> **注意**：导出 p12 时设置的密码必须为 `ci-pass`（workflow 硬编码）。  
-> 如果之前已在 Keychain 中有 "Hong Yang" 的分发证书，可直接用 `security find-identity` 找到并导出。
-
-### 2.4 创建 APPLE_APP_PASSWORD
-
-1. 登录 [appleid.apple.com](https://appleid.apple.com) → **登录和安全**
-2. **专用密码** → **+** 生成一个新密码
-3. 命名填写 `GitHub Actions AIBrainIM`
-4. 复制生成的密码，填入 GitHub Secret `APPLE_APP_PASSWORD`
+如果后面改回 Fastlane 或手工签名模式，再单独补 `APPLE_DIST_P12 / APPLE_APP_PASSWORD` 这套即可；但那不是现在这条主线的阻塞项。
 
 ---
 
@@ -159,7 +132,7 @@ base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
 - `3_Tasks_67.png` / `_65.png` / `_55.png` — 任务
 - `4_Profile_67.png` / `_65.png` / `_55.png` — 我的
 
-可直接从 `build/AppStoreScreenshots/` 目录上传（每尺寸上传对应 5 张 Tab 截图）。
+可直接从 `build/AppStoreScreenshots/` 目录上传。
 
 ### 3.3 填写 App 信息
 
@@ -168,7 +141,7 @@ base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
 | 副标题 | 智能任务中枢，随时在线 |
 | 宣传文本 | 参见 `APPSTORE_LISTING.md` |
 | 描述 | 参见 `APPSTORE_LISTING.md` |
-| 关键词 | AI, 协作, 任务管理, 效率, 智能助手（参见 `APPSTORE_LISTING.md`） |
+| 关键词 | AI, 协作, 任务管理, 效率, 智能助手 |
 | 隐私政策 URL | `https://explore3363-coder.github.io/AIBrainIM/privacy.html` |
 | 类别 | 效率 |
 | 年龄分级 | 4+ |
@@ -179,16 +152,14 @@ base64 -i ~/Desktop/certificate.p12 | tr -d '\n'
 
 ### 4.0 发起前核对清单
 
-在运行 `git tag v0.1.0 && git push --tags` 之前，确认以下配置已完成：
+在运行 `git tag v0.1.0 && git push --tags origin main` 之前，确认以下配置已完成：
 
 | 检查项 | 验证方式 |
 |--------|---------|
 | GitHub Secret `APPLE_API_KEY_CONTENT` | Settings → Secrets → Actions → 存在且非空 |
-| GitHub Secret `APPLE_DIST_P12` | 同上 |
-| GitHub Secret `APPLE_APP_PASSWORD` | 同上 |
 | GitHub Variable `APPLE_TEAM_ID` | Settings → Variables → Actions → 存在且非占位符 |
-| GitHub Variable `APPLE_DEV_EMAIL` | 同上 |
-| `ASC_KEY_ID` / `ASC_ISSUER_ID` 已替换 | 检查 `.github/workflows/testflight.yml` 中 env.ASC_KEY_ID / env.ASC_ISSUER_ID 是否为自己的密钥 ID |
+| GitHub Variables `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` | Settings → Variables → Actions → 已存在且为你自己的值 |
+| GitHub Variable `APPLE_DEV_EMAIL` | 可选校验项；建议补上，当前 workflow 不直接消费 |
 | App Store Connect App 记录存在 | appstoreconnect.apple.com → 我的 App → 能看到 AI协作平台 |
 
 **如果以上任何一项未完成就打 tag**，GitHub Actions 构建会失败。
@@ -202,10 +173,10 @@ git tag v0.1.0 && git push --tags origin main
 
 GitHub Actions 将自动：
 1. 安装依赖（npm ci + pod install）
-2. 导入签名证书（APPLE_DIST_P12）
+2. 校验 Apple API Key / Team ID / Issuer ID / 私钥内容是否齐全且格式基本正确
 3. xcodebuild archive
-4. altool 上传到 App Store Connect
-5. 创建 GitHub Release
+4. xcodebuild exportArchive（携带 API Key 自动处理导出签名）
+5. altool 上传到 App Store Connect
 
 ### 4.2 监控构建
 
@@ -222,17 +193,17 @@ App Store Connect → **TestFlight** → **测试信息**：
 
 ## 五、常见问题
 
-### Q: `APPLE_DIST_P12` 解码失败
-**A**: 确认 base64 没有换行符，执行 `cat ~/Desktop/certificate.p12 | base64 | tr -d '\n'` 确保单行输出。
+### Q: 为什么现在不再把 `APPLE_DIST_P12 / APPLE_APP_PASSWORD` 当成首要前置项？
+**A**: 因为当前仓库的 `testflight.yml` 已切到 App Store Connect API Key 驱动的自动签名 / 导出链路。现阶段真正要补的是 `APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_TEAM_ID / APPLE_API_KEY_CONTENT`。只有后续明确切回 Fastlane 手工签名链路时，才需要重新启用 `APPLE_DIST_P12 / APPLE_APP_PASSWORD`。
 
-### Q: altool 认证失败 (401 Invalid Username/Password)
-**A**: 使用 APPLE_APP_PASSWORD（专用密码），不是 Apple ID 登录密码。
+### Q: altool 上传失败怎么办？
+**A**: 先核对 API Key、Issuer ID、Team ID、App Store Connect App 记录是否一致；当前 workflow 不是走 Apple ID + app-specific password 这条旧链路。
 
 ### Q: 首次上传需要人工审核？
 **A**: App Store Connect 首次发布需要人工审核（约 1-2 天）。TestFlight 上传通常自动通过，不需要人工审。
 
 ### Q: Bundle ID 冲突
-**A**: 改为 `com.openclaw.aibrainim.alpha`，同步修改 `ios/AIBrainIM/Info.plist` 和 `app.json`。
+**A**: 优先在 Apple Developer / App Store Connect 检查 `com.openclaw.aibrainim` 是否已被当前团队占用。如果确实冲突，再改为 `com.openclaw.aibrainim.alpha`，并同步修改 Xcode target、`app.json`、相关文档与 CI 配置，避免只改文档不改工程。
 
 ---
 
@@ -241,8 +212,8 @@ App Store Connect → **TestFlight** → **测试信息**：
 | 版本 | 内容 | 目标 |
 |------|------|------|
 | v0.1.0 | 五主功能 P1 可用版，提 TestFlight | 2026-05 |
+| v0.1.1 | 修提测反馈 | 待定 |
 | v0.2.0 | 真实 API 闭环、Live Mode 稳定 | 待定 |
-| v1.0.0 | App Store 正式版 | 待定 |
 
 ---
 

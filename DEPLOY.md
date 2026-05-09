@@ -20,9 +20,10 @@ Tag v*.*.* → main     → GitHub Actions: Release Archive + Upload to TestFlig
 
 **Local commands:**
 ```bash
-npm run typecheck   # TypeScript compile check
-npm run build:sim   # iOS Simulator build (no signing)
-npm test            # Jest
+npm run typecheck          # TypeScript compile check
+npm run build:sim          # iOS Simulator build (no signing)
+npm test                   # Jest
+npm run validate:testflight  # Apple CI inputs preflight
 
 cd ios/fastlane
 bundle install
@@ -61,16 +62,24 @@ bundle exec fastlane appstore   # App Store submission
 1. App Store Connect → Users & Access → Keys → **+**
 2. Create an App Store Connect API Key with "App Manager" role
 3. Download the `.p8` key file (only available at creation time!)
-4. Add as GitHub Secrets:
+4. Add as GitHub Variables / Secrets:
    - `APPLE_API_KEY_ID` — the key ID shown in App Store Connect (对应 testflight.yml 中 `env.ASC_KEY_ID`)
-   - `APPLE_API_ISSUER_ID` — your Team ID (visible in App Store Connect → Users & Access → Keys) (对应 testflight.yml 中 `env.ASC_ISSUER_ID`)
+   - `APPLE_API_ISSUER_ID` — the Issuer ID shown in App Store Connect → Users & Access → Keys (对应 testflight.yml 中 `env.ASC_ISSUER_ID`)
    - `APPLE_API_KEY_CONTENT` — base64-encoded `.p8` content (GitHub Secret, 与 TESTFLIGHT.md 保持一致):
      ```bash
      base64 -i AuthKey_XXXXXX.p8 | tr -d '\n'
      ```
 5. Add as GitHub Variables:
    - `APPLE_TEAM_ID` — your Apple Developer Team ID
-   - `APPLE_DEV_EMAIL` — your Apple Developer email
+   - `APPLE_DEV_EMAIL` — your Apple Developer email（文档 / 本地操作参考；当前 `testflight.yml` 不直接消费）
+6. Optional local preflight before tagging:
+   ```bash
+   ASC_KEY_ID=... \
+   ASC_ISSUER_ID=... \
+   APPLE_TEAM_ID=... \
+   APPLE_API_KEY_CONTENT=... \
+   npm run validate:testflight
+   ```
 
 ### Step 3 · First TestFlight Build
 

@@ -9,6 +9,10 @@ describe('uploadService', () => {
     uploadService.clearQueue();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('enqueueUpload', () => {
     it('adds a file to the queue and returns it', async () => {
       const file = await uploadService.enqueueUpload('test.pdf', 'file:///tmp/test.pdf', 'application/pdf', 1024);
@@ -139,6 +143,53 @@ describe('uploadService', () => {
     });
   });
 
+  describe('subscribe', () => {
+    it('emits queue updates when files are added and removed', async () => {
+      const listener = jest.fn();
+      const unsubscribe = uploadService.subscribe(listener);
+
+      expect(listener).toHaveBeenCalledWith([]);
+
+      const file = await uploadService.enqueueUpload('watch.pdf', 'file:///watch', 'application/pdf', 2048);
+      expect(listener).toHaveBeenCalled();
+      expect(listener.mock.calls.at(-1)?.[0]?.some((item: {id: string}) => item.id === file.id)).toBe(true);
+
+      uploadService.removeFile(file.id);
+      expect(listener.mock.calls.at(-1)?.[0]).toEqual([]);
+
+      unsubscribe();
+    });
+
+    it('stops emitting after unsubscribe', async () => {
+      const listener = jest.fn();
+      const unsubscribe = uploadService.subscribe(listener);
+      unsubscribe();
+      listener.mockClear();
+
+      await uploadService.enqueueUpload('silent.pdf', 'file:///silent', 'application/pdf', 2048);
+
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it('keeps upload pipeline alive when a subscriber throws', async () => {
+      const throwingListener = jest.fn(() => {
+        throw new Error('subscriber failed');
+      });
+      const goodListener = jest.fn();
+      const unsubscribeThrowing = uploadService.subscribe(throwingListener);
+      const unsubscribeGood = uploadService.subscribe(goodListener);
+
+      goodListener.mockClear();
+      const file = await uploadService.enqueueUpload('safe.pdf', 'file:///safe', 'application/pdf', 2048);
+
+      expect(uploadService.getQueue().some(item => item.id === file.id)).toBe(true);
+      expect(goodListener.mock.calls.at(-1)?.[0]?.some((item: {id: string}) => item.id === file.id)).toBe(true);
+
+      unsubscribeThrowing();
+      unsubscribeGood();
+    });
+  });
+
   describe('getFile', () => {
     it('returns the file by id', async () => {
       const file = await uploadService.enqueueUpload('find.pdf', 'file:///find', 'application/pdf', 42);
@@ -158,6 +209,47 @@ describe('uploadService', () => {
       expect(uploadService.getQueue().length).toBe(1);
       uploadService.removeFile(file.id);
       expect(uploadService.getQueue().length).toBe(0);
+    });
+  });
+
+  describe('retryUpload', () => {
+    it('resets a failed direct upload and emits a queue update', async () => {
+      const listener = jest.fn();
+      const file = await uploadService.enqueueUpload('retry.pdf', 'file:///retry', 'application/pdf', 1024);
+      const unsubscribe = uploadService.subscribe(listener);
+
+      file.status = 'error';
+      file.error = 'network failed';
+      file.progress = 37;
+
+      uploadService.retryUpload(file.id);
+
+      const updated = uploadService.getFile(file.id);
+      expect(updated?.status).toBe('queued');
+      expect(updated?.error).toBeUndefined();
+      expect(updated?.progress).toBe(0);
+      expect(listener.mock.calls.at(-1)?.[0]?.[0]?.status).toBe('queued');
+
+      unsubscribe();
+    });
+
+    it('keeps chunked retry resumable without starting background work in tests', async () => {
+      const largeSize = 15 * 1024 * 1024;
+      const file = await uploadService.enqueueUpload('retry-large.zip', 'file:///retry-large', 'application/zip', largeSize);
+      file.status = 'error';
+      file.error = 'chunk failed';
+      file.progress = 42;
+      file.uploadedChunks = 2;
+
+      uploadService.retryUpload(file.id);
+
+      const updated = uploadService.getFile(file.id);
+      expect(updated?.status).toBe('queued');
+      expect(updated?.queueStage).toBe('chunking');
+      expect(updated?.transferMode).toBe('chunked');
+      expect(updated?.resumable).toBe(true);
+      expect(updated?.uploadedChunks).toBe(0);
+      expect(updated?.error).toBeUndefined();
     });
   });
 

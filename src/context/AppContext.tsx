@@ -28,6 +28,7 @@ import {
   summarizeGatewayConfig,
   validateGatewayConfig,
 } from '../services/gatewayConfig';
+import {getAppleReleaseStatus} from '../services/releaseChannel';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 const APP_CONTEXT_STORAGE_KEY = '@AIBrainIM:appContext';
@@ -54,6 +55,10 @@ interface AppContextValue {
   gatewaySummary: string;
   gatewayConfigValid: boolean;
   gatewayWarningCount: number;
+  applePrerequisitesReady: boolean;
+  appleReleaseSummary: string;
+  appleReleaseSource: 'global-override' | 'env' | 'default';
+  appleReleaseValidatedAt?: number;
   refresh: () => void;
   refreshGatewayStatus: () => Promise<void>;
   confirmItem: (id: string) => void;
@@ -128,6 +133,36 @@ function mergeConfirmations(
       resolutionNote: local.resolutionNote ?? item.resolutionNote,
     };
   });
+}
+
+function upsertDispatchRecord(
+  items: DispatchRecord[],
+  record: DispatchRecord,
+): DispatchRecord[] {
+  const matchIndex = items.findIndex(item =>
+    (record.dispatchId && item.dispatchId === record.dispatchId)
+    || (record.taskId && item.taskId === record.taskId)
+    || item.id === record.id,
+  );
+
+  if (matchIndex === -1) {
+    return [record, ...items].slice(0, 20);
+  }
+
+  const existing = items[matchIndex];
+  const merged: DispatchRecord = {
+    ...existing,
+    ...record,
+    id: existing.id,
+    taskId: record.taskId ?? existing.taskId,
+    dispatchId: record.dispatchId ?? existing.dispatchId,
+    createdAt: existing.createdAt ?? record.createdAt,
+    updatedAt: record.updatedAt ?? existing.updatedAt,
+  };
+
+  const next = [...items];
+  next.splice(matchIndex, 1);
+  return [merged, ...next].slice(0, 20);
 }
 
 function sanitizePersistedState(value: unknown): PersistedAppContextState | null {
@@ -258,6 +293,10 @@ const AppContext = createContext<AppContextValue>({
   gatewaySummary: '配置读取中…',
   gatewayConfigValid: false,
   gatewayWarningCount: 0,
+  applePrerequisitesReady: false,
+  appleReleaseSummary: 'Apple Developer / App Store Connect / GitHub CI 变量仍待补齐',
+  appleReleaseSource: 'default',
+  appleReleaseValidatedAt: undefined,
   refresh: () => {},
   refreshGatewayStatus: async () => {},
   confirmItem: () => {},
@@ -277,7 +316,7 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [tasks, setTasks]   = useState<Task[]>(tasksMock);
   const [confirmations, setConfirmations] = useState<ConfirmationItem[]>(confirmationMock);
   const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
-  const [uploads, setUploads] = useState<UploadFile[]>([]);
+  const [uploads, setUploads] = useState<UploadFile[]>(uploadService.getQueue());
   const [refreshing, setRefreshing] = useState(false);
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>('fallback');
   const [runtimeError, setRuntimeError] = useState<string | undefined>();
@@ -286,6 +325,10 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [gatewaySummary, setGatewaySummary] = useState('配置读取中…');
   const [gatewayConfigValid, setGatewayConfigValid] = useState(false);
   const [gatewayWarningCount, setGatewayWarningCount] = useState(0);
+  const [applePrerequisitesReady, setApplePrerequisitesReady] = useState(false);
+  const [appleReleaseSummary, setAppleReleaseSummary] = useState('Apple Developer / App Store Connect / GitHub CI 变量仍待补齐');
+  const [appleReleaseSource, setAppleReleaseSource] = useState<'global-override' | 'env' | 'default'>('default');
+  const [appleReleaseValidatedAt, setAppleReleaseValidatedAt] = useState<number | undefined>();
   const [recentCaptures, setRecentCaptures] = useState<CaptureEntry[]>([]);
   const uploadStatusRef = useRef<Record<string, UploadFile['status']>>({});
   const hasHydratedRef = useRef(false);
@@ -300,9 +343,14 @@ export function AppProvider({children}: {children: ReactNode}) {
   const refreshGatewayStatus = useCallback(async () => {
     const gatewayConfig = await getGatewayConfig();
     const gatewayValidation = validateGatewayConfig(gatewayConfig);
+    const appleReleaseStatus = getAppleReleaseStatus();
     setGatewaySummary(summarizeGatewayConfig(gatewayConfig));
     setGatewayConfigValid(gatewayValidation.valid);
     setGatewayWarningCount(gatewayValidation.warnings.length);
+    setApplePrerequisitesReady(appleReleaseStatus.applePrerequisitesReady);
+    setAppleReleaseSummary(appleReleaseStatus.summary);
+    setAppleReleaseSource(appleReleaseStatus.source);
+    setAppleReleaseValidatedAt(appleReleaseStatus.validatedAt);
   }, []);
 
   useEffect(() => {
@@ -590,11 +638,12 @@ export function AppProvider({children}: {children: ReactNode}) {
 
     setDispatches(items => [record, ...items].slice(0, 20));
 
-    // Back-link uploaded files to this dispatch so the UploadScreen and
-    // DispatchChainScreen can show which files were involved.
+    // Back-link uploaded files to the canonical dispatch identifier so the
+    // UploadScreen / DispatchChain / Dashboard all focus the same runtime record.
     if (payload.attachmentFiles) {
+      const canonicalDispatchId = record.dispatchId ?? record.id;
       payload.attachmentFiles.forEach(file => {
-        uploadService.updateFileDispatchId(file.id, record.id);
+        uploadService.updateFileDispatchId(file.id, canonicalDispatchId);
       });
     }
 
@@ -818,14 +867,11 @@ export function AppProvider({children}: {children: ReactNode}) {
   useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
-    if (IS_TEST_ENV) {
-      return;
-    }
+    const unsubscribe = uploadService.subscribe(queue => {
+      setUploads([...queue]);
+    });
 
-    const poll = setInterval(() => {
-      setUploads([...uploadService.getQueue()]);
-    }, 1200);
-    return () => clearInterval(poll);
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -846,21 +892,72 @@ export function AppProvider({children}: {children: ReactNode}) {
 
       const createdAt = Date.now();
       const taskId = `upload-${file.id}`;
-      const dispatchId = `upload-dp-${file.id}-${createdAt.toString(36)}`;
+      const dispatchId = file.dispatchId ?? `upload-dp-${file.id}`;
+
+      if (file.dispatchId !== dispatchId) {
+        uploadService.updateFileDispatchId(file.id, dispatchId);
+      }
+
+      if (file.status === 'queued' || file.status === 'uploading') {
+        const isUploading = file.status === 'uploading';
+        const progressText = isUploading
+          ? `当前上传进度 ${Math.round(file.progress)}%`
+          : '已进入上传队列，等待开始传输';
+        const queueStageText = file.transferMode === 'chunked'
+          ? `分片上传 · ${file.uploadedChunks ?? 0}/${file.totalChunks ?? 0} 片`
+          : '直传模式';
+
+        setDispatches(items => upsertDispatchRecord(items, {
+          id: dispatchId,
+          userText: `${isUploading ? '附件上传中' : '附件进入队列'}：${file.name}`,
+          reply: isUploading
+            ? `📤 附件「${file.name}」正在上传中，${progressText}。`
+            : `📥 附件「${file.name}」已加入上传队列，准备进入${file.transferMode === 'chunked' ? '分片' : '直传'}链路。`,
+          taskId,
+          dispatchId,
+          createdAt,
+          updatedAt: createdAt,
+          status: 'submitted',
+          source: 'upload',
+          label: isUploading ? '附件上传中' : '附件进入上传队列',
+          stageText: `${queueStageText} · ${progressText}`,
+          sessionKey: dispatchId,
+        }));
+
+        setTasks(items => {
+          const nextTask: Task = {
+            id: taskId,
+            title: `附件上传：${file.name}`,
+            owner: '附件链路',
+            state: 'running',
+            eta: isUploading ? `${Math.round(file.progress)}%` : '排队中',
+            next: isUploading
+              ? `正在上传，${file.transferMode === 'chunked' ? '分片传输后会自动进入后台处理' : '完成后会自动进入后台处理'}`
+              : '等待上传启动，随后进入后台处理与分派链路',
+            priority: file.type === 'video' || file.type === 'archive' ? 'P1' : 'P2',
+            sessionKey: dispatchId,
+            updatedAt: createdAt,
+            sourceType: 'upload',
+            traceSummary: `${queueStageText} · ${progressText}`,
+            attachmentCount: 1,
+          };
+          return [nextTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
+        });
+        return;
+      }
 
       if (file.status === 'processing') {
-        setDispatches(items => {
-          const record: DispatchRecord = {
-            id: dispatchId,
-            userText: `附件进入处理：${file.name}`,
-            reply: `📎 附件「${file.name}」已上传完成，正在进入后台处理队列。`,
-            taskId,
-            dispatchId,
-            createdAt,
-            status: 'processing',
-          };
-          return [record, ...items].slice(0, 20);
-        });
+        setDispatches(items => upsertDispatchRecord(items, {
+          id: dispatchId,
+          userText: `附件进入处理：${file.name}`,
+          reply: `📎 附件「${file.name}」已上传完成，正在进入后台处理队列。`,
+          taskId,
+          dispatchId,
+          createdAt,
+          updatedAt: createdAt,
+          status: 'processing',
+          source: 'upload',
+        }));
 
         setTasks(items => {
           const nextTask: Task = {
@@ -871,6 +968,11 @@ export function AppProvider({children}: {children: ReactNode}) {
             eta: '后台处理中',
             next: '等待 AI 分析与分派结果回流',
             priority: file.type === 'video' || file.type === 'archive' ? 'P1' : 'P2',
+            sessionKey: dispatchId,
+            updatedAt: createdAt,
+            sourceType: 'upload',
+            traceSummary: '附件已上传完成，正在进入后台处理队列',
+            attachmentCount: 1,
           };
           return [nextTask, ...items.filter(item => item.id !== taskId)].slice(0, 20);
         });
@@ -878,21 +980,21 @@ export function AppProvider({children}: {children: ReactNode}) {
       }
 
       if (file.status === 'dispatched') {
-        setDispatches(items => {
-          const record: DispatchRecord = {
-            id: dispatchId,
-            userText: `附件已分派：${file.name}`,
-            reply: `📎 附件「${file.name}」已分派给 ${file.agent ?? '对应智能体'}，结果会继续回流到首页 AI 产出流。`,
-            taskId,
-            dispatchId,
-            createdAt,
-            status: 'dispatched',
-          };
-          return [record, ...items].slice(0, 20);
-        });
-
-        // Back-link the dispatchId into the upload file so UploadScreen can navigate to it
-        uploadService.updateFileDispatchId(file.id, dispatchId);
+        setDispatches(items => upsertDispatchRecord(items, {
+          id: dispatchId,
+          userText: `附件已分派：${file.name}`,
+          reply: `📎 附件「${file.name}」已分派给 ${file.agent ?? '对应智能体'}，结果会继续回流到首页 AI 产出流。`,
+          taskId,
+          dispatchId,
+          createdAt,
+          updatedAt: createdAt,
+          status: 'dispatched',
+          agentId: file.agent,
+          source: 'upload',
+          label: '附件已分派',
+          stageText: file.agent ? `已分派给 ${file.agent}` : '已分派给对应智能体',
+          sessionKey: dispatchId,
+        }));
 
         setTasks(items => items.map(item => item.id === taskId ? {
           ...item,
@@ -900,23 +1002,31 @@ export function AppProvider({children}: {children: ReactNode}) {
           state: 'running',
           eta: '已分派',
           next: `当前由 ${file.agent ?? '对应智能体'} 继续处理`,
+          sessionKey: dispatchId,
+          updatedAt: createdAt,
+          sourceType: 'upload',
+          traceSummary: file.agent ? `已分派给 ${file.agent}` : '已分派给对应智能体',
+          attachmentCount: 1,
         } : item));
         return;
       }
 
       if (file.status === 'done') {
-        setDispatches(items => {
-          const record: DispatchRecord = {
-            id: dispatchId,
-            userText: `附件闭环完成：${file.name}`,
-            reply: `✅ 附件「${file.name}」已完成处理${file.agent ? `，执行方：${file.agent}` : ''}。`,
-            taskId,
-            dispatchId,
-            createdAt,
-            status: 'completed',
-          };
-          return [record, ...items].slice(0, 20);
-        });
+        setDispatches(items => upsertDispatchRecord(items, {
+          id: dispatchId,
+          userText: `附件闭环完成：${file.name}`,
+          reply: `✅ 附件「${file.name}」已完成处理${file.agent ? `，执行方：${file.agent}` : ''}。`,
+          taskId,
+          dispatchId,
+          createdAt,
+          updatedAt: createdAt,
+          status: 'completed',
+          agentId: file.agent,
+          source: 'upload',
+          label: '附件闭环完成',
+          stageText: '附件处理结果已回流到移动端闭环',
+          sessionKey: dispatchId,
+        }));
 
         setTasks(items => items.map(item => item.id === taskId ? {
           ...item,
@@ -924,23 +1034,31 @@ export function AppProvider({children}: {children: ReactNode}) {
           state: 'done',
           eta: '已完成',
           next: '附件处理结果已回流到移动端闭环',
+          sessionKey: dispatchId,
+          updatedAt: createdAt,
+          sourceType: 'upload',
+          traceSummary: '附件处理结果已回流到移动端闭环',
+          attachmentCount: 1,
         } : item));
         return;
       }
 
       if (file.status === 'error') {
-        setDispatches(items => {
-          const record: DispatchRecord = {
-            id: dispatchId,
-            userText: `附件处理失败：${file.name}`,
-            reply: `⚠️ 附件「${file.name}」处理失败：${file.error ?? '未知错误'}。`,
-            taskId,
-            dispatchId,
-            createdAt,
-            status: 'failed',
-          };
-          return [record, ...items].slice(0, 20);
-        });
+        setDispatches(items => upsertDispatchRecord(items, {
+          id: dispatchId,
+          userText: `附件处理失败：${file.name}`,
+          reply: `⚠️ 附件「${file.name}」处理失败：${file.error ?? '未知错误'}。`,
+          taskId,
+          dispatchId,
+          createdAt,
+          updatedAt: createdAt,
+          status: 'failed',
+          agentId: file.agent,
+          source: 'upload',
+          label: '附件处理失败',
+          stageText: file.error ?? '请检查上传链路后重试',
+          sessionKey: dispatchId,
+        }));
 
         setTasks(items => {
           const existing = items.some(item => item.id === taskId);
@@ -952,6 +1070,11 @@ export function AppProvider({children}: {children: ReactNode}) {
             eta: '处理失败',
             next: file.error ?? '请检查上传链路后重试',
             priority: 'P1',
+            sessionKey: dispatchId,
+            updatedAt: createdAt,
+            sourceType: 'upload',
+            traceSummary: file.error ?? '请检查上传链路后重试',
+            attachmentCount: 1,
           };
           return existing
             ? items.map(item => item.id === taskId ? blockedTask : item)
@@ -1029,6 +1152,10 @@ export function AppProvider({children}: {children: ReactNode}) {
         gatewaySummary,
         gatewayConfigValid,
         gatewayWarningCount,
+        applePrerequisitesReady,
+        appleReleaseSummary,
+        appleReleaseSource,
+        appleReleaseValidatedAt,
         refresh,
         refreshGatewayStatus,
         confirmItem,

@@ -1,6 +1,6 @@
 # AIBrainIM TestFlight / App Store 上线准备清单
 
-> 更新：2026-05-08
+> 更新：2026-05-09
 
 ## 当前定位
 - React Native 0.85.2 为主工程（唯一主线，不再做 HTML 体验稿）
@@ -43,26 +43,34 @@
 - [x] App Icon 1024×1024 已就位（AppIcon-1024.png）
 - [x] fastlane metadata name.txt 已补全（zh-CN / en-US）
 - [x] 上线文档完整（APPSTORE_LISTING.md / TESTFLIGHT.md / RELEASE_CHECKLIST.md / PRIVACY.md / DEPLOY.md）
+- [x] TestFlight workflow 前置校验脚本已抽出（`scripts/validate-testflight-inputs.sh`，校验 API Key / Issuer ID / Team ID / .p8 结构）
 
 ### ⬜ 待完成（Apple 侧 — 需人工处理，是当前唯一阻塞）
-**核心依赖：Apple Developer 账号 + GitHub Secrets 配置**
+**核心依赖：Apple Developer 账号 + App Store Connect API Key + GitHub Variables / Secrets 配置**
 
-GitHub Secrets（Settings → Secrets and variables → Actions）需要配置：
-- `APPLE_API_KEY_ID` — App Store Connect API Key ID
-- `APPLE_API_KEY_CONTENT` — .p8 文件原始内容（base64 解码后的内容）
-- `APPLE_APP_PASSWORD` — App 专用密码
+当前仓库的 `testflight.yml` 已切到 **App Store Connect API Key 自动签名 / 导出** 链路，现阶段真正需要补的是下面这些：
 
-GitHub Vars（Settings → Secrets and variables → Actions → Variables）需要配置：
+GitHub Variables（Settings → Secrets and variables → Actions → Variables）
+- `APPLE_API_KEY_ID` — App Store Connect API Key ID（workflow 内映射到 `ASC_KEY_ID`）
+- `APPLE_API_ISSUER_ID` — App Store Connect Issuer ID（workflow 内映射到 `ASC_ISSUER_ID`）
 - `APPLE_TEAM_ID` — Apple Team ID（如 DRBZA8XXXX）
-- `APPLE_DEV_EMAIL` — Apple Developer 邮箱
+- `APPLE_DEV_EMAIL` — Apple Developer 邮箱（文档 / 本地操作参考；当前 `testflight.yml` 不直接消费）
+
+GitHub Secrets（Settings → Secrets and variables → Actions → Secrets）
+- `APPLE_API_KEY_CONTENT` — `.p8` 文件内容（支持 raw PEM 或 base64）
+
+> 说明：当前主线 **不再以 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` 作为 TestFlight workflow 前置项**。只有后续明确切回 Fastlane 手工签名路径时，才需要再补那一套。
 
 待完成清单：
 - [ ] Apple Developer 账号（$99/年） + Team ID 获取
 - [ ] App Store Connect 创建 App 记录（Bundle ID: com.openclaw.aibrainim）
+- [ ] App Store Connect API Key 创建并写入 GitHub Variables / Secrets
 - [ ] 权限文案（相册/相机如后续启用）
 - [ ] 第一个 TestFlight Build 上传 + 验证可安装
 - [x] iPhone 截图已刷新（`bash scripts/capture-screenshots.sh` → `build/AppStoreScreenshots/0_Dashboard_67/65/55.png`）
 - [ ] App Store 填写内容（描述/关键词/隐私政策/支持链接）
+
+> 本地/CI 前置校验可复用：`bash scripts/validate-testflight-inputs.sh`。脚本只检查环境变量是否存在、是否像占位符、以及 `.p8` 内容结构，不会打印密钥正文。
 
 ### ⬜ 待完成（非阻塞，可并行）
 - [ ] 真实 Gateway API 接入（协议映射层已就绪）
@@ -91,10 +99,10 @@ GitHub Vars（Settings → Secrets and variables → Actions → Variables）需
 - [x] 6.5-inch 截图（1284×2778）→ `build/AppStoreScreenshots/0_Dashboard_65.png`
 - [x] 5.5-inch 截图（1242×2208）→ `build/AppStoreScreenshots/0_Dashboard_55.png`
 - [x] App Icon 1024×1024 ✅
-- [ ] 应用描述（中文）
-- [ ] 关键词
-- [x] 隐私政策（PRIVACY.md）
-- [ ] 支持链接
+- [x] 应用描述（中文，`APPSTORE_LISTING.md`）
+- [x] 关键词（`APPSTORE_LISTING.md`）
+- [x] 隐私政策（PRIVACY.md / docs/privacy.html）
+- [x] 支持链接（GitHub Pages 隐私页可作为首版支持入口）
 
 ## TestFlight 提交流程
 
@@ -115,8 +123,9 @@ cd ios/fastlane && bundle exec fastlane tf
 ## 近期建议顺序
 ```
 1. Apple Developer 账号注册/登录
-2. GitHub Secrets + Vars 配置（见上文）
-3. 打 tag v0.1.0 → GitHub Actions 自动 TestFlight 上传
-4. 验证 TestFlight 可安装
-5. 准备 App Store 截图，提审
+2. App Store Connect 创建 App + API Key
+3. GitHub Variables / Secrets 配置（见上文）
+4. 打 tag v0.1.0 → GitHub Actions 自动 TestFlight 上传
+5. 验证 TestFlight 可安装
+6. 补齐 App Store Connect 文案与提审信息
 ```

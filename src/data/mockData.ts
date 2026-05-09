@@ -78,7 +78,7 @@ export const confirmationMock: ConfirmationItem[] = [
   {
     id:'c1',
     title:'AIBrainIM TestFlight 上架配置',
-    description:'GitHub repo 的 APPLE_DIST_P12 / APPLE_APP_PASSWORD / APPLE_API_KEY_CONTENT 尚未配置，当前 workflow 无法触发自动发布。',
+    description:'GitHub repo 的 APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_TEAM_ID / APPLE_API_KEY_CONTENT 尚未配置，当前 workflow 还不能触发自动发布。',
     agent:'助理',
     urgency:'high',
     timestamp:'20:29',

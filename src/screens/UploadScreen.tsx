@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Text, View, StyleSheet, ScrollView, TouchableOpacity,
   Alert,
@@ -71,33 +71,19 @@ export function UploadScreen() {
   const focusDispatchId = route.params?.focusDispatchId;
 
   useEffect(() => {
-    setFiles([...uploadService.getQueue()]);
+    const unsubscribe = uploadService.subscribe(queue => {
+      setFiles([...queue]);
+    });
 
-    let cancelled = false;
-    if (IS_TEST_ENV) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const poll = setInterval(() => {
-      if (cancelled) {
-        return;
-      }
-      setFiles([...uploadService.getQueue()]);
-    }, 800);
-    return () => {
-      cancelled = true;
-      clearInterval(poll);
-    };
+    return unsubscribe;
   }, []);
 
-  const handleRetry = (file: UploadFile) => {
+  const handleRetry = useCallback((file: UploadFile) => {
     uploadService.retryUpload(file.id);
     setFiles([...uploadService.getQueue()]);
-  };
+  }, []);
 
-  const handleUpload = () => {
+  const handleUpload = useCallback(() => {
     Alert.alert(
       '📎 添加文件',
       '选择文件来源',
@@ -136,14 +122,14 @@ export function UploadScreen() {
         {text: '取消', style: 'cancel'},
       ],
     );
-  };
+  }, []);
 
-  const handleAnalyzeInChat = (file: UploadFile) => {
+  const handleAnalyzeInChat = useCallback((file: UploadFile) => {
     uploadService.markFileForNextDispatch(file.id);
     navigation.navigate('Tabs', {screen: 'Chat'});
-  };
+  }, [navigation]);
 
-  const handleDelete = (fileId: string) => {
+  const handleDelete = useCallback((fileId: string) => {
     Alert.alert('删除文件', '确定从上传队列中移除？', [
       {text: '取消', style: 'cancel'},
       {
@@ -155,7 +141,7 @@ export function UploadScreen() {
         },
       },
     ]);
-  };
+  }, []);
 
   const rankedFiles = useMemo(() => {
     if (!focusFileId && !focusDispatchId) {

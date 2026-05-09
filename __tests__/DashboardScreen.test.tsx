@@ -42,6 +42,22 @@ jest.mock('../src/context/AppContext', () => ({
     refresh: mockRefresh,
     runtimeMode: 'live',
     recentCaptures: [],
+    lastSyncedAt: Date.now(),
+    sessionCount: 3,
+    gatewaySummary: 'OpenClaw Gateway 已连接',
+    gatewayConfigValid: true,
+    gatewayWarningCount: 0,
+    applePrerequisitesReady: false,
+    appleReleaseSummary: 'Apple Developer / App Store Connect / GitHub CI 变量仍待补齐',
+    refreshGatewayStatus: jest.fn(),
+    confirmItem: jest.fn(),
+    deferItem: jest.fn(),
+    reopenItem: jest.fn(),
+    registerDispatch: jest.fn(),
+    markLatestDispatchActive: jest.fn(),
+    finalizeLatestDispatch: jest.fn(),
+    registerKnowledgeCapture: jest.fn(),
+    registerMemoryCapture: jest.fn(),
   }),
 }));
 
@@ -85,6 +101,9 @@ describe('DashboardScreen', () => {
     expect(root.findAllByType(Text).some(node => node.props.children === '首屏只保留用户真会关心的三件事')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === 'P1 正在从样板走向可用驾驶舱')).toBe(true);
     expect(root.findAllByType(Text).some(node => node.props.children === 'TestFlight / App Store 还有 1 项待拍板')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === '提测收口')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === '直接看 TestFlight 还差什么')).toBe(true);
+    expect(root.findAllByType(Text).some(node => node.props.children === '待收口')).toBe(true);
   });
 
   it('navigates to confirmations from launch spotlight when launch path is blocked', async () => {
@@ -101,7 +120,11 @@ describe('DashboardScreen', () => {
       cta!.props.onPress();
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith('Confirmations');
+    expect(mockNavigate).toHaveBeenCalledWith('Confirmations', {
+      focusConfirmationId: 'confirm-1',
+      focusTaskId: undefined,
+      focusDispatchId: undefined,
+    });
   });
 
   it('navigates to project library from spotlight card', async () => {
@@ -121,6 +144,23 @@ describe('DashboardScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('ProjectLibrary');
   });
 
+  it('opens profile from release readiness card', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<DashboardScreen />);
+    });
+
+    const cta = findPressableByLabel(tree!.root, '去看完整上线准备');
+    expect(cta).toBeTruthy();
+
+    await ReactTestRenderer.act(async () => {
+      cta!.props.onPress();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Tabs', {screen: 'Profile'});
+  });
+
   it('keeps dispatch chain quick action available', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
 
@@ -135,6 +175,10 @@ describe('DashboardScreen', () => {
       cta!.props.onPress();
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith('DispatchChain');
+    expect(mockNavigate).toHaveBeenCalledWith('DispatchChain', {
+      focusDispatchId: 'dispatch-runtime-1',
+      focusTaskId: 'task-runtime-1',
+      focusSessionKey: 'feishu:heijin:runtime',
+    });
   });
 });

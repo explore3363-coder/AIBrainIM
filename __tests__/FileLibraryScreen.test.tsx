@@ -1,9 +1,12 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import {Text, TouchableOpacity} from 'react-native';
+import {Alert, Text, TouchableOpacity} from 'react-native';
 import {FileLibraryScreen} from '../src/screens/FileLibraryScreen';
 
-
+const mockNavigate = jest.fn();
+const mockMarkFileForNextDispatch = jest.fn();
+const mockRetryUpload = jest.fn();
+const mockRemoveFile = jest.fn();
 
 jest.mock('../src/context/AppContext', () => ({
   useAppContext: () => ({
@@ -18,6 +21,7 @@ jest.mock('../src/context/AppContext', () => ({
         agent: '助理',
         size: 2 * 1024 * 1024,
         uri: 'file:///test.pdf',
+        dispatchId: 'upload-dp-u1',
       },
       {
         id: 'u2',
@@ -45,6 +49,24 @@ jest.mock('../src/context/AppContext', () => ({
   }),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({navigate: mockNavigate}),
+}));
+
+jest.mock('../src/services/uploadService', () => {
+  const actual = jest.requireActual('../src/services/uploadService');
+  return {
+    ...actual,
+    enqueueUpload: jest.fn(),
+    uploadService: {
+      ...actual.uploadService,
+      markFileForNextDispatch: (...args: unknown[]) => mockMarkFileForNextDispatch(...args),
+      retryUpload: (...args: unknown[]) => mockRetryUpload(...args),
+      removeFile: (...args: unknown[]) => mockRemoveFile(...args),
+    },
+  };
+});
+
 jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: jest.fn(),
 }));
@@ -55,6 +77,17 @@ jest.mock('react-native-document-picker', () => ({
 }));
 
 describe('FileLibraryScreen', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    mockMarkFileForNextDispatch.mockClear();
+    mockRetryUpload.mockClear();
+    mockRemoveFile.mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   function collectText(node: ReactTestRenderer.ReactTestInstance): string[] {
     return node.findAllByType(Text).map(textNode => {
       const child = textNode.props.children;
@@ -179,5 +212,67 @@ describe('FileLibraryScreen', () => {
     const texts = collectText(tree!.root);
     // Upload button text
     expect(texts.some(t => t.includes('+ 上传'))).toBe(true);
+  });
+
+  it('opens dispatch chain from a completed file with dispatch id', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<FileLibraryScreen />);
+    });
+
+    const dispatchBtn = tree!.root.findAllByType(TouchableOpacity)
+      .find(t => collectText(t).includes('调度链'));
+    expect(dispatchBtn).toBeDefined();
+
+    await ReactTestRenderer.act(async () => {
+      dispatchBtn!.props.onPress();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('DispatchChain', {
+      focusDispatchId: 'upload-dp-u1',
+      focusTaskId: 'upload-u1',
+      focusSessionKey: 'upload-dp-u1',
+    });
+  });
+
+  it('marks a processed file for next dispatch and navigates to chat', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<FileLibraryScreen />);
+    });
+
+    const chatBtn = tree!.root.findAllByType(TouchableOpacity)
+      .find(t => collectText(t).includes('带入对话'));
+    expect(chatBtn).toBeDefined();
+
+    await ReactTestRenderer.act(async () => {
+      chatBtn!.props.onPress();
+    });
+
+    expect(mockMarkFileForNextDispatch).toHaveBeenCalledWith('u1');
+    expect(mockNavigate).toHaveBeenCalledWith('Tabs', {screen: 'Chat'});
+  });
+
+  it('confirms before removing a file', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_, __, buttons) => {
+      const removeBtn = buttons?.find(button => button.text === '移除');
+      removeBtn?.onPress?.();
+    });
+
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<FileLibraryScreen />);
+    });
+
+    const removeBtn = tree!.root.findAllByType(TouchableOpacity)
+      .find(t => collectText(t).includes('移除'));
+    expect(removeBtn).toBeDefined();
+
+    await ReactTestRenderer.act(async () => {
+      removeBtn!.props.onPress();
+    });
+
+    expect(alertSpy).toHaveBeenCalled();
+    expect(mockRemoveFile).toHaveBeenCalledWith('u1');
   });
 });

@@ -32,6 +32,10 @@ jest.mock('../src/context/AppContext', () => ({
     gatewaySummary: 'Gateway 未配置',
     gatewayConfigValid: false,
     gatewayWarningCount: 2,
+    applePrerequisitesReady: false,
+    appleReleaseSummary: 'Apple Developer / App Store Connect / GitHub CI 变量仍待补齐',
+    appleReleaseSource: 'default',
+    appleReleaseValidatedAt: undefined,
   }),
 }));
 
@@ -113,6 +117,7 @@ describe('ProfileScreen', () => {
     expect(texts).toContain('🚀 上线准备');
     expect(texts).toContain('AI协作平台');
     expect(texts.some(t => t.includes('提测收口进度') || t.includes('收口进度'))).toBe(true);
+    expect(texts.some(t => t.includes('校验来源：默认未配置'))).toBe(true);
     // Fallback mode blocker + pending confirmations
     expect(texts.some(t => t.includes('未就绪') || t.includes('待收口'))).toBe(true);
   });

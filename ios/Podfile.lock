@@ -1,4 +1,26 @@
 PODS:
+  - AsyncStorage (3.0.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - FBLazyVector (0.85.2)
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
@@ -1910,6 +1932,7 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - "AsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -1990,6 +2013,8 @@ DEPENDENCIES:
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 EXTERNAL SOURCES:
+  AsyncStorage:
+    :path: "../node_modules/@react-native-async-storage/async-storage"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   hermes-engine:
@@ -2147,6 +2172,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  AsyncStorage: 3159283852d8bfabb4653cf17f1a1fef2a8a0eb6
   FBLazyVector: 26fd21c75314e101f280d401e97f27d54f3f7064
   hermes-engine: 9746d8a6b8e22b486f9a10d58a0fb569df4af4ad
   RCTDeprecation: c7a2768f905d76ca6d2cfefb26e4349eacbdfca3
@@ -2225,6 +2251,6 @@ SPEC CHECKSUMS:
   RNScreens: 63cc2156368ac1a8239e9131103c2fef901fc381
   Yoga: df8920a8f8ca99996048f6aea23a529f44992eac
 
-PODFILE CHECKSUM: ef98df70f6f78118d1aa2659541fc17a4066cbdb
+PODFILE CHECKSUM: 51b512534242bec9e266ba8e4a1f5c02454f4ddd
 
 COCOAPODS: 1.15.2

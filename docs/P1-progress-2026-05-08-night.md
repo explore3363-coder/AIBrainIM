@@ -29,11 +29,9 @@
 |------|--------|------|
 | Apple Developer 账号 | 你 | 🔲 待配置 |
 | App Store Connect 新建 App 记录 | 你 | 🔲 待创建 |
-| GitHub Secrets: `APPLE_DIST_P12` | 你 | 🔲 待配置 |
-| GitHub Secrets: `APPLE_APP_PASSWORD` | 你 | 🔲 待配置 |
-| GitHub Secrets: `APPLE_API_KEY_CONTENT` | 你 | 🔲 待配置 |
-| GitHub Variables: `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` | 你 | 🔲 待配置 |
-| `ASC_KEY_ID` / `ASC_ISSUER_ID` 替换（占位符） | 你 | 🔲 待替换 |
+| GitHub Secret: `APPLE_API_KEY_CONTENT` | 你 | 🔲 待配置 |
+| GitHub Variables: `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` | 你 | 🔲 待配置 |
+| `ASC_KEY_ID` / `ASC_ISSUER_ID` 映射值替换（来自 Variables） | 你 | 🔲 待替换 |
 | 触发第一个 TestFlight build | CI | 🔲 待触发 |
 
 详细步骤见 `TESTFLIGHT.md`。

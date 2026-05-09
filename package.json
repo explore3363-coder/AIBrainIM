@@ -12,7 +12,8 @@
     "build:sim": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO",
     "build:release": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -archivePath ios/builds/AIBrainIM.xcarchive archive",
     "screenshot": "bash scripts/capture-screenshots.sh",
-    "pods": "cd ios && pod install && cd .."
+    "pods": "cd ios && pod install && cd ..",
+    "validate:testflight": "bash scripts/validate-testflight-inputs.sh"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.0.2",

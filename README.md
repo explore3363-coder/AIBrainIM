@@ -6,16 +6,18 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 
 ## 状态
 
-**P1 可用版已收口**（2026-05-08）
+**P1 可用版已收口**（2026-05-09）
 - TypeScript ✅ · Jest 138 tests ✅ · iOS Simulator Build ✅
 - 五主功能全部可交互（总览/对话/智能体/任务/我的）
 - 信息层五入口就绪（记忆库/知识库/附件库/调度链/项目库）
 - 上传服务 8 个 queueStage 完整（分片/断点续传/后台队列）
 - GitHub Actions CI/CD 就绪
-- Git: clean，origin/main 已同步
+- 首页已收口到 AI 产出流 / 调度状态 / 需确认项 主视图
+- 「我的」与首页已接入统一的提测准备度显示（运行态缺口 / Apple 缺口 / 收口进度）
+- 当前代码仓存在未提交在研改动，继续按主线推进中
 - 开发者工具已清除（控制台 tab 及相关屏幕已移除）
 
-**唯一阻塞：** Apple Developer 账号 + App Store Connect 记录 + GitHub Secrets/Vars 配置
+**唯一外部阻塞：** Apple Developer 账号 + App Store Connect 记录 + GitHub Variables / Secrets 配置
 
 **上线准备参考：** [APP_STORE_READINESS.md](./APP_STORE_READINESS.md) · [DEPLOY.md](./DEPLOY.md)
 
@@ -51,8 +53,9 @@ AI 大脑移动端 — React Native · iOS · OpenClaw Agent Runtime
 npm install
 cd ios && pod install && cd ..
 npm run ios        # 启动 Metro + 打开 iOS Simulator
-npm run typecheck  # TypeScript 检查
-npm test           # Jest
+npm run typecheck          # TypeScript 检查
+npm test                   # Jest
+npm run validate:testflight  # Apple CI 变量/Secrets 结构预检
 ```
 
 ---
@@ -110,9 +113,11 @@ v*.*.* tag push  → GitHub Actions: TestFlight Archive + Upload → App Store C
 
 ```
 1. Apple Developer $99/年注册 → 获取 Team ID
-2. GitHub Secrets: APPLE_DIST_P12 / APPLE_APP_PASSWORD
-   GitHub Vars: APPLE_TEAM_ID / APPLE_DEV_EMAIL
-3. 打 tag: git tag v0.1.0 && git push --tags
-4. GitHub Actions 自动 Archive + Upload to App Store Connect
-5. App Store Connect → TestFlight → 添加测试人员 → 真机验证
+2. App Store Connect 创建 App + API Key
+3. GitHub Variables: APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_TEAM_ID（建议同时补 APPLE_DEV_EMAIL 供文档 / 本地操作使用）
+4. GitHub Secret: APPLE_API_KEY_CONTENT
+5. 可先本地校验：ASC_KEY_ID=... ASC_ISSUER_ID=... APPLE_TEAM_ID=... APPLE_API_KEY_CONTENT=... npm run validate:testflight
+6. 打 tag: git tag v0.1.0 && git push --tags origin main
+7. GitHub Actions 自动 Archive + Upload to App Store Connect / TestFlight
+8. App Store Connect → TestFlight → 添加测试人员 → 真机验证
 ```

@@ -37,8 +37,8 @@
 | 阻塞项 | 类型 | 行动 |
 |--------|------|------|
 | Apple Developer 账号 | 外部 | $99/年，注册后获取 Team ID |
-| GitHub Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_KEY_CONTENT`, `APPLE_APP_PASSWORD` |
-| GitHub Variables | 外部 | `APPLE_TEAM_ID`, `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_TEAM_ID`, `APPLE_API_KEY_CONTENT` |
+| GitHub Variables | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_TEAM_ID`（`APPLE_DEV_EMAIL` 仅文档参考） |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
 
 ## 就绪待触发
@@ -94,7 +94,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 |--------|------|------|
 | Apple Developer 账号 | 外部 | 注册 $99/年账号，获取 Team ID |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`） |
-| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | 配置 `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` / `APPLE_API_KEY_CONTENT` |
 | iPhone 截图（6.7"/6.5"/5.5"）| 外部 | `npm run screenshot` 已就绪，可随时运行 |
 
 ## 触发 TestFlight 的完整链路
@@ -150,7 +150,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 |--------|------|------|
 | Apple Developer 账号 | 外部 | 注册 $99/年账号，获取 Team ID |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`） |
-| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | 配置 `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` / `APPLE_API_KEY_CONTENT` |
 
 ## 已就绪待触发
 
@@ -201,7 +201,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 |--------|------|------|
 | Apple Developer 账号 | 外部 | 注册 $99/年，获取 Team ID |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
-| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | 配置 `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` / `APPLE_API_KEY_CONTENT` |
 
 ## 就绪待触发
 
@@ -246,7 +246,7 @@ P1 可用版代码端所有检查项均已通过，无任何待办、无 TODO、
 |--------|------|------|
 | Apple Developer 账号 | 外部 | 注册 $99/年，获取 Team ID |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
-| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | 配置 `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` / `APPLE_API_KEY_CONTENT` |
 
 ## 就绪待触发
 
@@ -298,7 +298,7 @@ P1 可用版代码侧已完全收口，无任何待办、无阻塞、无 TODO。
 |--------|------|------|
 | Apple Developer 账号 | 外部 | 注册 $99/年，获取 Team ID |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
-| GitHub Secrets / Variables | 外部 | 配置 `APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_TEAM_ID` / `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | 配置 `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` / `APPLE_API_KEY_CONTENT` |
 
 ## 就绪待触发
 
@@ -489,8 +489,8 @@ GitHub Actions 自动构建并上传 TestFlight。
 | 阻塞项 | 类型 | 行动 |
 |--------|------|------|
 | Apple Developer 账号 | 外部 | $99/年，注册后获取 Team ID |
-| GitHub Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_KEY_CONTENT`, `APPLE_APP_PASSWORD` |
-| GitHub Variables | 外部 | `APPLE_TEAM_ID`, `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_TEAM_ID`, `APPLE_API_KEY_CONTENT` |
+| GitHub Variables | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_TEAM_ID`（`APPLE_DEV_EMAIL` 仅文档参考） |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
 
 ### 就绪待触发
@@ -514,8 +514,8 @@ git tag v0.1.0 && git push --tags origin main
 - `.github/workflows/testflight.yml`：为 `APPLE_API_KEY_CONTENT` 添加 `secrets.APPLE_API_KEY_CONTENT` 引用（之前缺失 env 声明，导致空值）
 
 **剩余阻塞（仅人工可解决）：**
-- GitHub Secrets 未配置（`APPLE_DIST_P12` / `APPLE_APP_PASSWORD` / `APPLE_API_KEY_CONTENT`）
-- GitHub Variables 未配置（`APPLE_TEAM_ID` / `APPLE_DEV_EMAIL`）
+- GitHub Secrets / Variables 未配置（`APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_TEAM_ID` / `APPLE_API_KEY_CONTENT`）
+- `APPLE_DEV_EMAIL` 仅作文档/本地操作参考，不再是当前 TestFlight workflow 阻塞项
 - Apple Developer 账号 + App Store Connect App 记录待创建
 - Bundle ID `com.openclaw.aibrainim` 在 App Store Connect 中首次创建
 
@@ -599,8 +599,8 @@ git tag v0.1.0 && git push --tags origin main
 | 阻塞项 | 类型 | 行动 |
 |--------|------|------|
 | Apple Developer 账号 | 外部 | $99/年，注册后获取 Team ID |
-| GitHub Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_KEY_CONTENT`, `APPLE_APP_PASSWORD` |
-| GitHub Variables | 外部 | `APPLE_TEAM_ID`, `APPLE_DEV_EMAIL` |
+| GitHub Variables / Secrets | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_TEAM_ID`, `APPLE_API_KEY_CONTENT` |
+| GitHub Variables | 外部 | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_TEAM_ID`（`APPLE_DEV_EMAIL` 仅文档参考） |
 | App Store Connect App 记录 | 外部 | 创建 App（Bundle ID: `com.openclaw.aibrainim`）|
 
 ## 就绪待触发
@@ -650,8 +650,8 @@ git tag v0.1.0 && git push --tags origin main
 
 **唯一阻塞（仅人工可解决）：**
 - Apple Developer 账号（$99/年）+ Team ID
-- GitHub Secrets：APPLE_API_KEY_ID / APPLE_API_KEY_CONTENT / APPLE_APP_PASSWORD
-- GitHub Variables：APPLE_TEAM_ID / APPLE_DEV_EMAIL
+- GitHub Variables / Secrets：APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_TEAM_ID / APPLE_API_KEY_CONTENT
+- `APPLE_DEV_EMAIL` 仅作补充联系信息，不影响当前 API Key 链路
 - App Store Connect App 记录（Bundle ID: com.openclaw.aibrainim）
 
 **就绪待触发：**

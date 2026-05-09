@@ -3,7 +3,7 @@ name: TestFlight Release
 on:
   push:
     tags:
-      - 'v0.*'
+      - 'v*.*.*'
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -12,9 +12,9 @@ on:
 
 env:
   APP_NAME: AIBrainIM
-  ASC_KEY_ID: HWP45ALL8Y
-  ASC_ISSUER_ID: 0bc52ef9-a4c4-489e-810c-c8a80db0ab9a
-  APPLE_TEAM_ID: 7S96N8A32U
+  ASC_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
+  ASC_ISSUER_ID: ${{ vars.APPLE_API_ISSUER_ID }}
+  APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
   BUNDLE_PATH: vendor/bundle
@@ -31,6 +31,16 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Validate Apple CI inputs
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: bash scripts/validate-testflight-inputs.sh
+
       - name: Cache Pods
         uses: actions/cache@v4
         with:
@@ -40,9 +50,6 @@ jobs:
 
       - name: Install npm deps
         run: npm ci
-
-      - name: Install Ruby gems
-        run: bundle install
 
       - name: Install Pods
         run: bundle exec pod install
@@ -63,7 +70,11 @@ jobs:
           import os, base64, pathlib
 
           raw = os.environ.get('APPLE_API_KEY_CONTENT', '')
-          out = pathlib.Path.home() / 'private_keys' / 'AuthKey_HWP45ALL8Y.p8'
+          key_id = os.environ.get('ASC_KEY_ID', '').strip()
+          if not key_id:
+              raise SystemExit('APPLE_API_KEY_ID / ASC_KEY_ID is empty')
+
+          out = pathlib.Path.home() / 'private_keys' / f'AuthKey_{key_id}.p8'
 
           if not raw.strip():
               raise SystemExit('APPLE_API_KEY_CONTENT is empty')
@@ -86,7 +97,7 @@ jobs:
           print(f'p8 key size: {len(data)} bytes')
           print(f'p8 first bytes: {data[:16].hex()}')
           PYEOF
-          xxd ~/private_keys/AuthKey_HWP45ALL8Y.p8 | head -3
+          xxd ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 | head -3
 
       - name: Create ExportOptions.plist
         run: |
@@ -102,7 +113,7 @@ jobs:
             <key>signingCertificate</key>
             <string>Apple Distribution</string>
             <key>teamID</key>
-            <string>7S96N8A32U</string>
+            <string>${APPLE_TEAM_ID}</string>
             <key>stripSwiftSymbols</key>
             <true/>
             <key>uploadBitcode</key>
@@ -114,6 +125,17 @@ jobs:
           </dict>
           </plist>
           PLIST
+          python3 <<'PYEOF'
+          import os
+          from pathlib import Path
+
+          path = Path('/tmp/ExportOptions.plist')
+          text = path.read_text()
+          team_id = os.environ.get('APPLE_TEAM_ID', '').strip()
+          if not team_id:
+              raise SystemExit('APPLE_TEAM_ID is empty')
+          path.write_text(text.replace('${APPLE_TEAM_ID}', team_id))
+          PYEOF
           plutil -p /tmp/ExportOptions.plist
 
       - name: Archive without signing
@@ -140,7 +162,7 @@ jobs:
             -exportPath build/export \
             -exportOptionsPlist /tmp/ExportOptions.plist \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_HWP45ALL8Y.p8 \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee build/export.log
 
