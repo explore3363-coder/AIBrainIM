@@ -131,7 +131,6 @@ export function UploadScreen() {
     preflightBlockingCount,
     preflightNextActions,
     preflightFailedChecks,
-    firstTestFlightBuildUploaded,
     preflightReportGeneratedAt,
     applePrerequisitesReady,
     appStoreAssetsReady,
