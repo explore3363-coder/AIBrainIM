@@ -107,25 +107,32 @@ GitHub Secrets（Settings → Secrets and variables → Actions → Secrets）
 ## TestFlight 提交流程
 
 ```bash
-# 1. 配置 GitHub Secrets 后，打 tag 触发 GitHub Actions
-git tag v0.1.0 && git push origin v0.1.0
+# 1. 先跑总预检，刷新代码 / 测试 / Apple 输入 / 素材 / releaseStatus 真值
+npm run preflight:testflight
 
-# 2. GitHub Actions 自动构建并上传到 App Store Connect
+# 2. 通过后只运行统一安全触发入口
+npm run trigger:testflight
+
+# 3. GitHub Actions 自动构建并上传到 App Store Connect
 # 等待处理（约 5-30 分钟）
 
-# 3. App Store Connect → TestFlight → Builds → 添加测试信息
+# 4. App Store Connect → TestFlight → Builds → 添加测试信息
 # → 外部测试 → 添加测试人员
 
 # 本地备选：
 cd ios/fastlane && bundle exec fastlane tf
 ```
 
+> 不要手工绕过安全脚本直接执行 `git tag v0.1.0 && git push origin v0.1.0`。
+> `trigger:testflight` 会先复跑 `preflight:testflight`，再校验脏工作区 / 本地重复 tag / 远端重复 tag / Apple 前置 / 72 小时内 PASS 总预检等门禁；只有全部闭合后才自动 tag + push。
+
 ## 近期建议顺序
 ```
 1. Apple Developer 账号注册/登录
 2. App Store Connect 创建 App + API Key
 3. GitHub Variables / Secrets 配置（见上文）
-4. 打 tag v0.1.0 → GitHub Actions 自动 TestFlight 上传
-5. 验证 TestFlight 可安装
-6. 补齐 App Store Connect 文案与提审信息
+4. 运行 npm run preflight:testflight
+5. 运行 npm run trigger:testflight → GitHub Actions 自动 TestFlight 上传
+6. 验证 TestFlight 可安装
+7. 补齐 App Store Connect 文案与提审信息
 ```

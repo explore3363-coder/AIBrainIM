@@ -17,17 +17,27 @@ import {useAppContext} from '../context/AppContext';
 import {
   computeReleaseReadiness,
   prioritizeReleaseChecklist,
+  summarizeReleaseBlockers,
+  type ReleaseActionTarget,
 } from '../utils/releaseReadiness';
+import {
+  summarizeUploadReleaseEvidence,
+  buildUploadEvidenceLine,
+  mergeUploadReleaseEvidence,
+  buildLatestLiveUploadTraceLine,
+  hasMeaningfulLatestLiveUploadTrace,
+} from '../utils/uploadReleaseEvidence';
+import {buildReleaseClosureCopy, buildReleaseTriggerGateCopy, getReleaseActionLabel} from '../utils/releaseActionLabel';
 
 type RootStackParamList = {
-  Tabs: undefined;
+  Tabs: {screen?: 'Dashboard' | 'Agent' | 'Chat' | 'Tasks' | 'Profile'} | undefined;
   MemoryStore: undefined;
   KnowledgeBase: undefined;
   FileLibrary: undefined;
   ProjectLibrary: undefined;
-  DispatchChain: undefined;
-  Confirmations: undefined;
-  Upload: undefined;
+  DispatchChain: {focusDispatchId?: string; focusTaskId?: string; focusSessionKey?: string} | undefined;
+  Confirmations: {focusConfirmationId?: string; focusTaskId?: string; focusDispatchId?: string} | undefined;
+  Upload: {focusFileId?: string; focusDispatchId?: string} | undefined;
   GatewaySettings: undefined;
 };
 
@@ -58,6 +68,71 @@ function MenuItem({emoji, title, subtitle, accent, onPress, badge}: MenuItemProp
   );
 }
 
+function openReleaseTarget(
+  target: ReleaseActionTarget,
+  navigation: NativeStackNavigationProp<RootStackParamList>,
+) {
+  switch (target) {
+    case 'gateway':
+      navigation.navigate('GatewaySettings');
+      return;
+    case 'confirmations':
+      navigation.navigate('Confirmations');
+      return;
+    case 'upload':
+      navigation.navigate('Upload');
+      return;
+    case 'profile':
+    default:
+      navigation.navigate('Tabs', {screen: 'Profile'});
+  }
+}
+
+function getUploadFocusTarget(uploads: any[], latestLiveUpload?: {id?: string; dispatchId?: string}) {
+  const safeUploads = Array.isArray(uploads) ? uploads : [];
+  const score = (upload: any) => {
+    const executionModeScore = upload?.executionMode === 'live'
+      ? 100
+      : upload?.executionMode === 'simulated'
+        ? 60
+        : 40;
+    const statusScore = upload?.status === 'done'
+      ? 1000
+      : upload?.status === 'dispatched'
+        ? 900
+        : upload?.status === 'processing'
+          ? 800
+          : upload?.status === 'uploading'
+            ? 700
+            : upload?.status === 'queued'
+              ? 600
+              : 0;
+    const timeScore = typeof upload?.completedAt === 'number' && Number.isFinite(upload.completedAt)
+      ? upload.completedAt
+      : typeof upload?.updatedAt === 'number' && Number.isFinite(upload.updatedAt)
+        ? upload.updatedAt
+        : 0;
+    return statusScore + executionModeScore + timeScore / 1_000_000_000_000;
+  };
+
+  const bestUpload = [...safeUploads]
+    .filter(item => item?.id)
+    .sort((a, b) => score(b) - score(a))[0];
+
+  if (bestUpload?.id) {
+    return {focusFileId: bestUpload.id, focusDispatchId: bestUpload.dispatchId};
+  }
+
+  if (latestLiveUpload?.id || latestLiveUpload?.dispatchId) {
+    return {
+      focusFileId: latestLiveUpload.id,
+      focusDispatchId: latestLiveUpload.dispatchId,
+    };
+  }
+
+  return undefined;
+}
+
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {
@@ -73,10 +148,33 @@ export function ProfileScreen() {
     gatewaySummary,
     gatewayConfigValid,
     gatewayWarningCount,
+    preflightReportGeneratedAt,
     applePrerequisitesReady,
+    firstTestFlightBuildUploaded,
+    appStoreAssetsReady,
     appleReleaseSummary,
     appleReleaseSource,
     appleReleaseValidatedAt,
+    appStoreAssetsValidatedAt,
+    preflightOverallStatus,
+    preflightBlockingCount,
+    preflightFailedChecks,
+    preflightNextActions,
+    appleMissingInputs,
+    triggerTagName,
+    triggerGateReady,
+    triggerGateFailures,
+    releaseActiveUploads,
+    releaseCompletedUploads,
+    releaseLiveCompletedUploads,
+    releaseSimulatedCompletedUploads,
+    releaseLiveDispatchedOnlyUploads,
+    releaseLatestLiveUploadCompletedAt,
+    releaseLatestLiveUpload,
+    releaseUploadEvidenceSummary,
+    appleValidationDetail,
+    assetsValidationDetail,
+    preflightValidationDetail,
     refreshing,
     refresh,
   } = useAppContext();
@@ -85,10 +183,47 @@ export function ProfileScreen() {
   const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
   const safeAgents = useMemo(() => Array.isArray(agents) ? agents : [], [agents]);
+  const safeAppleMissingInputs = useMemo(
+    () => Array.isArray(appleMissingInputs) ? appleMissingInputs : [],
+    [appleMissingInputs],
+  );
+  const safePreflightNextActions = useMemo(
+    () => Array.isArray(preflightNextActions) ? preflightNextActions : [],
+    [preflightNextActions],
+  );
 
-  const activeUploads = safeUploads.filter(
-    f => f.status === 'uploading' || f.status === 'queued' || f.status === 'processing',
-  ).length;
+  const uploadEvidence = useMemo(() => mergeUploadReleaseEvidence(
+    summarizeUploadReleaseEvidence(safeUploads),
+    {
+      activeUploads: releaseActiveUploads,
+      completedUploads: releaseCompletedUploads,
+      liveCompletedUploads: releaseLiveCompletedUploads,
+      simulatedCompletedUploads: releaseSimulatedCompletedUploads,
+      liveDispatchedOnlyUploads: releaseLiveDispatchedOnlyUploads,
+      latestLiveUploadCompletedAt: releaseLatestLiveUploadCompletedAt,
+      latestLiveUpload: releaseLatestLiveUpload,
+    },
+  ), [
+    releaseActiveUploads,
+    releaseCompletedUploads,
+    releaseLiveCompletedUploads,
+    releaseLatestLiveUploadCompletedAt,
+    releaseLiveDispatchedOnlyUploads,
+    releaseSimulatedCompletedUploads,
+    releaseLatestLiveUpload,
+    safeUploads,
+  ]);
+  const activeUploads = uploadEvidence.activeUploads;
+  const completedUploads = uploadEvidence.completedUploads;
+  const liveCompletedUploads = uploadEvidence.liveCompletedUploads;
+  const latestLiveUploadCompletedAt = uploadEvidence.latestLiveUploadCompletedAt;
+  const uploadEvidenceLine = useMemo(() => buildUploadEvidenceLine(uploadEvidence), [uploadEvidence]);
+  const latestLiveUploadTraceLine = useMemo(() => buildLatestLiveUploadTraceLine(uploadEvidence), [uploadEvidence]);
+  const hasMeaningfulLatestLiveTrace = useMemo(() => hasMeaningfulLatestLiveUploadTrace(uploadEvidence), [uploadEvidence]);
+  const uploadFocusTarget = useMemo(
+    () => getUploadFocusTarget(safeUploads, uploadEvidence.latestLiveUpload),
+    [safeUploads, uploadEvidence.latestLiveUpload],
+  );
 
   const dispatchInFlight = safeDispatches.filter(item => item.status !== 'completed' && item.status !== 'failed').length;
   const memorySignals = Math.min(99, safeDispatches.length + pendingConfirmations + Math.min(safeTasks.length, 6));
@@ -108,10 +243,9 @@ export function ProfileScreen() {
   }, [safeTasks, safeAgents, memorySignals, knowledgeSignals]);
   const runtimeSummary = runtimeMode === 'live'
     ? `已连接 OpenClaw Gateway · ${sessionCount} 个会话 · 最近同步 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'}) : '刚刚'}`
-    : `当前处于本地回退模式${runtimeError ? ` · ${runtimeError}` : ''}`;
+    : `当前处于本地演示运行态${runtimeError ? ` · ${runtimeError}` : ''}`;
 
   const runningTasks = safeTasks.filter(task => task.state === 'running').length;
-  const blockedTasks = safeTasks.filter(task => task.state === 'blocked').length;
   const doneTasks = safeTasks.filter(task => task.state === 'done').length;
 
   const releaseSignals = useMemo(() => computeReleaseReadiness({
@@ -120,34 +254,169 @@ export function ProfileScreen() {
     tasks: safeTasks,
     dispatches: safeDispatches,
     activeUploads,
+    completedUploads,
+    liveCompletedUploads,
+    liveDispatchedOnlyUploads: uploadEvidence.liveDispatchedOnlyUploads,
+    latestLiveUploadCompletedAt,
+    latestLiveUpload: uploadEvidence.latestLiveUpload,
     applePrerequisitesReady,
-  }), [activeUploads, applePrerequisitesReady, pendingConfirmations, runtimeMode, safeDispatches, safeTasks]);
+    firstTestFlightBuildUploaded,
+    appStoreAssetsReady,
+    appStoreAssetsValidatedAt,
+    appleValidatedAt: appleReleaseValidatedAt,
+    gatewayConfigValid,
+    gatewayWarningCount,
+    appleMissingInputs: safeAppleMissingInputs,
+    preflightOverallStatus,
+    preflightBlockingCount,
+    preflightFailedChecks,
+    preflightReportGeneratedAt,
+    triggerTagName,
+    triggerGateReady,
+    triggerGateFailures,
+  }), [
+    activeUploads,
+    applePrerequisitesReady,
+    firstTestFlightBuildUploaded,
+    appStoreAssetsReady,
+    appStoreAssetsValidatedAt,
+    appleReleaseValidatedAt,
+    completedUploads,
+    latestLiveUploadCompletedAt,
+    liveCompletedUploads,
+    uploadEvidence.latestLiveUpload,
+    uploadEvidence.liveDispatchedOnlyUploads,
+    safeAppleMissingInputs,
+    gatewayConfigValid,
+    gatewayWarningCount,
+    pendingConfirmations,
+    preflightBlockingCount,
+    preflightFailedChecks,
+    preflightReportGeneratedAt,
+    triggerTagName,
+    triggerGateReady,
+    triggerGateFailures,
+    preflightOverallStatus,
+    runtimeMode,
+    safeDispatches,
+    safeTasks,
+  ]);
 
   const appleReleaseMeta = useMemo(() => {
     const sourceLabel = appleReleaseSource === 'global-override'
       ? '运行态覆盖'
-      : appleReleaseSource === 'env'
-        ? '环境注入'
-        : '默认未配置';
+      : appleReleaseSource === 'generated'
+        ? '仓库预检产物'
+        : appleReleaseSource === 'env'
+          ? '环境注入'
+          : '默认未配置';
 
-    const validatedLabel = appleReleaseValidatedAt
-      ? new Date(appleReleaseValidatedAt).toLocaleString('zh-CN', {
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
+    const formatValidatedAt = (timestamp?: number) => (
+      timestamp
+        ? new Date(timestamp).toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : null
+    );
+
+    const appleValidatedLabel = formatValidatedAt(appleReleaseValidatedAt);
+    const assetsValidatedLabel = formatValidatedAt(appStoreAssetsValidatedAt);
+    const preflightValidatedLabel = formatValidatedAt(preflightReportGeneratedAt);
+    const preflightStatusLabel = preflightOverallStatus
+      ? `总预检 ${preflightOverallStatus}`
+      : '总预检未记录';
+    const preflightBlockingLabel = typeof preflightBlockingCount === 'number' && preflightBlockingCount > 0
+      ? `阻塞 ${preflightBlockingCount}`
       : null;
 
-    return validatedLabel
-      ? `校验来源：${sourceLabel} · 最近校验 ${validatedLabel}`
-      : `校验来源：${sourceLabel}`;
-  }, [appleReleaseSource, appleReleaseValidatedAt]);
+    const parts = [`校验来源：${sourceLabel}`, preflightStatusLabel];
+    if (preflightBlockingLabel) {
+      parts.push(preflightBlockingLabel);
+    }
+    if (preflightValidatedLabel) {
+      parts.push(`总预检 ${preflightValidatedLabel}`);
+    }
+    parts.push(`Apple ${appleValidatedLabel ?? '未记录'}`);
+    parts.push(`素材 ${assetsValidatedLabel ?? '未记录'}`);
+    return parts.join(' · ');
+  }, [appleReleaseSource, appleReleaseValidatedAt, appStoreAssetsValidatedAt, preflightBlockingCount, preflightOverallStatus, preflightReportGeneratedAt]);
+  const appleMissingInputLabel = useMemo(
+    () => safeAppleMissingInputs.length > 0
+      ? safeAppleMissingInputs.join('、')
+      : '未从预检产物识别到具体缺项，请重跑 npm run sync:release-status。',
+    [safeAppleMissingInputs],
+  );
+  const safeAppleReleaseSummary = useMemo(
+    () => safeAppleMissingInputs.length > 0 && !appleReleaseSummary.includes('当前缺口：')
+      ? `${appleReleaseSummary}；当前缺口：${appleMissingInputLabel}`
+      : appleReleaseSummary,
+    [appleMissingInputLabel, safeAppleMissingInputs.length, appleReleaseSummary],
+  );
+  const appleValidationDetailLabel = useMemo(
+    () => appleValidationDetail?.trim() || 'Apple 预检尚未产生详细日志',
+    [appleValidationDetail],
+  );
+  const effectiveUploadEvidenceSummary = useMemo(
+    () => releaseUploadEvidenceSummary?.trim() || releaseSignals.uploadEvidenceSummary,
+    [releaseSignals.uploadEvidenceSummary, releaseUploadEvidenceSummary],
+  );
+  const assetsValidationDetailLabel = useMemo(
+    () => assetsValidationDetail?.trim() || 'App Store 素材预检尚未产生详细日志',
+    [assetsValidationDetail],
+  );
+  const preflightValidationDetailLabel = useMemo(
+    () => preflightValidationDetail?.trim() || 'TestFlight 总预检尚未产生详细报告',
+    [preflightValidationDetail],
+  );
 
   const readinessChecklist = useMemo(
     () => prioritizeReleaseChecklist(releaseSignals.checklist),
     [releaseSignals.checklist],
   );
+  const releaseBlockerSummary = useMemo(
+    () => summarizeReleaseBlockers(releaseSignals),
+    [releaseSignals],
+  );
+  const latestLiveUploadDisplayLine = hasMeaningfulLatestLiveTrace && latestLiveUploadTraceLine
+    ? latestLiveUploadTraceLine
+    : releaseSignals.latestLiveUploadLabel;
+  const releaseClosureCopy = useMemo(() => buildReleaseClosureCopy({
+    target: releaseSignals.primaryNextTarget,
+    fallbackLabel: releaseSignals.primaryNextLabel,
+    primaryNextAction: releaseSignals.primaryNextAction,
+    primaryGap: releaseSignals.buildGatePrimaryGap ?? releaseSignals.triggerGatePrimaryGap,
+    primaryGapDetail: releaseSignals.buildGatePrimaryGapDetail ?? releaseSignals.triggerGatePrimaryGapDetail,
+    command: releaseSignals.testFlightTriggerCommand,
+  }), [
+    releaseSignals.buildGatePrimaryGap,
+    releaseSignals.buildGatePrimaryGapDetail,
+    releaseSignals.primaryNextAction,
+    releaseSignals.primaryNextLabel,
+    releaseSignals.primaryNextTarget,
+    releaseSignals.testFlightTriggerCommand,
+    releaseSignals.triggerGatePrimaryGap,
+    releaseSignals.triggerGatePrimaryGapDetail,
+  ]);
+  const releaseTriggerGateCopy = useMemo(() => buildReleaseTriggerGateCopy({
+    summary: releaseSignals.triggerGateSummary,
+    primaryGap: releaseSignals.triggerGatePrimaryGap,
+    primaryGapDetail: releaseSignals.triggerGatePrimaryGapDetail,
+    detail: releaseSignals.triggerGateDetail,
+    pendingCount: releaseSignals.triggerGatePendingCount,
+    totalCount: releaseSignals.triggerGateChecklist.length,
+    responsibilitySummary: releaseSignals.triggerGateResponsibilitySummary,
+  }), [
+    releaseSignals.triggerGateChecklist.length,
+    releaseSignals.triggerGateDetail,
+    releaseSignals.triggerGatePendingCount,
+    releaseSignals.triggerGatePrimaryGap,
+    releaseSignals.triggerGatePrimaryGapDetail,
+    releaseSignals.triggerGateResponsibilitySummary,
+    releaseSignals.triggerGateSummary,
+  ]);
   const appleMaterials = releaseSignals.appleMaterials;
   const readinessDoneCount = releaseSignals.doneCount;
   const readinessTotalCount = releaseSignals.totalCount;
@@ -171,25 +440,33 @@ export function ProfileScreen() {
         '4. 创建 App Store Connect API Key',
         '5. 配置 GitHub Variables / Secrets',
         '6. 填写隐私信息、年龄分级、支持链接',
-        '7. 运行: git tag v0.1.0 && git push --tags origin main',
-        '8. GitHub Actions 自动构建并上传 TestFlight',
-        '9. App Store Connect → TestFlight → 添加测试人员',
+        '7. 运行: npm run preflight:testflight',
+        '8. 通过后运行: npm run trigger:testflight（统一安全触发入口）',
+        '9. GitHub Actions 自动构建并上传 TestFlight',
+        '10. App Store Connect → TestFlight → 添加测试人员',
       ].join('\n'),
       [{text: '知道了'}],
     );
   }, [readinessDoneCount, readinessTotalCount, releaseSignals.blockers, releaseSignals.readiness, releaseSignals.readinessDesc]);
 
   const handleJoinTestFlight = useCallback(() => {
-    // Replace with actual TestFlight public link from App Store Connect
+    const body = firstTestFlightBuildUploaded
+      ? '首个 TestFlight Build 已上传。请在 App Store Connect → TestFlight 中开启公开链接或添加内部测试人员，然后把链接写回发布状态。'
+      : releaseSignals.buildReadyToTrigger && releaseSignals.triggerGateReady
+        ? '代码侧、运行态、上传样本、Apple 校验和仓库触发门禁已经够了。下一步运行 npm run trigger:testflight；脚本会先重跑门禁，通过后再触发 v0.1.0 tag。'
+        : releaseSignals.buildReadyToTrigger
+          ? `代码侧、运行态、上传样本和 Apple 校验已经够了，但仓库触发门禁还没过：${releaseSignals.triggerGateDetail}。当前只建议运行 npm run preflight:testflight，不建议打 tag。`
+          : `还不能加入 TestFlight。当前最先要补的是：${releaseSignals.primaryNextAction}`;
+
     Alert.alert(
       '加入 TestFlight',
-      '需要先在 App Store Connect 创建 App 记录并上传第一个 Build 后,才能获取 TestFlight 公开链接。\n\n下一步:配置 Apple Developer 账号并触发 TestFlight CI。',
+      body,
       [
         {text: '查看上线准备', onPress: handleShowAppStoreGuide},
         {text: '好的'},
       ],
     );
-  }, [handleShowAppStoreGuide]);
+  }, [firstTestFlightBuildUploaded, handleShowAppStoreGuide, releaseSignals.buildReadyToTrigger, releaseSignals.primaryNextAction, releaseSignals.triggerGateDetail, releaseSignals.triggerGateReady]);
 
   const handleLogout = useCallback(() => {
     Alert.alert('退出登录', '确定要退出当前账号吗?', [
@@ -265,7 +542,7 @@ export function ProfileScreen() {
             </View>
             <View style={[styles.runtimeBadge, runtimeMode === 'live' ? styles.runtimeBadgeLive : styles.runtimeBadgeFallback]}>
               <Text style={[styles.runtimeBadgeText, runtimeMode === 'live' ? styles.runtimeBadgeTextLive : styles.runtimeBadgeTextFallback]}>
-                {runtimeMode === 'live' ? 'LIVE' : 'FALLBACK'}
+                {runtimeMode === 'live' ? 'LIVE' : '本地'}
               </Text>
             </View>
           </View>
@@ -389,21 +666,135 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.releaseFocusBox}>
+            <Text style={styles.releaseFocusTitle}>首个 Build 动作状态</Text>
+            <Text style={styles.releaseFocusText}>• {releaseSignals.launchStepLabel}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseSignals.launchStepDetail}</Text>
+            <Text style={releaseSignals.buildReadyToTrigger ? styles.releaseBuildGateOk : styles.checkTextPending}>• 触发计划：{releaseSignals.testFlightTriggerPlanLabel}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseBuildGateOk : styles.releaseBuildGateWarn}>• {releaseTriggerGateCopy.summaryLine}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• {releaseTriggerGateCopy.primaryGapLine}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• {releaseTriggerGateCopy.reasonLine}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• {releaseTriggerGateCopy.detailLine}</Text>
+            <Text style={styles.releaseFocusText}>• 触发说明：{releaseSignals.testFlightTriggerPlanDetail}</Text>
+            <Text style={styles.releaseFocusText}>• 建议命令：{releaseSignals.testFlightTriggerCommand}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseClosureCopy.summaryLine}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseClosureCopy.reasonLine}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseClosureCopy.commandLine}</Text>
+            {releaseSignals.triggerGateChecklist.map(item => (
+              <Text
+                key={`launch-${item.id}`}
+                style={item.ready ? styles.releaseFocusText : styles.checkTextPending}>
+                • {item.label}：{item.value}。{item.detail}
+              </Text>
+            ))}
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• {releaseTriggerGateCopy.pendingCountLine}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• {releaseSignals.triggerGateResponsibilitySummary}</Text>
+            {releaseSignals.triggerGateFailures.map(item => (
+              <Text key={`launch-trigger-gate-${item}`} style={styles.checkTextPending}>• 触发前必须处理：{item}</Text>
+            ))}
+            <Text style={styles.releaseFocusText}>• 当前主动作：{getReleaseActionLabel(releaseSignals.primaryNextTarget, releaseSignals.primaryNextLabel, 'decorated')}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseBuildGateOk : styles.releaseBuildGateWarn}>• 首个 Build 三件套：{releaseSignals.buildGateSummary}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 当前主卡点：{releaseSignals.buildGatePrimaryGap ?? '三件套已闭合'}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 主卡点原因：{releaseSignals.buildGatePrimaryGapDetail ?? releaseSignals.buildGateDetail}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 剩余门禁数：{releaseSignals.buildGatePendingCount} / 3</Text>
+            {releaseSignals.buildGateChecklist.map(item => (
+              <Text
+                key={item.id}
+                style={item.ready ? styles.releaseFocusText : styles.checkTextPending}>
+                • {item.label}：{item.value}。{item.detail}
+              </Text>
+            ))}
+            <Text style={styles.releaseFocusText}>• {releaseSignals.buildGateDetail}</Text>
+          </View>
+
+          <View style={styles.releaseFocusBox}>
+            <Text style={styles.releaseFocusTitle}>还差什么才能触发 Build</Text>
+            {releaseBlockerSummary.map(item => (
+              <Text key={item.label} style={styles.releaseFocusText}>• {item.label}：{item.detail}</Text>
+            ))}
+          </View>
+
+          <View style={styles.releaseFocusBox}>
             <Text style={styles.releaseFocusTitle}>当前最该补的</Text>
             {releaseSignals.blockers.length > 0 ? releaseSignals.blockers.map((item, index) => (
               <Text key={index} style={styles.releaseFocusText}>• {item}</Text>
             )) : (
               <Text style={styles.releaseFocusText}>• 运行态已基本收口；Icon 与截图已经就绪，下一步优先补 Apple Developer / App Store Connect / API Key 配置。</Text>
             )}
-            <Text style={styles.releaseFocusText}>• {appleReleaseSummary}</Text>
+            <Text style={styles.releaseFocusText}>• {safeAppleReleaseSummary}</Text>
+            {safeAppleMissingInputs.length > 0 && (
+              <Text style={styles.releaseFocusText}>• Apple 预检明确缺项：{appleMissingInputLabel}</Text>
+            )}
+            <Text style={styles.releaseFocusText}>• Apple 当前状态：{releaseSignals.appleStateLabel}</Text>
+            <Text style={styles.releaseFocusText}>• Apple 校验新鲜度：{releaseSignals.appleValidationLabel}</Text>
+            <Text style={styles.releaseFocusText}>• Apple 预检详情：{appleValidationDetailLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 总预检状态：{releaseSignals.preflightStateLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 总预检新鲜度：{releaseSignals.preflightValidationLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 总预检详情：{preflightValidationDetailLabel}</Text>
+            {preflightFailedChecks.length > 0 && (
+              <Text style={styles.releaseFocusText}>• 总预检失败项：{preflightFailedChecks.join('、')}</Text>
+            )}
+            {safePreflightNextActions.length > 0 && (
+              <Text style={styles.releaseFocusText}>• 总预检建议动作：{safePreflightNextActions[0]}</Text>
+            )}
+            <Text style={styles.releaseFocusText}>• 素材当前状态：{releaseSignals.appleAssetsStateLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 素材校验新鲜度：{releaseSignals.appleAssetsValidationLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 素材预检详情：{assetsValidationDetailLabel}</Text>
+            <Text style={styles.releaseFocusText}>• TestFlight 当前状态：{releaseSignals.testFlightBuildLabel}</Text>
+            <Text style={styles.releaseFocusText}>• TestFlight 触发计划：{releaseSignals.testFlightTriggerPlanLabel}</Text>
+            <Text style={styles.releaseFocusText}>• TestFlight 建议命令：{releaseSignals.testFlightTriggerCommand}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 仓库触发门禁：{releaseSignals.triggerGateLabel}</Text>
+            <Text style={releaseSignals.triggerGateReady ? styles.releaseFocusText : styles.checkTextPending}>• {releaseTriggerGateCopy.detailLine}</Text>
+            {releaseSignals.triggerGateTagName ? (
+              <Text style={styles.releaseFocusText}>• 当前触发 tag：{releaseSignals.triggerGateTagName}</Text>
+            ) : null}
+            {releaseSignals.triggerGateFailures.map(item => (
+              <Text key={`trigger-gate-${item}`} style={styles.checkTextPending}>• 仓库态阻塞：{item}</Text>
+            ))}
+            {releaseSignals.triggerGateUserInputFailures.length > 0 ? (
+              <Text style={styles.checkTextPending}>• 待用户补输入：{releaseSignals.triggerGateUserInputFailures.join('；')}</Text>
+            ) : null}
+            {releaseSignals.triggerGateVersionFailures.length > 0 ? (
+              <Text style={styles.checkTextPending}>• 待封版 / 改版本：{releaseSignals.triggerGateVersionFailures.join('；')}</Text>
+            ) : null}
+            {releaseSignals.triggerGateRepoCleanupFailures.length > 0 ? (
+              <Text style={styles.checkTextPending}>• 待仓库封版清理：{releaseSignals.triggerGateRepoCleanupFailures.join('；')}</Text>
+            ) : null}
+            <Text style={styles.releaseFocusText}>• 上传闭环状态：{releaseSignals.uploadStateLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 上传回流真值：{releaseSignals.uploadReleaseTruthLabel}</Text>
+            <Text style={styles.releaseFocusText}>• 上传真值说明：{releaseSignals.uploadReleaseTruthDetail}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseBuildGateOk : styles.releaseBuildGateWarn}>• 首个 Build 三件套：{releaseSignals.buildGateSummary}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 当前主卡点：{releaseSignals.buildGatePrimaryGap ?? '三件套已闭合'}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 主卡点原因：{releaseSignals.buildGatePrimaryGapDetail ?? releaseSignals.buildGateDetail}</Text>
+            <Text style={releaseSignals.buildGateReady ? styles.releaseFocusText : styles.checkTextPending}>• 剩余门禁数：{releaseSignals.buildGatePendingCount} / 3</Text>
+            {releaseSignals.buildGateChecklist.map(item => (
+              <Text
+                key={item.id}
+                style={item.ready ? styles.releaseFocusText : styles.checkTextPending}>
+                • {item.label}：{item.value}。{item.detail}
+              </Text>
+            ))}
+            <Text style={styles.releaseFocusText}>• 上传样本计数：{uploadEvidenceLine}</Text>
+            <Text style={styles.releaseFocusText}>• 上传样本口径：{effectiveUploadEvidenceSummary}</Text>
+            <Text style={styles.releaseFocusText}>• {latestLiveUploadDisplayLine}</Text>
+            <Text style={styles.releaseFocusText}>• 上传样本新鲜度：{releaseSignals.uploadValidationLabel}</Text>
             <Text style={styles.releaseFocusText}>• {appleReleaseMeta}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseSignals.appleValidationFresh ? 'Apple 侧最近校验仍在有效窗口内，可以继续直接往提测收口推进。' : 'Apple 侧还缺新鲜校验真值，先别把“已就绪”当成最终完成。'}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseSignals.buildReadyToTrigger ? '现在已经具备触发首个 TestFlight Build 的条件，下一步不该再停留在文档备注。' : '现在还不能直接触发首个 Build，先把阻塞清单里的运行态、Apple 校验或上传样本缺口补平。'}</Text>
+            <Text style={styles.releaseFocusText}>• {releaseSignals.uploadValidationReady ? (releaseSignals.uploadValidationFresh ? '附件上传已经有真实回流样本，而且还在有效窗口内，说明上传链不只是演示按钮。' : '附件上传不是没做过，而是最近样本已经偏旧，提测前最好再补跑一条新的。') : '附件上传还缺真实回流样本，提测前别跳过这一步。'}</Text>
           </View>
 
           <View style={styles.releaseFocusBox}>
             <Text style={styles.releaseFocusTitle}>下一步动作</Text>
-            {releaseSignals.nextActions.slice(0, 3).map((item, index) => (
+            {(safePreflightNextActions.length > 0 ? safePreflightNextActions : releaseSignals.nextActions).slice(0, 3).map((item, index) => (
               <Text key={index} style={styles.releaseFocusText}>• {item}</Text>
             ))}
+          </View>
+
+          <View style={styles.releaseFocusBox}>
+            <Text style={styles.releaseFocusTitle}>提测执行顺序</Text>
+            <Text style={styles.releaseFocusText}>• 先跑 npm run preflight:testflight，统一覆盖类型、关键测试、Apple 输入、发布配置、App Store 素材与 releaseStatus 同步。</Text>
+            <Text style={styles.releaseFocusText}>• 预检通过后只运行 npm run trigger:testflight；脚本会复跑预检、校验触发门禁，并在确认本地不存在重复 v0.1.0 tag 后才自动 tag/push。</Text>
+            <Text style={styles.releaseFocusText}>• 首个 Build 出现在 App Store Connect 后，再回到这里确认 TestFlight 状态与真机安装结果。</Text>
           </View>
 
           <View style={styles.releaseFocusBox}>
@@ -423,16 +814,16 @@ export function ProfileScreen() {
             <TouchableOpacity
               style={styles.releaseBtnPrimary}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('Confirmations')}
+              onPress={() => openReleaseTarget(releaseSignals.primaryNextTarget, navigation)}
             >
-              <Text style={styles.releaseBtnPrimaryText}>✅ 先清需确认项</Text>
+              <Text style={styles.releaseBtnPrimaryText}>{getReleaseActionLabel(releaseSignals.primaryNextTarget, releaseSignals.primaryNextLabel, 'decorated')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.releaseBtnSecondary}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('DispatchChain')}
+              onPress={() => navigation.navigate('Upload', uploadFocusTarget)}
             >
-              <Text style={styles.releaseBtnSecondaryText}>🔗 看调度链状态</Text>
+              <Text style={styles.releaseBtnSecondaryText}>📤 看上传闭环证据</Text>
             </TouchableOpacity>
           </View>
 
@@ -486,7 +877,7 @@ export function ProfileScreen() {
             subtitle={runtimeSummary}
             accent={runtimeMode === 'live' ? C.primary : '#f97316'}
             onPress={() => navigation.navigate('GatewaySettings')}
-            badge={runtimeMode === 'live' ? 'LIVE' : 'FALLBACK'}
+            badge={runtimeMode === 'live' ? 'LIVE' : '本地'}
           />
           <MenuItem
             emoji="⚙️"
@@ -776,6 +1167,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   releaseBtnPrimaryText: {color: C.bgRoot, fontWeight: '900', fontSize: 13},
+  releaseBuildGateOk: {color: '#34d399', fontSize: 12, lineHeight: 18, fontWeight: '800'},
+  releaseBuildGateWarn: {color: '#fbbf24', fontSize: 12, lineHeight: 18, fontWeight: '800'},
   releaseBtnSecondary: {
     flex: 1,
     paddingVertical: 11,

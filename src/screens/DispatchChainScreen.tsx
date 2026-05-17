@@ -9,12 +9,12 @@ import {useAppContext} from '../context/AppContext';
 import type {CommandTrace, DispatchRecord} from '../types';
 import type {RootStackParamList} from '../App';
 
-// User-friendly fallback when no dispatches exist yet — no developer noise
+// User-friendly fallback when no dispatches exist yet - no developer noise
 const EMPTY_TRACES: CommandTrace[] = [
-  {stage:'receive',   title:'接收指令',  actor:'你 → 助理',             detail:'在「对话」中发送一条指令，助理会立即接收并开始调度。'},
-  {stage:'dispatch',  title:'生成调度单', actor:'助理 / Gateway',        detail:'助理将你的指令拆解为任务，自动分派给对应的智能体执行。'},
-  {stage:'feedback',  title:'状态回流',  actor:'移动端 / 智能体',        detail:'执行过程中的状态变化会实时回流到这里，无需频繁刷新页面。'},
-  {stage:'synthesis', title:'结果交付', actor:'APP',                   detail:'执行完成后，结果自动同步到任务流、AI 产出流和首页闭环摘要。'},
+  {stage:'receive',   title:'接收指令',  actor:'你 → 助理',             detail:'在「对话」中发送一条指令,助理会立即接收并开始调度。'},
+  {stage:'dispatch',  title:'生成调度单', actor:'助理 / Gateway',        detail:'助理将你的指令拆解为任务,自动分派给对应的智能体执行。'},
+  {stage:'feedback',  title:'状态回流',  actor:'移动端 / 智能体',        detail:'执行过程中的状态变化会实时回流到这里,无需频繁刷新页面。'},
+  {stage:'synthesis', title:'结果交付', actor:'APP',                   detail:'执行完成后,结果自动同步到任务流、AI 产出流和首页闭环摘要。'},
 ];
 
 const STATUS_META: Record<DispatchRecord['status'], {label: string; accent: string; summary: string}> = {
@@ -54,21 +54,21 @@ export function DispatchChainScreen() {
     return [...dispatches].sort((a, b) => score(a) - score(b));
   }, [dispatches, focusDispatchId, focusSessionKey, focusTaskId]);
 
-  const latestDispatch = rankedDispatches[0];
-  const latestMeta = latestDispatch ? STATUS_META[latestDispatch.status] : null;
+  const focusedDispatch = rankedDispatches[0];
+  const focusedMeta = focusedDispatch ? STATUS_META[focusedDispatch.status] : null;
 
   const traces = useMemo<CommandTrace[]>(() => {
-    if (!dispatches.length) return EMPTY_TRACES;
-    const latest = dispatches[0];
-    const statusLabel = STATUS_META[latest.status].summary;
+    if (!rankedDispatches.length) return EMPTY_TRACES;
+    const focused = rankedDispatches[0];
+    const statusLabel = STATUS_META[focused.status].summary;
     return [
-      {stage:'receive',   title:'接收指令',   actor:'你 → 助理',    detail: latest.userText},
-      {stage:'dispatch',  title:'生成调度单', actor:'助理 / Gateway', detail: `taskId=${latest.taskId ?? '未生成'} · dispatchId=${latest.dispatchId ?? '未生成'}`},
-      {stage:'feedback',  title:'状态回流',   actor:'移动端',        detail: latest.reply},
-      {stage:'synthesis', title:'当前状态',   actor:'调度链',        detail: `${statusLabel}${latest.sessionKey ? ` · session=${latest.sessionKey}` : ''}${latest.agentId ? ` · agent=${latest.agentId}` : ''}`},
-      {stage:'deliver',   title:'结果交付',   actor:'APP',          detail: latest.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链与首页 AI 产出流。' : latest.status === 'failed' ? '该调度单执行失败，已保留现场记录，建议查看链路后重试。' : '该调度单已同步到任务流、调度链与首页 AI 产出流，可继续追踪后续状态。'},
+      {stage:'receive',   title:'接收指令',   actor:'你 → 助理',    detail: focused.userText},
+      {stage:'dispatch',  title:'生成调度单', actor:'助理 / Gateway', detail: `taskId=${focused.taskId ?? '未生成'} · dispatchId=${focused.dispatchId ?? '未生成'}`},
+      {stage:'feedback',  title:'状态回流',   actor:'移动端',        detail: focused.reply},
+      {stage:'synthesis', title:'当前状态',   actor:'调度链',        detail: `${statusLabel}${focused.sessionKey ? ` · session=${focused.sessionKey}` : ''}${focused.agentId ? ` · agent=${focused.agentId}` : ''}`},
+      {stage:'deliver',   title:'结果交付',   actor:'APP',          detail: focused.status === 'completed' ? '该调度单已完成，并已同步到任务流、调度链与首页 AI 产出流。' : focused.status === 'failed' ? '该调度单执行失败，已保留现场记录，建议查看链路后重试。' : '该调度单已同步到任务流、调度链与首页 AI 产出流，可继续追踪后续状态。'},
     ];
-  }, [dispatches]);
+  }, [rankedDispatches]);
 
   const stats = useMemo(() => ({
     total: dispatches.length,
@@ -108,23 +108,23 @@ export function DispatchChainScreen() {
           </View>
         </View>
 
-        {latestDispatch ? (
+        {focusedDispatch ? (
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryEyebrow}>最新调度单</Text>
+            <Text style={styles.summaryEyebrow}>{focusDispatchId || focusTaskId || focusSessionKey ? '当前聚焦调度单' : '最新调度单'}</Text>
             <View style={styles.statusRow}>
-              <Text style={styles.summaryText}>taskId: {latestDispatch.taskId ?? '未生成'}</Text>
-              {latestMeta ? (
-                <View style={[styles.statusBadge, {borderColor: latestMeta.accent, backgroundColor: `${latestMeta.accent}22`}]}>
-                  <Text style={[styles.statusBadgeText, {color: latestMeta.accent}]}>{latestMeta.label}</Text>
+              <Text style={styles.summaryText}>taskId: {focusedDispatch.taskId ?? '未生成'}</Text>
+              {focusedMeta ? (
+                <View style={[styles.statusBadge, {borderColor: focusedMeta.accent, backgroundColor: `${focusedMeta.accent}22`}]}> 
+                  <Text style={[styles.statusBadgeText, {color: focusedMeta.accent}]}>{focusedMeta.label}</Text>
                 </View>
               ) : null}
             </View>
-            <Text style={styles.summaryText}>dispatchId: {latestDispatch.dispatchId ?? '未生成'}</Text>
-            <Text style={styles.summaryText}>status: {latestDispatch.status}</Text>
-            {latestDispatch.agentId ? <Text style={styles.summaryText}>agent: {latestDispatch.agentId}</Text> : null}
-            {latestDispatch.stageText ? <Text style={styles.summaryText}>stage: {latestDispatch.stageText}</Text> : null}
-            <Text style={styles.summaryHint}>{latestMeta?.summary}</Text>
-            {latestDispatch.sessionKey ? <Text style={styles.summaryText}>session: {latestDispatch.sessionKey}</Text> : null}
+            <Text style={styles.summaryText}>dispatchId: {focusedDispatch.dispatchId ?? '未生成'}</Text>
+            <Text style={styles.summaryText}>status: {focusedDispatch.status}</Text>
+            {focusedDispatch.agentId ? <Text style={styles.summaryText}>agent: {focusedDispatch.agentId}</Text> : null}
+            {focusedDispatch.stageText ? <Text style={styles.summaryText}>stage: {focusedDispatch.stageText}</Text> : null}
+            <Text style={styles.summaryHint}>{focusedMeta?.summary}</Text>
+            {focusedDispatch.sessionKey ? <Text style={styles.summaryText}>session: {focusedDispatch.sessionKey}</Text> : null}
           </View>
         ) : null}
 
@@ -149,7 +149,7 @@ export function DispatchChainScreen() {
             <Text style={styles.emptyIcon}>🔗</Text>
             <Text style={styles.emptyTitle}>调度链暂无记录</Text>
             <Text style={styles.emptyDesc}>
-              在「对话」中发送一条指令，助理会接收并开始调度，状态实时回流到这里。
+              在「对话」中发送一条指令,助理会接收并开始调度,状态实时回流到这里。
             </Text>
             <TouchableOpacity
               style={styles.emptyPrimaryBtn}
@@ -174,7 +174,7 @@ export function DispatchChainScreen() {
                       <Text style={[styles.historyBadgeText, {color: meta.accent}]}>{meta.label}</Text>
                     </View>
                   </View>
-                  <Text style={styles.historyMeta}>taskId={item.taskId ?? '—'} · dispatchId={item.dispatchId ?? '—'}</Text>
+                  <Text style={styles.historyMeta}>taskId={item.taskId ?? '-'} · dispatchId={item.dispatchId ?? '-'}</Text>
                   <Text style={styles.historyMeta}>
                     status={item.status}{item.sessionKey ? ` · session=${item.sessionKey}` : ''}{item.agentId ? ` · agent=${item.agentId}` : ''}
                   </Text>

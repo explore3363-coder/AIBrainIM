@@ -56,14 +56,17 @@ jest.mock('../src/context/AppContext', () => {
   };
 });
 
+const mockRouteParams = {params: undefined as any};
+
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({navigate: jest.fn(), goBack: jest.fn()}),
-  useRoute: () => ({params: undefined}),
+  useRoute: () => mockRouteParams,
 }));
 
 describe('DispatchChainScreen', () => {
   beforeEach(() => {
     mockRefresh.mockClear();
+    mockRouteParams.params = undefined;
   });
 
   // ── Render smoke test ─────────────────────────────────────────────────────────
@@ -164,6 +167,22 @@ describe('DispatchChainScreen', () => {
     expect(texts).toContain('推进 AIBrainIM P1 可用版');
     expect(texts).toContain('整理钨矿知识库');
     expect(texts).toContain('上传矿山报告');
+  });
+
+  it('uses focused dispatch in summary and trace when focus params are provided', async () => {
+    mockRouteParams.params = {focusDispatchId: 'dispatch-3'};
+
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<DispatchChainScreen />);
+    });
+
+    const texts = getAllText(tree!);
+    expect(texts).toContain('当前聚焦调度单');
+    expect(texts).toContain('上传矿山报告');
+    expect(texts).toContain('附件链路执行失败。');
+    expect(texts).toContain('该调度单执行失败，已保留现场记录，建议查看链路后重试。');
+    expect(texts).toContain('执行失败');
   });
 
   it('history shows correct status badges for each dispatch', async () => {

@@ -11,9 +11,9 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  # ── TypeScript + Jest ─────────────────────────────────────────────────────────
+  # ── TypeScript + Release Guard ───────────────────────────────────────────────
   typecheck:
-    name: TypeScript
+    name: TypeScript + Release Guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,10 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npx tsc --noEmit
+      - run: npm run typecheck
+      - run: npm run test:release
+      - run: npm run validate:release-config
+      - run: npm run validate:assets
 
   # ── iOS Simulator Build ───────────────────────────────────────────────────────
   ios-sim:

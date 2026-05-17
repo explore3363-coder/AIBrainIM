@@ -6,7 +6,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 
 export type RootStackParamList = {
-  Tabs: {screen?: 'Dashboard' | 'Database' | 'Chat' | 'Tasks' | 'Profile'} | undefined;
+  Tabs: {screen?: 'Dashboard' | 'Agent' | 'Chat' | 'Tasks' | 'Profile'} | undefined;
   MemoryStore: undefined;
   KnowledgeBase: undefined;
   FileLibrary: undefined;
@@ -24,17 +24,17 @@ import {TabBarIcon} from './components/TabBarIcon';
 // Screens
 import {DashboardScreen}       from './screens/DashboardScreen';
 import {ChatScreen}            from './screens/ChatScreen';
-import {DatabaseScreen}        from './screens/DatabaseScreen';
-import {TaskScreen}           from './screens/TaskScreen';
-import {ProfileScreen}        from './screens/ProfileScreen';
-import {MemoryStoreScreen}    from './screens/MemoryStoreScreen';
-import {KnowledgeBaseScreen}  from './screens/KnowledgeBaseScreen';
-import {FileLibraryScreen}    from './screens/FileLibraryScreen';
-import {ProjectLibraryScreen} from './screens/ProjectLibraryScreen';
-import {DispatchChainScreen}  from './screens/DispatchChainScreen';
-import {ConfirmationsScreen}  from './screens/ConfirmationsScreen';
-import {UploadScreen}         from './screens/UploadScreen';
-import {GatewaySettingsScreen}from './screens/GatewaySettingsScreen';
+import {AgentScreen}           from './screens/AgentScreen';
+import {TaskScreen}            from './screens/TaskScreen';
+import {ProfileScreen}         from './screens/ProfileScreen';
+import {MemoryStoreScreen}     from './screens/MemoryStoreScreen';
+import {KnowledgeBaseScreen}   from './screens/KnowledgeBaseScreen';
+import {FileLibraryScreen}     from './screens/FileLibraryScreen';
+import {ProjectLibraryScreen}  from './screens/ProjectLibraryScreen';
+import {DispatchChainScreen}   from './screens/DispatchChainScreen';
+import {ConfirmationsScreen}   from './screens/ConfirmationsScreen';
+import {UploadScreen}          from './screens/UploadScreen';
+import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
 
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
@@ -78,13 +78,13 @@ function TabNavigator() {
         tabBarLabel: () => null,
       }}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('首页', '🏠')}} />
-      <Tab.Screen name="Database"  component={DatabaseScreen}  options={{tabBarIcon: _tabIcon('数据库', '💾')}} />
-      <Tab.Screen name="Chat"      component={ChatScreen}       options={{tabBarIcon: _tabIcon('对话', '💬')}} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('总览', '🏠')}} />
+      <Tab.Screen name="Chat" component={ChatScreen} options={{tabBarIcon: _tabIcon('对话', '💬')}} />
+      <Tab.Screen name="Agent" component={AgentScreen} options={{tabBarIcon: _tabIcon('智能体', '🧠')}} />
       <Tab.Screen
         name="Tasks"
         component={TaskScreen}
-        options={{tabBarIcon: _tabIconWithBadge('任务链', '📋', runningTaskCount > 0 ? runningTaskCount : undefined)}}
+        options={{tabBarIcon: _tabIconWithBadge('任务', '📋', runningTaskCount > 0 ? runningTaskCount : undefined)}}
       />
       <Tab.Screen
         name="Profile"

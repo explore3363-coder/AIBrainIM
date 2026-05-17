@@ -22,11 +22,11 @@ export const agentsMock: Agent[] = [
 
 // ─── Mock Tasks ───────────────────────────────────────────────────────────────
 export const tasksMock: Task[] = [
-  {id:'t1', title:'移动端 P0：AI 大脑总览',       owner:'助理 / 黑金', state:'running', eta:'今晚',      next:'补齐总览、记忆库、调度链 UI',              priority:'P0'},
-  {id:'t2', title:'OpenClaw Bridge 接口骨架',   owner:'开发',         state:'todo',    eta:'明天',      next:'接真实 Agent/任务/消息 API',                priority:'P0'},
+  {id:'t1', title:'移动端 P0：AI 大脑总览',       owner:'助理 / 黑金', state:'running', eta:'今晚',      next:'继续压实首页 AI 产出流、调度状态、需确认项主视图', priority:'P0'},
+  {id:'t2', title:'OpenClaw Gateway 真实闭环验证', owner:'助理 / Runtime', state:'todo', eta:'待网关连通', next:'打通真实消息发送、调度回流与首页状态同步', priority:'P0'},
   {id:'t3', title:'附件上传入口',                owner:'黑金',         state:'running', eta:'Alpha 0.2', next:'图片、视频、文件统一进入 AI 指令流',        priority:'P1'},
   {id:'t4', title:'APP 上架链路收口',           owner:'助理',         state:'running', eta:'待配置Apple账号', next:'配置 GitHub Secrets → TestFlight build → App Store Connect', priority:'P0'},
-  {id:'t5', title:'Brave 搜索链路补丁验证',     owner:'助理',         state:'blocked', eta:'待二轮验证',next:'搜索链只作为研究辅助，不阻塞移动端',       priority:'P2'},
+  {id:'t5', title:'上传闭环真机验证',           owner:'助理 / 黑金',   state:'todo',    eta:'本轮后续',  next:'补跑图片/文档/视频至少各一条真实上传回流样本', priority:'P1'},
   {id:'t6', title:'记忆库接口接入',              owner:'智联',         state:'todo',    eta:'本周',      next:'接 OpenClaw 记忆 API',                      priority:'P1'},
   {id:'t7', title:'知识库全文检索',             owner:'智联',         state:'todo',    eta:'本周',      next:'接向量检索服务',                             priority:'P1'},
 ];
@@ -78,7 +78,7 @@ export const confirmationMock: ConfirmationItem[] = [
   {
     id:'c1',
     title:'AIBrainIM TestFlight 上架配置',
-    description:'GitHub repo 的 APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_TEAM_ID / APPLE_API_KEY_CONTENT 尚未配置，当前 workflow 还不能触发自动发布。',
+    description:'当前运行态预检显示：ASC_KEY_ID/APPLE_API_KEY_ID、ASC_ISSUER_ID/APPLE_API_ISSUER_ID、APPLE_TEAM_ID、APPLE_API_KEY_CONTENT 尚未形成可校验真值；App Store 素材已可由仓库脚本校验。',
     agent:'助理',
     urgency:'high',
     timestamp:'20:29',
@@ -88,7 +88,7 @@ export const confirmationMock: ConfirmationItem[] = [
   {
     id:'c2',
     title:'OpenClaw Gateway 真实连接验证',
-    description:'当前为 fallback 态，首页使用 mock 数据。需在真实 Gateway 下跑通一轮完整闭环后，才算真正可提测。',
+    description:'当前仍处于本地演示运行态。需要在真实 Gateway 下跑通至少一轮完整闭环，提测时首页与调度链才能反映真实生产状态。',
     agent:'助理',
     urgency:'normal',
     timestamp:'20:28',
@@ -96,9 +96,9 @@ export const confirmationMock: ConfirmationItem[] = [
   },
   {
     id:'c3',
-    title:'记忆库 / 知识库 API 接入优先级',
-    description:'MemoryStoreScreen 和 KnowledgeBaseScreen 的远程搜索/创建依赖 gatewayInvoke。当前为本地 mock，需要确认远程 API 是否已稳定。',
-    agent:'智联',
+    title:'上传链路真机闭环验证',
+    description:'前端分片/断点续传/后台队列都已就绪，但还缺至少一轮真实图片/文档/视频上传回流验证，才能放心进入 TestFlight。',
+    agent:'黑金',
     urgency:'normal',
     timestamp:'20:25',
     status:'pending',

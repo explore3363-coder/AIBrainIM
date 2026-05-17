@@ -27,15 +27,43 @@ import {
   validateGatewayConfig,
   type GatewayConfig,
 } from '../services/gatewayConfig';
+import {getAppleReleaseStatus} from '../services/releaseChannel';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 const TIMEOUT_MS    = 10000;
 
 
 const _confirmationMock: ConfirmationItem[] = [
-  {id:'c1', title:'是否接入 Brave 搜索？', description:'当前标记为研究辅助，不阻塞移动端主流程。可延后。', agent:'助理', urgency:'normal', timestamp:'20:28', status:'pending'},
-  {id:'c2', title:'记忆库优先级确认', description:'长期记忆与短期记忆的存储策略需要确认。', agent:'智联', urgency:'high', timestamp:'20:20', status:'pending'},
-  {id:'c3', title:'附件大小策略', description:'前端不设硬限制，请确认后端处理策略（分片/转码）。', agent:'黑金', urgency:'low', timestamp:'20:15', status:'pending'},
+  {
+    id:'c1',
+    title:'AIBrainIM TestFlight 上架配置',
+    description:'当前运行态预检显示 Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 尚未形成可校验真值；App Store 素材已可由仓库脚本校验。',
+    agent:'助理',
+    urgency:'high',
+    timestamp:'20:29',
+    status:'pending',
+    followUpTaskId:'t4',
+  },
+  {
+    id:'c2',
+    title:'OpenClaw Gateway 真实连接验证',
+    description:'当前仍处于本地回退运行态。需要在真实 Gateway 下跑通至少一轮完整闭环，提测时首页与调度链才能反映真实生产状态。',
+    agent:'助理',
+    urgency:'normal',
+    timestamp:'20:28',
+    status:'pending',
+    followUpTaskId:'t2',
+  },
+  {
+    id:'c3',
+    title:'上传链路真机闭环验证',
+    description:'前端分片/断点续传/后台队列都已就绪，但还缺至少一轮真实图片/文档/视频上传回流验证，才能放心进入 TestFlight。',
+    agent:'黑金',
+    urgency:'normal',
+    timestamp:'20:25',
+    status:'pending',
+    followUpTaskId:'t5',
+  },
 ];
 
 let _confirmations: ConfirmationItem[] = [..._confirmationMock];
@@ -483,8 +511,74 @@ export async function fetchTasks(): Promise<Task[]> {
   return snapshot.tasks;
 }
 
+function buildReleaseConfirmations(): ConfirmationItem[] {
+  const releaseStatus = getAppleReleaseStatus();
+  const timestamp = new Date().toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const dynamicItems: ConfirmationItem[] = [];
+
+  if (!releaseStatus.applePrerequisitesReady) {
+    const missingInputs = releaseStatus.missingAppleInputs.length > 0
+      ? `当前缺项：${releaseStatus.missingAppleInputs.join('、')}`
+      : '当前 Apple 前置项仍未形成可校验真值';
+
+    dynamicItems.push({
+      id: 'release-apple-prerequisites',
+      title: 'AIBrainIM TestFlight 上架配置',
+      description: `${releaseStatus.summary}。${missingInputs}。`,
+      agent: '助理',
+      urgency: 'high',
+      timestamp,
+      status: 'pending',
+      followUpTaskId: 't4',
+    });
+  }
+
+  if (!releaseStatus.firstTestFlightBuildUploaded) {
+    dynamicItems.push({
+      id: 'release-first-build',
+      title: '首个 TestFlight Build 真实上传',
+      description: releaseStatus.preflightOverallStatus === 'FAIL'
+        ? `当前总预检未通过：${releaseStatus.preflightFailedChecks.join('、') || '存在未收口项'}。先消除阻塞，再上传首个真实 Build。`
+        : '预检已基本就绪，但首个真实 TestFlight Build 还没有形成上传真值，需要尽快补齐。',
+      agent: '助理',
+      urgency: releaseStatus.applePrerequisitesReady ? 'normal' : 'high',
+      timestamp,
+      status: 'pending',
+      followUpTaskId: 't4',
+    });
+  }
+
+  return dynamicItems;
+}
+
+function dedupeConfirmations(items: ConfirmationItem[]): ConfirmationItem[] {
+  const byTitle = new Map<string, ConfirmationItem>();
+  for (const item of items) {
+    const existing = byTitle.get(item.title);
+    if (!existing) {
+      byTitle.set(item.title, item);
+      continue;
+    }
+
+    const existingStatus = existing.status ?? 'pending';
+    const nextStatus = item.status ?? 'pending';
+    const preferred = existingStatus === 'pending' && nextStatus !== 'pending'
+      ? existing
+      : nextStatus === 'pending' && existingStatus !== 'pending'
+        ? item
+        : existing;
+    byTitle.set(item.title, preferred);
+  }
+  return Array.from(byTitle.values());
+}
+
 export async function fetchConfirmations(): Promise<ConfirmationItem[]> {
-  return [..._confirmations];
+  const dynamicItems = buildReleaseConfirmations();
+  return dedupeConfirmations([...dynamicItems, ..._confirmations]);
 }
 
 export async function resolveConfirmation(

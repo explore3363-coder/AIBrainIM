@@ -9,11 +9,19 @@
     "start": "react-native start",
     "test": "jest",
     "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck",
     "build:sim": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO",
     "build:release": "xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -archivePath ios/builds/AIBrainIM.xcarchive archive",
     "screenshot": "bash scripts/capture-screenshots.sh",
     "pods": "cd ios && pod install && cd ..",
-    "validate:testflight": "bash scripts/validate-testflight-inputs.sh"
+    "validate:testflight": "bash scripts/validate-testflight-inputs.sh",
+    "validate:release-config": "node scripts/validate-release-config.mjs",
+    "validate:assets": "node scripts/validate-appstore-assets.mjs",
+    "sync:release-status": "node scripts/sync-release-status.mjs",
+    "test:release": "jest --runInBand --detectOpenHandles __tests__/releaseReadiness.test.ts __tests__/releaseChannel.test.ts __tests__/uploadReleaseEvidence.test.ts __tests__/DashboardScreen.test.tsx __tests__/ProfileScreen.test.tsx __tests__/ProjectLibraryScreen.test.tsx __tests__/UploadScreen.test.tsx",
+    "preflight:testflight": "node scripts/preflight-testflight.mjs",
+    "validate:trigger-readiness": "node scripts/validate-trigger-readiness.mjs",
+    "trigger:testflight": "node scripts/trigger-testflight.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.0.2",

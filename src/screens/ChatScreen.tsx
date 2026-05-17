@@ -65,12 +65,22 @@ const DISPATCH_STATUS_LABEL = {
 } as const;
 
 const CHAT_HISTORY_KEY = '@AIBrainIM:chatHistory';
-// 不做产品层硬限制;长上下文+分层记忆+按需回补在后端处理,前端保留足够历史用于展示
-const MAX_HISTORY = 300;
+// 不做产品层硬限制；对话上下文由长上下文 + 分层记忆 + 按需回补承担
+// 前端尽量保留完整本地历史，仅在存储失败时保持当前内存会话可用。
 
 export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {dispatches, registerDispatch, runtimeMode, runtimeError, refreshing, refresh} = useAppContext();
+  const {
+    dispatches,
+    tasks,
+    confirmations,
+    uploads,
+    registerDispatch,
+    runtimeMode,
+    runtimeError,
+    refreshing,
+    refresh,
+  } = useAppContext();
   const [draft, setDraft]   = useState('');
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -83,6 +93,8 @@ export function ChatScreen() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollRef   = useRef<ScrollView>(null);
   const lastDispatchIdRef = useRef<string | undefined>(undefined);
+  const timeoutHandlesRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const attachmentPollersRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   // Animated typing indicator - three dots pulse in sequence
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -108,12 +120,33 @@ export function ChatScreen() {
   }, [typing, dot1, dot2, dot3]);
 
   const safeDispatches = useMemo(() => Array.isArray(dispatches) ? dispatches : [], [dispatches]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
+  const safeConfirmations = useMemo(() => Array.isArray(confirmations) ? confirmations : [], [confirmations]);
+  const safeUploads = useMemo(() => Array.isArray(uploads) ? uploads : [], [uploads]);
   const safeAttachments = useMemo(() => Array.isArray(attachments) ? attachments : [], [attachments]);
 
   // ── Chat history persistence ─────────────────────────────────────────
   const [historyRestored, setHistoryRestored] = useState(false);
 
   // Load persisted history on mount
+  const scheduleTimeout = useCallback((fn: () => void, ms: number) => {
+    const handle = setTimeout(() => {
+      timeoutHandlesRef.current = timeoutHandlesRef.current.filter(item => item !== handle);
+      fn();
+    }, ms);
+    timeoutHandlesRef.current.push(handle);
+    return handle;
+  }, []);
+
+  const clearAttachmentPoller = useCallback((fileId: string) => {
+    const handle = attachmentPollersRef.current[fileId];
+    if (!handle) {
+      return;
+    }
+    clearInterval(handle);
+    delete attachmentPollersRef.current[fileId];
+  }, []);
+
   useEffect(() => {
     AsyncStorage.getItem(CHAT_HISTORY_KEY)
       .then(json => {
@@ -130,7 +163,7 @@ export function ChatScreen() {
               return [...prev, ...newOnes];
             });
             setHistoryRestored(true);
-            setTimeout(() => {
+            scheduleTimeout(() => {
               setHistoryRestored(false);
               scrollRef.current?.scrollToEnd({animated: true});
             }, 800);
@@ -138,13 +171,14 @@ export function ChatScreen() {
         } catch { /* ignore corrupt storage */ }
       })
       .catch(() => { /* ignore storage errors */ });
-  }, []);
+  }, [scheduleTimeout]);
 
   // Persist messages whenever they change (after initial mount)
   useEffect(() => {
     if (messages.length <= 1) return; // don't persist just the welcome message
-    const toSave = messages.slice(-MAX_HISTORY);
-    AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(toSave)).catch(() => {});
+    AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages)).catch(() => {
+      // 当本地存储空间不足时，不主动截断用户上下文；保持当前会话可继续。
+    });
   }, [messages]);
 
   // ── Dispatch status updates ───────────────────────────────────────────
@@ -178,8 +212,8 @@ export function ChatScreen() {
       return [...messagesNow, {role: 'in', name: '助理', text}];
     });
 
-    setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
-  }, [safeDispatches]);
+    scheduleTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
+  }, [safeDispatches, scheduleTimeout]);
 
   // Sync attachment previews from upload queue
   const syncAttachments = useCallback(() => {
@@ -261,37 +295,41 @@ export function ChatScreen() {
               },
             ]);
             // Poll for attachment status update and notify user
-            const pollAttachment = setInterval(() => {
-                const updated = uploadService.getFile(fileId);
-                if (!updated) { clearInterval(pollAttachment); return; }
-                syncAttachments();
-                if (updated.status === 'dispatched') {
-                  clearInterval(pollAttachment);
-                  setMessages(ms => [
-                    ...ms,
-                    {
-                      role: 'in',
-                      name: '助理',
-                      text: `📎 附件「${updated.name}」已上传并分派给 ${updated.agent ?? 'AI'} 处理。`,
-                    },
-                  ]);
-                } else if (updated.status === 'error') {
-                  clearInterval(pollAttachment);
-                  setMessages(ms => [
-                    ...ms,
-                    {
-                      role: 'in',
-                      name: '助理',
-                      text: `⚠️ 附件「${updated.name}」上传失败:${updated.error}`,
-                    },
-                  ]);
-                }
-              }, 1000);
+            clearAttachmentPoller(fileId);
+            attachmentPollersRef.current[fileId] = setInterval(() => {
+              const updated = uploadService.getFile(fileId);
+              if (!updated) {
+                clearAttachmentPoller(fileId);
+                return;
+              }
+              syncAttachments();
+              if (updated.status === 'dispatched') {
+                clearAttachmentPoller(fileId);
+                setMessages(ms => [
+                  ...ms,
+                  {
+                    role: 'in',
+                    name: '助理',
+                    text: `📎 附件「${updated.name}」已上传并分派给 ${updated.agent ?? 'AI'} 处理。`,
+                  },
+                ]);
+              } else if (updated.status === 'error') {
+                clearAttachmentPoller(fileId);
+                setMessages(ms => [
+                  ...ms,
+                  {
+                    role: 'in',
+                    name: '助理',
+                    text: `⚠️ 附件「${updated.name}」上传失败:${updated.error}`,
+                  },
+                ]);
+              }
+            }, 1000);
           });
         });
       },
     );
-  }, [syncAttachments, trackAttachment]);
+  }, [clearAttachmentPoller, syncAttachments, trackAttachment]);
 
   const handleTakePhoto = useCallback(() => {
     launchCamera(
@@ -368,6 +406,59 @@ export function ChatScreen() {
   };
 
   const latestDispatch = safeDispatches[0];
+  const latestRunningTask = useMemo(
+    () => safeTasks.find(task => task.state === 'running') ?? safeTasks.find(task => task.state === 'todo'),
+    [safeTasks],
+  );
+  const latestPendingConfirmation = useMemo(
+    () => safeConfirmations.find(item => item.status !== 'confirmed' && item.status !== 'deferred'),
+    [safeConfirmations],
+  );
+  const latestUploadSignal = useMemo(
+    () => safeUploads.find(file => file.status === 'processing' || file.status === 'dispatched' || file.status === 'done'),
+    [safeUploads],
+  );
+  const contextSignals = useMemo(() => {
+    const memorySignals = [
+      latestPendingConfirmation ? `需确认：${latestPendingConfirmation.title}` : null,
+      latestRunningTask ? `当前任务：${latestRunningTask.title}` : null,
+    ].filter(Boolean) as string[];
+
+    const knowledgeSignals = [
+      latestUploadSignal ? `附件样本：${latestUploadSignal.name} · ${latestUploadSignal.status}` : null,
+      latestDispatch ? `调度样本：${latestDispatch.status}${latestDispatch.taskId ? ` · ${latestDispatch.taskId}` : ''}` : null,
+    ].filter(Boolean) as string[];
+
+    const dispatchSignals = [
+      latestDispatch?.sessionKey ? `session ${latestDispatch.sessionKey}` : null,
+      latestDispatch?.dispatchId ? `dispatch ${latestDispatch.dispatchId}` : null,
+      latestDispatch?.taskId ? `task ${latestDispatch.taskId}` : null,
+    ].filter(Boolean) as string[];
+
+    return {
+      memorySignals,
+      knowledgeSignals,
+      dispatchSignals,
+    };
+  }, [latestDispatch, latestPendingConfirmation, latestRunningTask, latestUploadSignal]);
+  const contextPackPreview = useMemo(() => {
+    const sections: string[] = [];
+
+    if (contextSignals.memorySignals.length > 0) {
+      sections.push(`[记忆回补]\n${contextSignals.memorySignals.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (contextSignals.knowledgeSignals.length > 0) {
+      sections.push(`[知识/样本回补]\n${contextSignals.knowledgeSignals.map(item => `- ${item}`).join('\n')}`);
+    }
+    if (queuedAttachmentSummaries.length > 0) {
+      sections.push(`[附件上下文]\n${queuedAttachmentSummaries.map(att => `- ${att.name} · ${att.sizeLabel} · ${att.status}`).join('\n')}`);
+    }
+    if (contextSignals.dispatchSignals.length > 0) {
+      sections.push(`[调度链锚点]\n${contextSignals.dispatchSignals.map(item => `- ${item}`).join('\n')}`);
+    }
+
+    return sections.join('\n\n');
+  }, [contextSignals.dispatchSignals, contextSignals.knowledgeSignals, contextSignals.memorySignals, queuedAttachmentSummaries]);
 
   useEffect(() => {
     if (!queuedAttachmentIds.length) {
@@ -387,17 +478,16 @@ export function ChatScreen() {
 
     if ((!trimmedDraft && !hasAttachmentContext) || sending) return;
     const userText = trimmedDraft || '请先分析我刚上传的附件,提取关键信息、给出结论,并把需要我确认的事项单独列出来。';
-    const attachmentContext = hasAttachmentContext
-      ? `\n\n[附件上下文]\n${queuedAttachmentSummaries.map(att => `- ${att.name} · ${att.sizeLabel} · ${att.status}`).join('\n')}`
-      : '';
-    const outboundText = `${userText}${attachmentContext}`;
+    const outboundText = contextPackPreview
+      ? `${userText}\n\n[本轮上下文包]\n${contextPackPreview}`
+      : userText;
 
     setMessages(m => [...m, {role: 'out', text: userText}]);
     setDraft('');
     setSending(true);
     setTyping(true);
 
-    setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
+    scheduleTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
 
     try {
       const {reply, sent, taskId, dispatchId, sessionKey} = await sendMessage(outboundText);
@@ -406,6 +496,10 @@ export function ChatScreen() {
       const attachedFiles = attachedIds
         .map(id => uploadService.getFile(id))
         .filter((f): f is NonNullable<typeof f> => f != null);
+
+      if (sent && hasAttachmentContext && dispatchId) {
+        attachedIds.forEach(id => uploadService.markFileDispatched(id, dispatchId));
+      }
 
       registerDispatch({
         userText: hasAttachmentContext
@@ -425,12 +519,18 @@ export function ChatScreen() {
       refresh();
 
       if (sent && hasAttachmentContext) {
+        if (dispatchId && attachedFiles.length > 0) {
+          uploadService.bindFilesToDispatch(attachedFiles.map(file => file.id), dispatchId);
+        }
+        const evidenceLine = uploadService.buildDispatchEvidenceLine(attachedFiles);
         setMessages(m => [
           ...m,
           {
             role: 'in',
             name: '助理',
-            text: `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。`,
+            text: evidenceLine
+              ? `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。${evidenceLine}`
+              : `📎 本轮指令已携带 ${queuedAttachmentSummaries.length} 个附件上下文，一并进入调度链。`,
           },
         ]);
         uploadService.clearFilesForNextDispatch(queuedAttachmentSummaries.map(att => att.id));
@@ -451,18 +551,28 @@ export function ChatScreen() {
     } finally {
       setSending(false);
       setTyping(false);
-      setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
+      scheduleTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
     }
   }, [
     clearQueuedAttachment,
+    contextPackPreview,
     draft,
     queuedAttachmentSummaries,
-    queuedAttachmentStatusText,
     registerDispatch,
     refresh,
+    scheduleTimeout,
     sending,
     syncAttachments,
   ]);
+
+  useEffect(() => {
+    const attachmentPollers = attachmentPollersRef.current;
+    return () => {
+      timeoutHandlesRef.current.forEach(handle => clearTimeout(handle));
+      timeoutHandlesRef.current = [];
+      Object.keys(attachmentPollers).forEach(clearAttachmentPoller);
+    };
+  }, [clearAttachmentPoller]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -521,6 +631,45 @@ export function ChatScreen() {
             </Text>
           </View>
         )}
+
+        <View style={styles.contextPackCard}>
+          <View style={styles.contextPackHeader}>
+            <View>
+              <Text style={styles.contextPackEyebrow}>LONG CONTEXT</Text>
+              <Text style={styles.contextPackTitle}>本轮上下文包</Text>
+            </View>
+            <Text style={styles.contextPackBadge}>
+              {contextSignals.memorySignals.length + contextSignals.knowledgeSignals.length + queuedAttachmentSummaries.length + contextSignals.dispatchSignals.length} 项信号
+            </Text>
+          </View>
+          <Text style={styles.contextPackSummary}>
+            不做产品层硬限制；当前消息会按长上下文 + 分层记忆 + 按需回补送入调度链。
+          </Text>
+          <View style={styles.contextPackSection}>
+            <Text style={styles.contextPackSectionTitle}>记忆回补</Text>
+            {contextSignals.memorySignals.length > 0 ? contextSignals.memorySignals.map(item => (
+              <Text key={item} style={styles.contextPackLine}>• {item}</Text>
+            )) : <Text style={styles.contextPackEmpty}>暂无显式记忆命中，将沿用当前会话历史。</Text>}
+          </View>
+          <View style={styles.contextPackSection}>
+            <Text style={styles.contextPackSectionTitle}>知识 / 样本回补</Text>
+            {contextSignals.knowledgeSignals.length > 0 ? contextSignals.knowledgeSignals.map(item => (
+              <Text key={item} style={styles.contextPackLine}>• {item}</Text>
+            )) : <Text style={styles.contextPackEmpty}>暂无额外知识样本，优先依赖对话与调度链。</Text>}
+          </View>
+          <View style={styles.contextPackSection}>
+            <Text style={styles.contextPackSectionTitle}>附件入口</Text>
+            {queuedAttachmentSummaries.length > 0 ? queuedAttachmentSummaries.slice(0, 3).map(att => (
+              <Text key={att.id} style={styles.contextPackLine}>• {att.name} · {att.sizeLabel} · {att.status}</Text>
+            )) : <Text style={styles.contextPackEmpty}>当前未选择附件；可直接补文件、视频、文档进入本轮分析。</Text>}
+          </View>
+          <View style={styles.contextPackSection}>
+            <Text style={styles.contextPackSectionTitle}>调度链锚点</Text>
+            {contextSignals.dispatchSignals.length > 0 ? contextSignals.dispatchSignals.map(item => (
+              <Text key={item} style={styles.contextPackLine}>• {item}</Text>
+            )) : <Text style={styles.contextPackEmpty}>还没有稳定调度锚点，本轮将以新会话样本生成链路。</Text>}
+          </View>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -647,7 +796,7 @@ export function ChatScreen() {
           {/* Upload panel */}
           <View style={styles.uploadPanel}>
             <Text style={styles.uploadTitle}>📎 附件上传</Text>
-            <Text style={styles.uploadHint}>无大小限制 · 大文件自动后台处理 · 断点续传</Text>
+            <Text style={styles.uploadHint}>无大小限制 · 自动选择直传或分片续传 · 后台处理</Text>
             <View style={styles.chipRow}>
               {(['图片', '视频', 'PDF/文档', '压缩包', '矿山资料', '代码文件'] as string[]).map((type: string) => (
                 <TouchableOpacity
@@ -699,7 +848,7 @@ export function ChatScreen() {
                           <Text style={styles.attachmentName} numberOfLines={1}>{att.name}</Text>
                           {isLargeFile && (
                             <View style={styles.largeFileBadge}>
-                              <Text style={styles.largeFileBadgeText}>大文件</Text>
+                              <Text style={styles.largeFileBadgeText}>分片续传</Text>
                             </View>
                           )}
                         </View>
@@ -713,7 +862,7 @@ export function ChatScreen() {
                         ) : null}
                         {att.status === 'uploading' && isLargeFile && (
                           <Text style={styles.chunkHint}>
-                            ≥10MB 文件自动分片上传,断点续传
+                            系统已自动走分片续传，上传中断后可继续
                           </Text>
                         )}
                         {att.status === 'processing' && isLargeFile && (
@@ -850,7 +999,38 @@ const styles = StyleSheet.create({
   },
   historyRestoredText: {color: '#34d399', fontSize: 11, fontWeight: '800'},
   gatewayBannerText: {color: '#f87171', fontSize: 11, fontWeight: '700'},
-
+  contextPackCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(8,18,36,0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.14)',
+    gap: 10,
+  },
+  contextPackHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  contextPackEyebrow: {color: C.primary, fontSize: 10, fontWeight: '900', letterSpacing: 0.6},
+  contextPackTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900', marginTop: 2},
+  contextPackBadge: {
+    color: '#93c5fd',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,189,248,0.12)',
+    overflow: 'hidden',
+  },
+  contextPackSummary: {color: C.textMuted, fontSize: 11, lineHeight: 16},
+  contextPackSection: {gap: 4},
+  contextPackSectionTitle: {color: C.textSecondary, fontSize: 11, fontWeight: '800'},
+  contextPackLine: {color: C.textBody, fontSize: 11, lineHeight: 16},
+  contextPackEmpty: {color: C.textMuted, fontSize: 11, lineHeight: 16},
 
   chatContent:  {padding: 16, paddingBottom: 16},
 

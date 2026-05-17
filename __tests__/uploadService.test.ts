@@ -2,7 +2,26 @@
  * @format
  */
 
-import {uploadService, formatBytes} from '../src/services/uploadService';
+import {
+  uploadService,
+  formatBytes,
+  buildDirectUploadHeaders,
+  buildChunkUploadRequest,
+  parseUploadAck,
+  __uploadServiceTestInternals,
+} from '../src/services/uploadService';
+
+jest.mock('../src/services/gatewayConfig', () => ({
+  getGatewayConfig: jest.fn(async () => ({
+    gatewayUrl: 'https://gateway.example.com',
+    gatewayToken: 'token-token-token-token',
+    directMode: true,
+    sessionKey: 'agent:zhuli:test',
+    channel: 'feishu',
+    target: '',
+  })),
+  validateGatewayConfig: jest.fn(() => ({valid: true, errors: [], warnings: []})),
+}));
 
 describe('uploadService', () => {
   beforeEach(() => {
@@ -28,7 +47,7 @@ describe('uploadService', () => {
       expect(file.name).toBe('photo.png');
     });
 
-    it('small file (< 10 MB) is queued and processed without crashing', async () => {
+    it('known-size direct-path file is queued and processed without crashing', async () => {
       const file = await uploadService.enqueueUpload('small.pdf', 'file:///tmp/small.pdf', 'application/pdf', 1024);
       // Status may be queued or uploading since processUpload runs async
       expect(['queued', 'uploading']).toContain(file.status);
@@ -41,7 +60,7 @@ describe('uploadService', () => {
       expect(file.size).toBe(0);
     });
 
-    it('large file (>= 10 MB) is queued without crashing', async () => {
+    it('chunked-path file is queued without crashing', async () => {
       const largeSize = 15 * 1024 * 1024; // 15 MB
       const file = await uploadService.enqueueUpload('large.zip', 'file:///tmp/large.zip', 'application/zip', largeSize);
       expect(['queued', 'uploading']).toContain(file.status);
@@ -106,6 +125,29 @@ describe('uploadService', () => {
     it('formats GB range', () => {
       expect(formatBytes(1024 * 1024 * 1024)).toMatch(/^1\.00 GB$/);
       expect(formatBytes(2.5 * 1024 * 1024 * 1024)).toMatch(/^2\.50 GB$/);
+    });
+  });
+
+  describe('Gateway timeout cleanup', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+      (globalThis.fetch as jest.Mock | undefined)?.mockRestore?.();
+    });
+
+    it('clears direct-upload timeout when Gateway fetch rejects', async () => {
+      jest.useFakeTimers();
+      const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
+      jest.spyOn(globalThis, 'fetch' as never).mockRejectedValue(new Error('network down') as never);
+
+      const file = await uploadService.enqueueUpload('timeout.pdf', 'file:///timeout.pdf', 'application/pdf', 1024);
+      const retryPromise = __uploadServiceTestInternals!.processUpload(file.id);
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(120 * 10 + 800 + 900 + 600);
+      await retryPromise;
+
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      expect(uploadService.getFile(file.id)?.executionMode).toBe('simulated');
+      expect(uploadService.getFile(file.id)?.status).toBe('done');
     });
   });
 
@@ -240,6 +282,10 @@ describe('uploadService', () => {
       file.error = 'chunk failed';
       file.progress = 42;
       file.uploadedChunks = 2;
+      file.executionMode = 'simulated';
+      file.completedAt = Date.now();
+      file.dispatchId = 'dispatch-old';
+      file.agent = '黑金';
 
       uploadService.retryUpload(file.id);
 
@@ -250,6 +296,60 @@ describe('uploadService', () => {
       expect(updated?.resumable).toBe(true);
       expect(updated?.uploadedChunks).toBe(0);
       expect(updated?.error).toBeUndefined();
+      expect(updated?.executionMode).toBeUndefined();
+      expect(updated?.completedAt).toBeUndefined();
+      expect(updated?.dispatchId).toBeUndefined();
+      expect(updated?.agent).toBeUndefined();
+    });
+  });
+
+  describe('gateway upload protocol helpers', () => {
+    it('builds direct upload headers with resumable identifiers', () => {
+      expect(buildDirectUploadHeaders('1234567890abcdefTOKEN', 'upload-1')).toEqual({
+        Authorization: 'Bearer 1234567890abcdefTOKEN',
+        'Content-Type': 'multipart/form-data',
+        'X-Upload-Id': 'upload-1',
+        'X-Chunk-Index': '0',
+        'X-Total-Chunks': '1',
+      });
+    });
+
+    it('builds chunk upload request with query params and resumable headers', () => {
+      const request = buildChunkUploadRequest({
+        gatewayUrl: 'https://gateway.example.com',
+        uploadId: 'upload-2',
+        chunkIndex: 3,
+        totalChunks: 9,
+        mimeType: 'video/mp4',
+        start: 6291456,
+        end: 8388608,
+        fileSize: 18874368,
+        gatewayToken: '1234567890abcdefTOKEN',
+      });
+
+      expect(request.url).toBe('https://gateway.example.com/upload/chunk?uploadId=upload-2&chunkIndex=3&totalChunks=9');
+      expect(request.headers).toEqual({
+        Authorization: 'Bearer 1234567890abcdefTOKEN',
+        'Content-Type': 'video/mp4',
+        'Content-Range': 'bytes 6291456-8388607/18874368',
+        'X-Upload-Id': 'upload-2',
+        'X-Chunk-Index': '3',
+        'X-Total-Chunks': '9',
+      });
+    });
+
+    it('parses gateway ack payload into normalized resumable state', () => {
+      expect(parseUploadAck({
+        uploadId: 'server-upload-3',
+        chunkIndex: '4',
+        totalChunks: '12',
+        progress: 73,
+      })).toEqual({
+        uploadId: 'server-upload-3',
+        chunkIndex: 4,
+        totalChunks: 12,
+        progress: 73,
+      });
     });
   });
 

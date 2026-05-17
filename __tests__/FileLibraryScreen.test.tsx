@@ -151,10 +151,6 @@ describe('FileLibraryScreen', () => {
     });
   }
 
-  function getFileCard(tree: ReactTestRenderer.ReactTestRenderer, fileName: string) {
-    return tree.root.findAll(node => node.props?.style && collectText(node).some(t => t.includes(fileName)))[0];
-  }
-
   it('renders header with total and uploading counts', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
@@ -208,14 +204,13 @@ describe('FileLibraryScreen', () => {
     expect(texts.some(t => t.includes('失败样本.zip'))).toBe(true);
   });
 
-  it('shows large file badge for files over 10MB', async () => {
+  it('shows chunked transfer badge for files routed to resumable upload', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<FileLibraryScreen />);
     });
     const texts = collectText(tree!.root);
-    // 12MB and 88MB files should show large file badge
-    expect(texts).toContain('大文件');
+    expect(texts).toContain('分片续传');
   });
 
   it('shows pipeline step for chunked upload progress', async () => {
@@ -224,19 +219,19 @@ describe('FileLibraryScreen', () => {
       tree = ReactTestRenderer.create(<FileLibraryScreen />);
     });
     const texts = collectText(tree!.root);
-    // u2 is uploading and is large — should show upload percentage
+    // u2 is uploading and routed through chunked transfer — should show upload percentage
     expect(texts.some(t => t.includes('上传') && t.includes('%'))).toBe(true);
     expect(texts.some(t => t.includes('分片上传中') && t.includes('60%'))).toBe(true);
   });
 
-  it('treats unknown-size chunked files as large-file pipeline items', async () => {
+  it('treats unknown-size files as chunked pipeline items', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<FileLibraryScreen />);
     });
     const texts = collectText(tree!.root);
     expect(texts.some(t => t.includes('长文本传感器数据.csv'))).toBe(true);
-    expect(texts.filter(t => t === '大文件').length).toBeGreaterThanOrEqual(4);
+    expect(texts.filter(t => t === '分片续传').length).toBeGreaterThanOrEqual(4);
     expect(texts).toContain('分片中');
     expect(texts.some(t => t.includes('分片准备中'))).toBe(true);
   });

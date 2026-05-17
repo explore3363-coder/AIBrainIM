@@ -62,6 +62,10 @@ jest.mock('../src/services/uploadService', () => ({
     getFile: jest.fn(),
     markFileForNextDispatch: jest.fn(),
     unmarkFileForNextDispatch: jest.fn(),
+    markFileDispatched: jest.fn(),
+    bindFilesToDispatch: jest.fn(),
+    buildDispatchEvidenceLine: jest.fn(() => ''),
+    clearFilesForNextDispatch: jest.fn(),
     formatBytes: (size: number) => `${Math.round(size / (1024 * 1024))} MB`,
   },
 }));
@@ -159,6 +163,7 @@ describe('ChatScreen attachment dispatch', () => {
 
     await ReactTestRenderer.act(async () => {
       sendBtn!.props.onPress();
+      await Promise.resolve();
       await Promise.resolve();
     });
 

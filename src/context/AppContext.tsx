@@ -8,6 +8,7 @@ import React, {
   useRef,
   type ReactNode,
 } from 'react';
+import {AppState, type AppStateStatus} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
@@ -28,7 +29,7 @@ import {
   summarizeGatewayConfig,
   validateGatewayConfig,
 } from '../services/gatewayConfig';
-import {getAppleReleaseStatus} from '../services/releaseChannel';
+import {getAppleReleaseStatus, type LatestLiveUploadTrace, type ReleasePreflightStep} from '../services/releaseChannel';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 const APP_CONTEXT_STORAGE_KEY = '@AIBrainIM:appContext';
@@ -56,9 +57,33 @@ interface AppContextValue {
   gatewayConfigValid: boolean;
   gatewayWarningCount: number;
   applePrerequisitesReady: boolean;
+  firstTestFlightBuildUploaded: boolean;
+  appStoreAssetsReady: boolean;
   appleReleaseSummary: string;
-  appleReleaseSource: 'global-override' | 'env' | 'default';
+  appleReleaseSource: 'global-override' | 'generated' | 'env' | 'default';
   appleReleaseValidatedAt?: number;
+  appStoreAssetsValidatedAt?: number;
+  preflightReportGeneratedAt?: number;
+  preflightOverallStatus?: 'PASS' | 'FAIL';
+  preflightBlockingCount?: number;
+  preflightFailedChecks: string[];
+  preflightSteps: ReleasePreflightStep[];
+  preflightNextActions: string[];
+  appleMissingInputs: string[];
+  triggerTagName?: string;
+  triggerGateReady?: boolean;
+  triggerGateFailures: string[];
+  releaseActiveUploads: number;
+  releaseCompletedUploads: number;
+  releaseLiveCompletedUploads: number;
+  releaseSimulatedCompletedUploads: number;
+  releaseLiveDispatchedOnlyUploads: number;
+  releaseLatestLiveUploadCompletedAt?: number;
+  releaseLatestLiveUpload?: LatestLiveUploadTrace;
+  releaseUploadEvidenceSummary?: string;
+  appleValidationDetail?: string;
+  assetsValidationDetail?: string;
+  preflightValidationDetail?: string;
   refresh: () => void;
   refreshGatewayStatus: () => Promise<void>;
   confirmItem: (id: string) => void;
@@ -119,20 +144,37 @@ function mergeConfirmations(
   localItems: ConfirmationItem[],
   liveItems: ConfirmationItem[],
 ): ConfirmationItem[] {
-  const localMap = new Map(localItems.map(item => [item.id, item]));
+  const merged = new Map<string, ConfirmationItem>();
 
-  return liveItems.map(item => {
-    const local = localMap.get(item.id);
+  localItems.forEach(item => {
+    merged.set(item.id, item);
+  });
+
+  liveItems.forEach(item => {
+    const local = merged.get(item.id);
     if (!local) {
-      return item;
+      merged.set(item.id, item);
+      return;
     }
 
-    return {
+    merged.set(item.id, {
       ...item,
+      ...local,
+      description: local.description || item.description,
+      agent: local.agent || item.agent,
+      urgency: local.urgency || item.urgency,
+      timestamp: local.timestamp || item.timestamp,
       status: local.status ?? item.status,
       resolutionNote: local.resolutionNote ?? item.resolutionNote,
-    };
+      followUpTaskId: local.followUpTaskId ?? item.followUpTaskId,
+      followUpDispatchId: local.followUpDispatchId ?? item.followUpDispatchId,
+      resolvedAt: local.resolvedAt ?? item.resolvedAt,
+      reopenedAt: local.reopenedAt ?? item.reopenedAt,
+      reopenCount: local.reopenCount ?? item.reopenCount,
+    });
   });
+
+  return Array.from(merged.values()).slice(0, 20);
 }
 
 function upsertDispatchRecord(
@@ -277,6 +319,69 @@ function mergeTasks(localTasks: Task[], liveTasks: Task[]): Task[] {
     .slice(0, 20);
 }
 
+function parseConfirmationCandidates(reply: string): string[] {
+  const normalized = reply
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const candidates = normalized
+    .map(line => {
+      const directMatch = line.match(/(?:需确认|请确认|待确认|确认事项)[：:]?\s*(.+)$/);
+      if (directMatch?.[1]) {
+        return directMatch[1].replace(/^[-•\d.、)\s]+/, '').trim();
+      }
+
+      if (/^[-•\d.、)\s]+/.test(line) && /(确认|拍板|决定)/.test(line)) {
+        return line.replace(/^[-•\d.、)\s]+/, '').trim();
+      }
+
+      return null;
+    })
+    .filter((item): item is string => Boolean(item))
+    .map(item => item.replace(/[。；;]+$/g, '').trim())
+    .filter(item => item.length >= 4);
+
+  if (candidates.length > 0) {
+    return Array.from(new Set(candidates)).slice(0, 3);
+  }
+
+  if (/(需要你确认|请你确认|待你确认|等待你确认)/.test(reply)) {
+    const sentence = reply
+      .replace(/\s+/g, ' ')
+      .split(/[。！？!?.]/)
+      .map(item => item.trim())
+      .find(item => /(需要你确认|请你确认|待你确认|等待你确认)/.test(item));
+
+    if (sentence) {
+      return [sentence.slice(0, 48)];
+    }
+  }
+
+  return [];
+}
+
+function buildGeneratedConfirmationItems(payload: {
+  reply: string;
+  agent: string;
+  createdAt: number;
+  dispatchId?: string;
+  taskId?: string;
+}): ConfirmationItem[] {
+  const titles = parseConfirmationCandidates(payload.reply);
+
+  return titles.map((title, index) => ({
+    id: `${payload.dispatchId ?? payload.taskId ?? `confirm-${payload.createdAt}`}-confirm-${index + 1}`,
+    title,
+    description: `来自最新对话调度回流：${title}`,
+    agent: payload.agent,
+    urgency: index === 0 ? 'high' : 'normal',
+    timestamp: '刚刚',
+    status: 'pending',
+  }));
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 const AppContext = createContext<AppContextValue>({
   agents: agentsMock,
@@ -294,9 +399,33 @@ const AppContext = createContext<AppContextValue>({
   gatewayConfigValid: false,
   gatewayWarningCount: 0,
   applePrerequisitesReady: false,
+  firstTestFlightBuildUploaded: false,
+  appStoreAssetsReady: false,
   appleReleaseSummary: 'Apple Developer / App Store Connect / GitHub CI 变量仍待补齐',
   appleReleaseSource: 'default',
   appleReleaseValidatedAt: undefined,
+  appStoreAssetsValidatedAt: undefined,
+  preflightReportGeneratedAt: undefined,
+  preflightOverallStatus: undefined,
+  preflightBlockingCount: undefined,
+  preflightFailedChecks: [],
+  preflightSteps: [],
+  preflightNextActions: [],
+  appleMissingInputs: [],
+  triggerTagName: undefined,
+  triggerGateReady: undefined,
+  triggerGateFailures: [],
+  releaseActiveUploads: 0,
+  releaseCompletedUploads: 0,
+  releaseLiveCompletedUploads: 0,
+  releaseSimulatedCompletedUploads: 0,
+  releaseLiveDispatchedOnlyUploads: 0,
+  releaseLatestLiveUploadCompletedAt: undefined,
+  releaseLatestLiveUpload: undefined,
+  releaseUploadEvidenceSummary: undefined,
+  appleValidationDetail: undefined,
+  assetsValidationDetail: undefined,
+  preflightValidationDetail: undefined,
   refresh: () => {},
   refreshGatewayStatus: async () => {},
   confirmItem: () => {},
@@ -326,9 +455,33 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [gatewayConfigValid, setGatewayConfigValid] = useState(false);
   const [gatewayWarningCount, setGatewayWarningCount] = useState(0);
   const [applePrerequisitesReady, setApplePrerequisitesReady] = useState(false);
+  const [firstTestFlightBuildUploaded, setFirstTestFlightBuildUploaded] = useState(false);
+  const [appStoreAssetsReady, setAppStoreAssetsReady] = useState(false);
   const [appleReleaseSummary, setAppleReleaseSummary] = useState('Apple Developer / App Store Connect / GitHub CI 变量仍待补齐');
-  const [appleReleaseSource, setAppleReleaseSource] = useState<'global-override' | 'env' | 'default'>('default');
+  const [appleReleaseSource, setAppleReleaseSource] = useState<'global-override' | 'generated' | 'env' | 'default'>('default');
   const [appleReleaseValidatedAt, setAppleReleaseValidatedAt] = useState<number | undefined>();
+  const [appStoreAssetsValidatedAt, setAppStoreAssetsValidatedAt] = useState<number | undefined>();
+  const [preflightReportGeneratedAt, setPreflightReportGeneratedAt] = useState<number | undefined>();
+  const [preflightOverallStatus, setPreflightOverallStatus] = useState<'PASS' | 'FAIL' | undefined>();
+  const [preflightBlockingCount, setPreflightBlockingCount] = useState<number | undefined>();
+  const [preflightFailedChecks, setPreflightFailedChecks] = useState<string[]>([]);
+  const [preflightSteps, setPreflightSteps] = useState<ReleasePreflightStep[]>([]);
+  const [preflightNextActions, setPreflightNextActions] = useState<string[]>([]);
+  const [appleMissingInputs, setAppleMissingInputs] = useState<string[]>([]);
+  const [triggerTagName, setTriggerTagName] = useState<string | undefined>();
+  const [triggerGateReady, setTriggerGateReady] = useState<boolean | undefined>();
+  const [triggerGateFailures, setTriggerGateFailures] = useState<string[]>([]);
+  const [releaseActiveUploads, setReleaseActiveUploads] = useState(0);
+  const [releaseCompletedUploads, setReleaseCompletedUploads] = useState(0);
+  const [releaseLiveCompletedUploads, setReleaseLiveCompletedUploads] = useState(0);
+  const [releaseSimulatedCompletedUploads, setReleaseSimulatedCompletedUploads] = useState(0);
+  const [releaseLiveDispatchedOnlyUploads, setReleaseLiveDispatchedOnlyUploads] = useState(0);
+  const [releaseLatestLiveUploadCompletedAt, setReleaseLatestLiveUploadCompletedAt] = useState<number | undefined>();
+  const [releaseLatestLiveUpload, setReleaseLatestLiveUpload] = useState<LatestLiveUploadTrace | undefined>();
+  const [releaseUploadEvidenceSummary, setReleaseUploadEvidenceSummary] = useState<string | undefined>();
+  const [appleValidationDetail, setAppleValidationDetail] = useState<string | undefined>();
+  const [assetsValidationDetail, setAssetsValidationDetail] = useState<string | undefined>();
+  const [preflightValidationDetail, setPreflightValidationDetail] = useState<string | undefined>();
   const [recentCaptures, setRecentCaptures] = useState<CaptureEntry[]>([]);
   const uploadStatusRef = useRef<Record<string, UploadFile['status']>>({});
   const hasHydratedRef = useRef(false);
@@ -348,9 +501,33 @@ export function AppProvider({children}: {children: ReactNode}) {
     setGatewayConfigValid(gatewayValidation.valid);
     setGatewayWarningCount(gatewayValidation.warnings.length);
     setApplePrerequisitesReady(appleReleaseStatus.applePrerequisitesReady);
+    setFirstTestFlightBuildUploaded(appleReleaseStatus.firstTestFlightBuildUploaded);
+    setAppStoreAssetsReady(appleReleaseStatus.appStoreAssetsReady);
     setAppleReleaseSummary(appleReleaseStatus.summary);
     setAppleReleaseSource(appleReleaseStatus.source);
     setAppleReleaseValidatedAt(appleReleaseStatus.validatedAt);
+    setAppStoreAssetsValidatedAt(appleReleaseStatus.assetsValidatedAt);
+    setPreflightReportGeneratedAt(appleReleaseStatus.preflightReportGeneratedAt);
+    setPreflightOverallStatus(appleReleaseStatus.preflightOverallStatus);
+    setPreflightBlockingCount(appleReleaseStatus.preflightBlockingCount);
+    setPreflightFailedChecks(appleReleaseStatus.preflightFailedChecks);
+    setPreflightSteps(appleReleaseStatus.preflightSteps);
+    setPreflightNextActions(appleReleaseStatus.preflightNextActions);
+    setAppleMissingInputs(appleReleaseStatus.missingAppleInputs);
+    setTriggerTagName(appleReleaseStatus.triggerTagName);
+    setTriggerGateReady(appleReleaseStatus.triggerGateReady);
+    setTriggerGateFailures(appleReleaseStatus.triggerGateFailures);
+    setReleaseActiveUploads(appleReleaseStatus.activeUploads);
+    setReleaseCompletedUploads(appleReleaseStatus.completedUploads);
+    setReleaseLiveCompletedUploads(appleReleaseStatus.liveCompletedUploads);
+    setReleaseSimulatedCompletedUploads(appleReleaseStatus.simulatedCompletedUploads);
+    setReleaseLiveDispatchedOnlyUploads(appleReleaseStatus.liveDispatchedOnlyUploads);
+    setReleaseLatestLiveUploadCompletedAt(appleReleaseStatus.latestLiveUploadCompletedAt);
+    setReleaseLatestLiveUpload(appleReleaseStatus.latestLiveUpload);
+    setReleaseUploadEvidenceSummary(appleReleaseStatus.uploadEvidenceSummary);
+    setAppleValidationDetail(appleReleaseStatus.appleValidationDetail);
+    setAssetsValidationDetail(appleReleaseStatus.assetsValidationDetail);
+    setPreflightValidationDetail(appleReleaseStatus.preflightValidationDetail);
   }, []);
 
   useEffect(() => {
@@ -677,6 +854,63 @@ export function AppProvider({children}: {children: ReactNode}) {
       };
       setTasks(items => [nextTask, ...items].slice(0, 20));
     }
+
+    const generatedConfirmations = payload.sent
+      ? buildGeneratedConfirmationItems({
+          reply: payload.reply,
+          agent: '助理',
+          createdAt,
+          dispatchId: payload.dispatchId,
+          taskId: payload.taskId,
+        }).map((confirmation, index) => ({
+          ...confirmation,
+          followUpTaskId: `${confirmation.id}-task`,
+          followUpDispatchId: record.dispatchId ?? record.id,
+          urgency: index === 0 ? 'high' : confirmation.urgency,
+        }))
+      : [];
+
+    if (generatedConfirmations.length > 0) {
+      setConfirmations(items => {
+        const next = [...items];
+        generatedConfirmations.slice().reverse().forEach(item => {
+          const existingIndex = next.findIndex(existing => existing.id === item.id || existing.title === item.title);
+          if (existingIndex >= 0) {
+            next[existingIndex] = {...next[existingIndex], ...item};
+          } else {
+            next.unshift(item);
+          }
+        });
+        return next.slice(0, 20);
+      });
+
+      setTasks(items => {
+        const next = [...items];
+        generatedConfirmations.slice().reverse().forEach((confirmation, index) => {
+          const confirmationTaskId = confirmation.followUpTaskId ?? `${confirmation.id}-task`;
+          const confirmationTask: Task = {
+            id: confirmationTaskId,
+            title: `待确认：${confirmation.title}`,
+            owner: `${confirmation.agent} / 确认链路`,
+            state: 'blocked',
+            eta: '待确认',
+            next: '请先确认这条事项，再继续推进对应执行链',
+            priority: index === 0 ? 'P0' : 'P1',
+            updatedAt: createdAt,
+            sessionKey: payload.sessionKey,
+            sourceType: 'confirmation',
+            traceSummary: `对话回复命中了确认信号：${confirmation.title}`,
+          };
+          const existingIndex = next.findIndex(task => task.id === confirmationTaskId);
+          if (existingIndex >= 0) {
+            next[existingIndex] = {...next[existingIndex], ...confirmationTask};
+          } else {
+            next.unshift(confirmationTask);
+          }
+        });
+        return next.slice(0, 20);
+      });
+    }
   }, []);
 
   const markLatestDispatchActive = useCallback((label?: string, agentId?: string, sessionKey?: string, runtimeMs?: number, updatedAt?: number) => {
@@ -773,7 +1007,14 @@ export function AppProvider({children}: {children: ReactNode}) {
       taskId,
       dispatchId,
       createdAt,
+      updatedAt: createdAt,
       status,
+      source: 'knowledge',
+      label: payload.savedRemotely ? '知识已收录' : '知识待补写',
+      stageText: payload.savedRemotely
+        ? `${payload.source} · 已进入长期记忆`
+        : `${payload.source} · 已保留本地闭环，等待远程补写`,
+      sessionKey: dispatchId,
     };
 
     const taskRecord: Task = {
@@ -786,6 +1027,12 @@ export function AppProvider({children}: {children: ReactNode}) {
         ? `${payload.category} 已进入长期记忆，可继续在记忆库检索与复用`
         : '当前先保留本地闭环，等待远程记忆层恢复后自动补齐',
       priority,
+      sessionKey: dispatchId,
+      updatedAt: createdAt,
+      sourceType: 'knowledge',
+      traceSummary: payload.savedRemotely
+        ? `${payload.source} · 已进入长期记忆`
+        : `${payload.source} · 已保留本地闭环，等待远程补写`,
     };
 
     setDispatches(items => [dispatchRecord, ...items].slice(0, 20));
@@ -832,7 +1079,14 @@ export function AppProvider({children}: {children: ReactNode}) {
       taskId,
       dispatchId,
       createdAt,
+      updatedAt: createdAt,
       status,
+      source: 'memory',
+      label: payload.savedRemotely ? modeLabel : `${modeLabel}待补写`,
+      stageText: payload.savedRemotely
+        ? `${modeLabel}已进入 OpenClaw 记忆层`
+        : `${modeLabel}先保留本地闭环，等待远程补写`,
+      sessionKey: dispatchId,
     };
 
     const taskRecord: Task = {
@@ -845,6 +1099,12 @@ export function AppProvider({children}: {children: ReactNode}) {
         ? `${payload.category} 记忆已可在移动端与远程记忆层继续检索复用`
         : '当前先保留本地闭环，等待远程记忆层恢复后自动补齐',
       priority,
+      sessionKey: dispatchId,
+      updatedAt: createdAt,
+      sourceType: 'memory',
+      traceSummary: payload.savedRemotely
+        ? `${modeLabel}已进入 OpenClaw 记忆层`
+        : `${modeLabel}先保留本地闭环，等待远程补写`,
     };
 
     setDispatches(items => [dispatchRecord, ...items].slice(0, 20));
@@ -865,6 +1125,22 @@ export function AppProvider({children}: {children: ReactNode}) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState !== 'active') {
+        return;
+      }
+
+      refreshGatewayStatus().catch(() => {
+        // Ignore foreground refresh failures; screens will keep the last known state.
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [refreshGatewayStatus]);
 
   useEffect(() => {
     const unsubscribe = uploadService.subscribe(queue => {
@@ -1153,9 +1429,33 @@ export function AppProvider({children}: {children: ReactNode}) {
         gatewayConfigValid,
         gatewayWarningCount,
         applePrerequisitesReady,
+        firstTestFlightBuildUploaded,
+        appStoreAssetsReady,
         appleReleaseSummary,
         appleReleaseSource,
         appleReleaseValidatedAt,
+        appStoreAssetsValidatedAt,
+        preflightReportGeneratedAt,
+        preflightOverallStatus,
+        preflightBlockingCount,
+        preflightFailedChecks,
+        preflightSteps,
+        preflightNextActions,
+        appleMissingInputs,
+        triggerTagName,
+        triggerGateReady,
+        triggerGateFailures,
+        releaseActiveUploads,
+        releaseCompletedUploads,
+        releaseLiveCompletedUploads,
+        releaseSimulatedCompletedUploads,
+        releaseLiveDispatchedOnlyUploads,
+        releaseLatestLiveUploadCompletedAt,
+        releaseLatestLiveUpload,
+        releaseUploadEvidenceSummary,
+        appleValidationDetail,
+        assetsValidationDetail,
+        preflightValidationDetail,
         refresh,
         refreshGatewayStatus,
         confirmItem,

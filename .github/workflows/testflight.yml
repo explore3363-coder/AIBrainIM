@@ -29,7 +29,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -39,7 +39,9 @@ jobs:
       - name: Validate Apple CI inputs
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-        run: bash scripts/validate-testflight-inputs.sh
+        run: |
+          npm ci
+          npm run preflight:testflight
 
       - name: Cache Pods
         uses: actions/cache@v4
@@ -95,9 +97,8 @@ jobs:
           os.chmod(out, 0o600)
           print(f'p8 key mode: {mode}')
           print(f'p8 key size: {len(data)} bytes')
-          print(f'p8 first bytes: {data[:16].hex()}')
+          print('p8 key written with 0600 permissions; content intentionally not printed.')
           PYEOF
-          xxd ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 | head -3
 
       - name: Create ExportOptions.plist
         run: |
@@ -138,7 +139,7 @@ jobs:
           PYEOF
           plutil -p /tmp/ExportOptions.plist
 
-      - name: Archive without signing
+      - name: Archive for App Store Connect
         run: |
           mkdir -p build
           set -o pipefail
@@ -151,7 +152,11 @@ jobs:
             -derivedDataPath build/DerivedData \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             archive 2>&1 | tee build/archive.log
 
       - name: Export IPA and sign for App Store Connect

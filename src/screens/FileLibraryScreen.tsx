@@ -97,7 +97,7 @@ function buildTransferSummary(file: UploadFile): string | null {
 export function FileLibraryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [activeType, setActiveType] = useState<FilterType>('全部');
-  const [queuedVersion, setQueuedVersion] = useState(0);
+  const [_queuedVersion, setQueuedVersion] = useState(0);
   const {uploads} = useAppContext();
 
   const refreshQueuedContext = useCallback(() => {
@@ -161,10 +161,7 @@ export function FileLibraryScreen() {
     () => allFiles.filter(file => file.status === 'error'),
     [allFiles],
   );
-  const queuedIds = useMemo(
-    () => uploadService.getFilesForNextDispatch().map(file => file.id),
-    [uploads, queuedVersion],
-  );
+  const queuedIds = uploadService.getFilesForNextDispatch().map(file => file.id);
   const queuedIdSet = useMemo(() => new Set(queuedIds), [queuedIds]);
   const queuedFiles = useMemo(
     () => allFiles.filter(file => queuedIdSet.has(file.id)),
@@ -322,7 +319,7 @@ export function FileLibraryScreen() {
               上传图片、视频或文档，AI 会自动分派处理，附件状态会实时回流到 AI 产出流。
             </Text>
             <Text style={styles.emptySub}>
-              无大小限制；≥10 MB 文件自动分片上传并支持断点续传。
+              无大小限制；系统会自动选择直传或分片续传。
             </Text>
             <TouchableOpacity
               style={styles.emptyPrimaryBtn}
@@ -388,7 +385,7 @@ export function FileLibraryScreen() {
                   <Text style={styles.fileName} numberOfLines={1}>{fileName}</Text>
                   {isLargeFile && (
                     <View style={styles.largeFileBadge}>
-                      <Text style={styles.largeFileBadgeText}>大文件</Text>
+                      <Text style={styles.largeFileBadgeText}>分片续传</Text>
                     </View>
                   )}
                 </View>
