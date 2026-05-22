@@ -236,7 +236,7 @@ if (!ciWorkflowContent.includes('NODE_VERSION: "22"')) {
   summary.push('CI workflow: NODE_VERSION pinned to 22');
 }
 
-if (!workflowContent.includes('node-version: 22')) {
+if (!workflowContent.includes('node-version: 22') && !workflowContent.includes("node-version: '22'")) {
   errors.push('TestFlight workflow must use Node 22 to match package.json engines.node.');
 } else {
   summary.push('TestFlight workflow: node-version 22');
