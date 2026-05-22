@@ -42,8 +42,15 @@ jobs:
         restore-keys: pods-
     - name: Install npm deps
       run: npm ci
+    - name: Install CocoaPods
+      run: |
+        export PATH="/opt/homebrew/lib/ruby/gems/3.3.0/bin:/opt/homebrew/opt/ruby@3.3/bin:$PATH"
+        /opt/homebrew/opt/ruby@3.3/bin/gem install cocoapods --no-document 2>/dev/null || true
+        hash -r && which pod && pod --version || true
     - name: Install Pods
-      run: pod install
+      run: |
+        export PATH="/opt/homebrew/lib/ruby/gems/3.3.0/bin:/opt/homebrew/opt/ruby@3.3/bin:$PATH"
+        pod install
       working-directory: ios
     - name: Set Info.plist build version
       run: 'BUILD_NUMBER=$(date +%Y%m%d%H%M)
