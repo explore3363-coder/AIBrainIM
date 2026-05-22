@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo} from 'react';
+import React, {useCallback, useMemo, useEffect, useState} from 'react';
 import {
   ScrollView,
   Text,
@@ -12,12 +12,16 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import {C} from '../data/constants';
 import {commandTraceMock, aiFeedMock} from '../data/mockData';
+import {SmartMineCard} from '../components/SmartMineCard';
+import type {ProductionData, Equipment, Alert} from '../types/smartmine';
 import {useAppContext} from '../context/AppContext';
+import {useAgentRuntime, useAgentRuntimes, useActiveAgents, useMiningKPIs} from '../hooks';
 import {MetricCard} from '../components/MetricCard';
 import {SectionTitle} from '../components/SectionTitle';
 import {StoreCard} from '../components/StoreCard';
 import {FeedItem} from '../components/FeedItem';
 import type {RootStackParamList} from '../App';
+import type {Agent} from '../types';
 import type {BrainStore, AIFeedItem, CommandTrace} from '../types';
 import {
   computeReleaseReadiness,
@@ -422,6 +426,59 @@ export function DashboardScreen() {
     () => preflightValidationDetail?.trim() || 'TestFlight 总预检尚未产生详细报告',
     [preflightValidationDetail],
   );
+
+  // ── 智慧矿山态势感知（实时）────────────────────────────────────────────
+  const {
+    connected: smConnected,
+    production: smProduction,
+    equipment: smEquipment,
+    alerts: smAlerts,
+    cameras: smCameras,
+    runningCount: smRunningCount,
+    faultCount: smFaultCount,
+    criticalCount: smCriticalCount,
+    outputTrend: smOutputTrend,
+    isLive: smIsLive,
+  } = useMiningKPIs({enabled: true});
+
+  // 将 DataBus 连接状态同步到 AppContext（供全局使用）
+  const {setDataBusConnected} = useAppContext();
+  useEffect(() => {
+    setDataBusConnected(smConnected);
+  }, [smConnected, setDataBusConnected]);
+
+  // ── Agent 态势感知 ────────────────────────────────────────────────────────────
+  const agentRuntimes = useAgentRuntimes();
+  const activeAgents = useActiveAgents();
+
+  const agentOnlineCount  = useMemo(() => safeAgents.filter(a => a.status === 'online').length, [safeAgents]);
+  const agentWorkingCount = useMemo(() => safeAgents.filter(a => a.status === 'working').length, [safeAgents]);
+  const agentIdleCount    = useMemo(() => safeAgents.filter(a => a.status === 'idle').length, [safeAgents]);
+  const agentErrorCount   = useMemo(
+    () => Object.values(agentRuntimes).filter(r => (r.errorRate ?? 0) > 5).length,
+    [agentRuntimes],
+  );
+
+  function getAgentStatusColor(agent: Agent): string {
+    if (agent.status === 'idle')   return C.textMuted;
+    if (agent.status === 'watching') return '#a78bfa';
+    if (agent.status === 'working')  return C.working;
+    if (agent.status === 'online')   return '#34d399';
+    return C.textMuted;
+  }
+
+  function getAgentStatusLabel(agent: Agent): string {
+    const runtime = agentRuntimes[agent.id];
+    const errorRate = runtime?.errorRate ?? 0;
+    if (errorRate > 5) return '异常';
+    switch (agent.status) {
+      case 'working':  return '执行中';
+      case 'online':   return '在线';
+      case 'idle':     return '空闲';
+      case 'watching': return '监控中';
+      default:         return '离线';
+    }
+  }
 
   // Dynamic brain store entries driven by real context data — no hardcoded mock counts
   const brainStores = useMemo<BrainStore[]>(() => {
@@ -906,6 +963,71 @@ export function DashboardScreen() {
         ) : null}
       </View>
 
+      {/* ── 实时 Agent 态势感知区 ── */}
+      <View style={styles.agentSitrepBoard}>
+        <View style={styles.agentSitrepHeader}>
+          <Text style={styles.agentSitrepTitle}>实时 Agent 态势感知</Text>
+          <View style={styles.agentSitrepMeta}>
+            <Text style={styles.agentSitrepMetaText}>
+              在线 {agentOnlineCount} / 执行中 {agentWorkingCount} / 空闲 {agentIdleCount}
+              {agentErrorCount > 0 ? ` / 异常 ${agentErrorCount}` : ''}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.agentDotGrid}>
+          {safeAgents.map(agent => {
+            const runtime = agentRuntimes[agent.id];
+            const statusColor = getAgentStatusColor(agent);
+            const statusLabel = getAgentStatusLabel(agent);
+            const hasWarning = (runtime?.errorRate ?? 0) > 5;
+            const isRunning = agent.status === 'working';
+            const currentTask = isRunning ? safeTasks.find(t => t.agentId === agent.id && t.state === 'running') : null;
+
+            return (
+              <View key={agent.id} style={styles.agentDotCard}>
+                <View style={styles.agentDotRow}>
+                  <View style={[styles.agentStatusDot, {backgroundColor: statusColor}]} />
+                  <Text style={styles.agentDotName} numberOfLines={1}>{agent.name}</Text>
+                  {hasWarning && <Text style={styles.agentWarningIcon}>⚠️</Text>}
+                  <Text style={[styles.agentStatusLabel, {color: statusColor}]}>{statusLabel}</Text>
+                </View>
+                {isRunning && currentTask && (
+                  <View style={styles.agentTaskInfo}>
+                    <Text style={styles.agentTaskName} numberOfLines={1}>
+                      {currentTask.title}
+                    </Text>
+                    <View style={styles.agentProgressBar}>
+                      <View
+                        style={[
+                          styles.agentProgressFill,
+                          {
+                            width: `${currentTask.progress ?? 0}%`,
+                            backgroundColor: C.working,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.agentProgressText}>
+                      {currentTask.progress ?? 0}%
+                    </Text>
+                  </View>
+                )}
+                {runtime && (
+                  <View style={styles.agentRuntimeInfo}>
+                    {runtime.avgLatencyMs != null && (
+                      <Text style={styles.agentRuntimeText}>延迟 {runtime.avgLatencyMs}ms</Text>
+                    )}
+                    {runtime.model && (
+                      <Text style={styles.agentRuntimeText} numberOfLines={1}>{runtime.model}</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
       <View style={styles.focusBoard}>
         <View style={styles.focusHeader}>
           <View>
@@ -1221,6 +1343,101 @@ export function DashboardScreen() {
           <StoreCard key={store.id} store={store} onPress={handleStorePress} />
         ))}
       </View>
+
+      {/* ── 智慧矿山态势感知（实时增强） ── */}
+      {smProduction && (
+        <>
+          <SectionTitle
+            title="⛏️ 矿山态势感知"
+            hint={smIsLive ? '✨ 实时数据' : '智能体·实时数据'}
+          />
+
+          {/* 连接状态横幅 */}
+          {!smConnected && (
+            <View style={styles.smDisconnectedBanner}>
+              <Text style={styles.smDisconnectedText}>
+                ⚡ 实时连接断开，正在重连…
+              </Text>
+            </View>
+          )}
+
+          {/* 实时指示器 + 运行统计 */}
+          {smConnected && (
+            <View style={styles.smLiveIndicatorRow}>
+              <View style={styles.smLivePill}>
+                <View style={styles.smLiveDot} />
+                <Text style={styles.smLivePillText}>LIVE</Text>
+              </View>
+              <Text style={styles.smLiveStats}>
+                运行 {smRunningCount} / 故障 {smFaultCount} / 告警 {smCriticalCount}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.smSituationRow}>
+            <View style={styles.smLeftCards}>
+              <SmartMineCard
+                title="今日产量"
+                icon="⛏️"
+                data={[
+                  { label: '产量', value: smProduction.today.output, unit: smProduction.today.unit, trend: smOutputTrend as ('up' | 'down' | 'stable') ?? 'stable', status: smOutputTrend === 'down' ? 'warning' as const : 'normal' as const },
+                  { label: '回收率', value: smProduction.today.recovery, unit: '%', trend: 'stable' as const, status: 'normal' as const },
+                ]}
+              />
+              <SmartMineCard
+                title="OEE · 安全"
+                icon="📊"
+                data={[
+                  { label: 'OEE', value: smProduction.today.oee, unit: '%', trend: 'up' as const, status: 'normal' as const },
+                  { label: '安全天数', value: smProduction.today.safetyDays, unit: '天', status: 'normal' as const },
+                ]}
+              />
+            </View>
+            <View style={styles.smEquipStatus}>
+              <Text style={styles.smSectionLabel}>设备状态</Text>
+              {smEquipment.slice(0, 5).map(eq => {
+                const dotColor = eq.status === 'running' ? '#34d399' : eq.status === 'fault' ? C.error : '#94a3b8';
+                return (
+                  <View key={eq.id} style={styles.smEquipRow}>
+                    <View style={[styles.smEquipDot, {backgroundColor: dotColor}]} />
+                    <Text style={styles.smEquipName} numberOfLines={1}>{eq.name}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {smAlerts.length > 0 && (
+            <View style={styles.smAlertSection}>
+              <Text style={styles.smSectionLabel}>实时告警</Text>
+              {smAlerts.slice(0, 3).map(alert => {
+                const color = alert.level === 'critical' ? C.error : alert.level === 'warning' ? C.warning : C.primary;
+                return (
+                  <View key={alert.id} style={styles.smAlertRow}>
+                    <View style={[styles.smAlertDot, {backgroundColor: color}]} />
+                    <Text style={styles.smAlertText} numberOfLines={1}>{alert.title}</Text>
+                    <Text style={[styles.smAlertTime, {color}]}>{alert.time}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {smCameras.length > 0 && (
+            <View style={styles.smCameraRow}>
+              <Text style={styles.smSectionLabel}>摄像头</Text>
+              <View style={styles.smCameraDots}>
+                {smCameras.map(cam => (
+                  <View key={cam.id} style={styles.smCameraItem}>
+                    <View style={[styles.smCameraDot, {backgroundColor: cam.status === 'online' ? '#34d399' : C.error}]} />
+                    <Text style={styles.smCameraName} numberOfLines={1}>{cam.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </>
+      )}
 
       <View style={styles.footer} />
     </ScrollView>
@@ -1565,4 +1782,261 @@ const styles = StyleSheet.create({
   confirmEmptyDesc: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 6},
 
   footer: {height: 32},
+
+  // Agent 态势感知
+  agentSitrepBoard: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: BR,
+    backgroundColor: 'rgba(10,22,42,0.88)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  agentSitrepHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  agentSitrepTitle: {
+    color: C.textTitle,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  agentSitrepMeta: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,100,200,0.12)',
+    borderWidth: 1,
+    borderColor: C.borderActive,
+  },
+  agentSitrepMetaText: {
+    color: C.primary,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  agentDotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  agentDotCard: {
+    width: '48%',
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16,31,51,0.65)',
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+  },
+  agentDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  agentStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  agentDotName: {
+    flex: 1,
+    color: C.textTitle,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  agentWarningIcon: {
+    fontSize: 10,
+  },
+  agentStatusLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  agentTaskInfo: {
+    marginTop: 6,
+    gap: 4,
+  },
+  agentTaskName: {
+    color: C.textBody,
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  agentProgressBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(56,100,200,0.2)',
+    overflow: 'hidden',
+  },
+  agentProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  agentProgressText: {
+    color: C.textMuted,
+    fontSize: 9,
+    textAlign: 'right',
+  },
+  agentRuntimeInfo: {
+    marginTop: 4,
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  agentRuntimeText: {
+    color: C.textMuted,
+    fontSize: 9,
+  },
+
+  // Smart Mine / 矿山态势感知
+  smSituationRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  smLeftCards: {
+    flex: 1,
+    gap: 10,
+  },
+  smEquipStatus: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    gap: 8,
+  },
+  smSectionLabel: {
+    color: C.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  smEquipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  smEquipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  smEquipName: {
+    color: C.textBody,
+    fontSize: 12,
+    flex: 1,
+  },
+  smAlertSection: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    gap: 8,
+    marginBottom: 12,
+  },
+  smAlertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  smAlertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  smAlertText: {
+    flex: 1,
+    color: C.textBody,
+    fontSize: 12,
+  },
+  smAlertTime: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  smCameraRow: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    gap: 8,
+    marginBottom: 12,
+  },
+  smCameraDots: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  smCameraItem: {
+    alignItems: 'center',
+    width: 52,
+  },
+  smCameraDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginBottom: 4,
+  },
+  smCameraName: {
+    color: C.textMuted,
+    fontSize: 9,
+    textAlign: 'center',
+  },
+
+  // ── 实时感知增强样式 ─────────────────────────────────────────────────
+  smDisconnectedBanner: {
+    backgroundColor: 'rgba(249,115,22,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.4)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  smDisconnectedText: {
+    color: '#f97316',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  smLiveIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  smLivePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(52,211,153,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.4)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  smLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#34d399',
+    marginRight: 5,
+  },
+  smLivePillText: {
+    color: '#34d399',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  smLiveStats: {
+    color: C.textMuted,
+    fontSize: 11,
+  },
 });

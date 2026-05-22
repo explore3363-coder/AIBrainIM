@@ -26,13 +26,22 @@ export interface Task {
   state: TaskState;
   eta: string;
   next: string;
-  priority?: 'P0' | 'P1' | 'P2';
+  priority?: 'P0' | 'P1' | 'P2' | 'P3';
   agentId?: string;
   sessionKey?: string;
   updatedAt?: number;
   sourceType?: 'subagent' | 'cron' | 'chat' | 'upload' | 'knowledge' | 'memory' | 'confirmation' | 'system' | 'fallback';
   traceSummary?: string;
   attachmentCount?: number;
+  // Extended fields for complex task flows
+  parentTaskId?: string;
+  subTasks?: string[];
+  dependencies?: string[];
+  dispatchId?: string;
+  progress?: number; // 0-100
+  completedAt?: number;
+  error?: string;
+  retryable?: boolean;
 }
 
 export interface BrainStore {
@@ -68,6 +77,28 @@ export interface DispatchRecord {
   label?: string;
   stageText?: string;
   error?: string;
+  // Extended fields for complex dispatch flows
+  timeline?: DispatchTimelineEntry[];
+  subTasks?: Task[];
+  involvedAgents?: {agentId: string; status: string}[];
+}
+
+export interface DispatchTimelineEntry {
+  stage: string;
+  timestamp: number;
+  detail?: string;
+}
+
+export interface AgentRuntime {
+  agentId: string;
+  sessionKey?: string;
+  currentTaskId?: string;
+  startTime?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  model?: string;
+  errorRate?: number; // 0-100
+  avgLatencyMs?: number;
 }
 
 export type RuntimeMode = 'live' | 'fallback';
@@ -150,3 +181,36 @@ export interface CaptureEntry {
   savedRemotely: boolean;
   timestamp: number;
 }
+
+// ─── Chat / AI↔AI Message Types ───────────────────────────────────────────────
+
+export type MessageRole = 'user' | 'agent' | 'system' | 'ai-dispatch';
+export type MessageType = 'text' | 'task-decompose' | 'subtask-create' | 'subtask-complete' | 'error' | 'info';
+
+export interface SubTask {
+  id: string;
+  title: string;
+  agentId: string;
+  agentName: string;
+  status: 'pending' | 'running' | 'done' | 'error';
+}
+
+export interface Message {
+  id: string;
+  type: MessageType;
+  role: MessageRole;
+  agentId?: string;
+  agentName?: string;
+  content: string;
+  timestamp: number;
+  taskId?: string;
+  dispatchId?: string;
+  subTasks?: SubTask[];
+  status?: 'pending' | 'success' | 'error';
+  // Legacy compatibility — old 'in'/'out' messages
+  roleLegacy?: 'in' | 'out';
+  textLegacy?: string;
+}
+
+// ─── Smart Mine / 智慧矿山 ───────────────────────────────────────────────────
+export type {ProductionData, Equipment, Alert, Camera, SafetyKPI, OreBodySensor, OreBodyZone, OreBodySensorsData} from './smartmine';

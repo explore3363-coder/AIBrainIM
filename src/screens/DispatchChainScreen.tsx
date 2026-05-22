@@ -279,4 +279,13 @@ const styles = StyleSheet.create({
     borderRadius: 999, backgroundColor: C.primary,
   },
   emptyPrimaryBtnText: {color: C.bgRoot, fontWeight: '900', fontSize: 14},
+  detailNavBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20, paddingVertical: 11,
+    borderRadius: 999,
+    backgroundColor: 'rgba(77,255,136,0.10)',
+    borderWidth: 1, borderColor: 'rgba(77,255,136,0.25)',
+    alignItems: 'center',
+  },
+  detailNavBtnText: {color: C.primary, fontWeight: '900', fontSize: 14},
 });

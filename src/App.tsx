@@ -6,15 +6,17 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 
 export type RootStackParamList = {
-  Tabs: {screen?: 'Dashboard' | 'Agent' | 'Chat' | 'Tasks' | 'Profile'} | undefined;
+  Tabs: {screen?: 'Dashboard' | 'Agent' | 'Chat' | 'Tasks' | 'Profile' | 'SmartMine'} | undefined;
   MemoryStore: undefined;
   KnowledgeBase: undefined;
   FileLibrary: undefined;
   ProjectLibrary: undefined;
   DispatchChain: {focusDispatchId?: string; focusTaskId?: string; focusSessionKey?: string} | undefined;
+  DispatchChainDetail: {dispatchId?: string; focusDispatchId?: string; focusTaskId?: string; focusSessionKey?: string} | undefined;
   Confirmations: {focusConfirmationId?: string; focusTaskId?: string; focusDispatchId?: string} | undefined;
   Upload: {focusFileId?: string; focusDispatchId?: string} | undefined;
   GatewaySettings: undefined;
+  SmartMine: undefined;
 };
 
 import {C} from './data/constants';
@@ -31,10 +33,12 @@ import {MemoryStoreScreen}     from './screens/MemoryStoreScreen';
 import {KnowledgeBaseScreen}   from './screens/KnowledgeBaseScreen';
 import {FileLibraryScreen}     from './screens/FileLibraryScreen';
 import {ProjectLibraryScreen}  from './screens/ProjectLibraryScreen';
-import {DispatchChainScreen}   from './screens/DispatchChainScreen';
+import {DispatchChainScreen}        from './screens/DispatchChainScreen';
+import {DispatchChainDetailScreen}  from './screens/DispatchChainDetailScreen';
 import {ConfirmationsScreen}   from './screens/ConfirmationsScreen';
 import {UploadScreen}          from './screens/UploadScreen';
 import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
+import {SmartMineScreen} from './screens/SmartMineScreen';
 
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
@@ -86,6 +90,7 @@ function TabNavigator() {
         component={TaskScreen}
         options={{tabBarIcon: _tabIconWithBadge('任务', '📋', runningTaskCount > 0 ? runningTaskCount : undefined)}}
       />
+      <Tab.Screen name="SmartMine" component={SmartMineScreen} options={{tabBarIcon: _tabIcon('矿山', '⛏️')}} />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
@@ -120,10 +125,12 @@ function RootNavigator() {
       <Stack.Screen name="KnowledgeBase"  component={KnowledgeBaseScreen}  options={{title: '知识库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="FileLibrary"     component={FileLibraryScreen}    options={{title: '附件库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="ProjectLibrary" component={ProjectLibraryScreen} options={{title: '项目库',       headerBackTitle: '返回'}} />
-      <Stack.Screen name="DispatchChain"   component={DispatchChainScreen}  options={{title: '调度链',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="DispatchChain"       component={DispatchChainScreen}        options={{title: '调度链',         headerBackTitle: '返回'}} />
+      <Stack.Screen name="DispatchChainDetail"  component={DispatchChainDetailScreen} options={{title: '调度详情',     headerBackTitle: '返回'}} />
       <Stack.Screen name="Confirmations"   component={ConfirmationsScreen}  options={{title: '需确认项',     headerBackTitle: '返回'}} />
       <Stack.Screen name="Upload"          component={UploadScreen}         options={{title: '📤 上传管理',  headerBackTitle: '返回'}} />
       <Stack.Screen name="GatewaySettings" component={GatewaySettingsScreen} options={{title: 'Gateway 配置', headerBackTitle: '返回'}} />
+      <Stack.Screen name="SmartMine" component={SmartMineScreen} options={{title: '⛏️ 智慧矿山', headerBackTitle: '返回'}} />
     </Stack.Navigator>
   );
 }

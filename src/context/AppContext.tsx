@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const runtimeProcess = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process;
 const IS_TEST_ENV = runtimeProcess?.env?.JEST_WORKER_ID != null || runtimeProcess?.env?.NODE_ENV === 'test';
 
-import type {Agent, Task, ConfirmationItem, DispatchRecord, RuntimeMode, TaskState, CaptureEntry} from '../types';
+import type {Agent, Task, ConfirmationItem, DispatchRecord, RuntimeMode, TaskState, CaptureEntry, AgentRuntime, DispatchTimelineEntry} from '../types';
 import {agentsMock, tasksMock, confirmationMock} from '../data/mockData';
 import {
   fetchRuntimeSnapshot,
@@ -53,6 +53,8 @@ interface AppContextValue {
   runtimeError?: string;
   lastSyncedAt?: number;
   sessionCount: number;
+  dataBusConnected: boolean;
+  setDataBusConnected: (connected: boolean) => void;
   gatewaySummary: string;
   gatewayConfigValid: boolean;
   gatewayWarningCount: number;
@@ -84,6 +86,9 @@ interface AppContextValue {
   appleValidationDetail?: string;
   assetsValidationDetail?: string;
   preflightValidationDetail?: string;
+  // Agent runtime monitoring
+  agentRuntimes: Record<string, AgentRuntime>;
+  dispatchTimeline: Record<string, DispatchTimelineEntry[]>;
   refresh: () => void;
   refreshGatewayStatus: () => Promise<void>;
   confirmItem: (id: string) => void;
@@ -124,6 +129,11 @@ interface AppContextValue {
     mode: 'created' | 'updated' | 'resynced';
   }) => void;
   recentCaptures: CaptureEntry[];
+  // New methods for complex task flows
+  retryDispatch: (dispatchId: string) => Promise<void>;
+  cancelDispatch: (dispatchId: string) => Promise<void>;
+  updateTaskProgress: (taskId: string, progress: number) => void;
+  clearError: (taskId: string) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -395,6 +405,8 @@ const AppContext = createContext<AppContextValue>({
   runtimeError: undefined,
   lastSyncedAt: undefined,
   sessionCount: 0,
+  dataBusConnected: false,
+  setDataBusConnected: () => {},
   gatewaySummary: '配置读取中…',
   gatewayConfigValid: false,
   gatewayWarningCount: 0,
@@ -426,6 +438,8 @@ const AppContext = createContext<AppContextValue>({
   appleValidationDetail: undefined,
   assetsValidationDetail: undefined,
   preflightValidationDetail: undefined,
+  agentRuntimes: {},
+  dispatchTimeline: {},
   refresh: () => {},
   refreshGatewayStatus: async () => {},
   confirmItem: () => {},
@@ -437,6 +451,10 @@ const AppContext = createContext<AppContextValue>({
   registerKnowledgeCapture: () => {},
   registerMemoryCapture: () => {},
   recentCaptures: [],
+  retryDispatch: async () => {},
+  cancelDispatch: async () => {},
+  updateTaskProgress: () => {},
+  clearError: () => {},
 });
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -451,6 +469,7 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [runtimeError, setRuntimeError] = useState<string | undefined>();
   const [lastSyncedAt, setLastSyncedAt] = useState<number | undefined>();
   const [sessionCount, setSessionCount] = useState(0);
+  const [dataBusConnected, setDataBusConnected] = useState(false);
   const [gatewaySummary, setGatewaySummary] = useState('配置读取中…');
   const [gatewayConfigValid, setGatewayConfigValid] = useState(false);
   const [gatewayWarningCount, setGatewayWarningCount] = useState(0);
@@ -483,6 +502,8 @@ export function AppProvider({children}: {children: ReactNode}) {
   const [assetsValidationDetail, setAssetsValidationDetail] = useState<string | undefined>();
   const [preflightValidationDetail, setPreflightValidationDetail] = useState<string | undefined>();
   const [recentCaptures, setRecentCaptures] = useState<CaptureEntry[]>([]);
+  const [agentRuntimes, setAgentRuntimes] = useState<Record<string, AgentRuntime>>({});
+  const [dispatchTimeline, setDispatchTimeline] = useState<Record<string, DispatchTimelineEntry[]>>({});
   const uploadStatusRef = useRef<Record<string, UploadFile['status']>>({});
   const hasHydratedRef = useRef(false);
 
@@ -1124,6 +1145,77 @@ export function AppProvider({children}: {children: ReactNode}) {
     ].slice(0, 10));
   }, []);
 
+  const retryDispatch = useCallback(async (dispatchId: string) => {
+    const dispatch = dispatches.find(d => d.dispatchId === dispatchId || d.id === dispatchId);
+    if (!dispatch) return;
+
+    const now = Date.now();
+    const timelineEntry: DispatchTimelineEntry = {
+      stage: 'retry',
+      timestamp: now,
+      detail: `重试调度 ${dispatchId}`,
+    };
+
+    setDispatchTimeline(prev => ({
+      ...prev,
+      [dispatchId]: [...(prev[dispatchId] ?? []), timelineEntry],
+    }));
+
+    setDispatches(items => items.map(item =>
+      (item.dispatchId === dispatchId || item.id === dispatchId)
+        ? {...item, status: 'submitted', updatedAt: now, error: undefined}
+        : item,
+    ));
+
+    setTasks(items => items.map(item =>
+      item.dispatchId === dispatchId
+        ? {...item, state: 'running' as TaskState, eta: '已提交', next: '等待助理重新拆解与分派', updatedAt: now, error: undefined}
+        : item,
+    ));
+  }, [dispatches]);
+
+  const cancelDispatch = useCallback(async (dispatchId: string) => {
+    const now = Date.now();
+    const timelineEntry: DispatchTimelineEntry = {
+      stage: 'cancel',
+      timestamp: now,
+      detail: `取消调度 ${dispatchId}`,
+    };
+
+    setDispatchTimeline(prev => ({
+      ...prev,
+      [dispatchId]: [...(prev[dispatchId] ?? []), timelineEntry],
+    }));
+
+    setDispatches(items => items.map(item =>
+      (item.dispatchId === dispatchId || item.id === dispatchId)
+        ? {...item, status: 'failed', updatedAt: now, stageText: '已取消'}
+        : item,
+    ));
+
+    setTasks(items => items.map(item =>
+      item.dispatchId === dispatchId
+        ? {...item, state: 'blocked' as TaskState, eta: '已取消', next: '该调度已被取消', updatedAt: now}
+        : item,
+    ));
+  }, []);
+
+  const updateTaskProgress = useCallback((taskId: string, progress: number) => {
+    setTasks(items => items.map(item =>
+      item.id === taskId
+        ? {...item, progress: Math.min(100, Math.max(0, progress)), updatedAt: Date.now()}
+        : item,
+    ));
+  }, []);
+
+  const clearError = useCallback((taskId: string) => {
+    setTasks(items => items.map(item =>
+      item.id === taskId
+        ? {...item, error: undefined, state: item.state === 'blocked' ? 'todo' as TaskState : item.state, updatedAt: Date.now()}
+        : item,
+    ));
+  }, []);
+
   useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
@@ -1425,6 +1517,8 @@ export function AppProvider({children}: {children: ReactNode}) {
         runtimeError,
         lastSyncedAt,
         sessionCount,
+        dataBusConnected,
+        setDataBusConnected,
         gatewaySummary,
         gatewayConfigValid,
         gatewayWarningCount,
@@ -1466,7 +1560,13 @@ export function AppProvider({children}: {children: ReactNode}) {
         finalizeLatestDispatch,
         registerKnowledgeCapture,
         registerMemoryCapture,
+        agentRuntimes,
+        dispatchTimeline,
         recentCaptures,
+        retryDispatch,
+        cancelDispatch,
+        updateTaskProgress,
+        clearError,
       }}
     >
       {children}

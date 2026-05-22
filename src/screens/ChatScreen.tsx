@@ -25,6 +25,10 @@ import DocumentPicker, {
   type DocumentPickerResponse,
 } from 'react-native-document-picker';
 import {C} from '../data/constants';
+import {MessageBubble} from '../components/MessageBubble';
+import {TaskDecomposeCard} from '../components/TaskDecomposeCard';
+import {AgentCollaborationGraph} from '../components/AgentCollaborationGraph';
+import type {Message as NewMessage} from '../types';
 import {sendMessage} from '../data/api';
 import {
   enqueueUpload,
@@ -33,7 +37,7 @@ import {
 } from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
-interface Message {
+interface LegacyMessage {
   role: 'in' | 'out';
   text: string;
   name?: string;
@@ -68,6 +72,91 @@ const CHAT_HISTORY_KEY = '@AIBrainIM:chatHistory';
 // 不做产品层硬限制；对话上下文由长上下文 + 分层记忆 + 按需回补承担
 // 前端尽量保留完整本地历史，仅在存储失败时保持当前内存会话可用。
 
+// ─── Message ID factory ─────────────────────────────────────────────────────────
+function makeMessageId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+// ─── Collaboration pattern detector ───────────────────────────────────────────
+interface CollaborationPattern {
+  fromNode: {agentId: string; agentName: string; action: string};
+  toNode:   {agentId: string; agentName: string; action: string};
+  timestamp: number;
+}
+
+function detectCollaboration(msgs: NewMessage[], at: number): CollaborationPattern | null {
+  if (at < 1) return null;
+  const prev = msgs[at - 1];
+  const curr = msgs[at];
+  if (
+    prev.type === 'task-decompose' &&
+    curr.type === 'subtask-create' &&
+    prev.agentId !== undefined && curr.agentId !== undefined &&
+    prev.agentId !== curr.agentId
+  ) {
+    return {
+      fromNode: {agentId: prev.agentId, agentName: prev.agentName ?? prev.agentId, action: '拆解任务'},
+      toNode:   {agentId: curr.agentId, agentName: curr.agentName ?? curr.agentId, action: '创建子任务'},
+      timestamp: curr.timestamp,
+    };
+  }
+  return null;
+}
+
+// ─── Message render helper ────────────────────────────────────────────────────
+function renderMessageContent(
+  item: NewMessage,
+  collaboration: CollaborationPattern | null,
+): React.ReactNode {
+  if ((item.type === 'task-decompose' || item.type === 'subtask-create') && item.subTasks && item.subTasks.length > 0) {
+    return (
+      <View>
+        {collaboration && (
+          <AgentCollaborationGraph
+            nodes={[collaboration.fromNode, collaboration.toNode]}
+            links={[{from: collaboration.fromNode.agentId, to: collaboration.toNode.agentId, label: '分发'}]}
+            timestamp={collaboration.timestamp}
+          />
+        )}
+        <TaskDecomposeCard
+          mainTaskTitle={item.content}
+          subTasks={item.subTasks}
+          agentName={item.agentName}
+          agentId={item.agentId}
+          timestamp={item.timestamp}
+        />
+      </View>
+    );
+  }
+  if (item.type === 'subtask-complete') {
+    const done  = item.subTasks?.filter((s) => s.status === 'done') ?? [];
+    const total = item.subTasks?.length ?? 0;
+    const timeStr = new Date(item.timestamp).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+    return (
+      <View style={{alignSelf: 'center', marginBottom: 10, width: '100%'}}>
+        <View style={{alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, backgroundColor: 'rgba(52,211,153,0.1)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)'}}>
+          <Text style={{fontSize: 28, marginBottom: 6}}>✅</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontWeight: '800', textAlign: 'center'}}>{item.content}</Text>
+          {total > 0 && <Text style={{color: '#4DFF88', fontSize: 12, fontWeight: '700', marginTop: 4}}>{done.length}/{total} 子任务完成</Text>}
+          <Text style={{color: '#64748B', fontSize: 10, marginTop: 4}}>{timeStr}</Text>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View>
+      {collaboration && (
+        <AgentCollaborationGraph
+          nodes={[collaboration.fromNode, collaboration.toNode]}
+          links={[{from: collaboration.fromNode.agentId, to: collaboration.toNode.agentId, label: '协作'}]}
+          timestamp={collaboration.timestamp}
+        />
+      )}
+      <MessageBubble message={item} />
+    </View>
+  );
+}
+
 export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {
@@ -85,9 +174,18 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
   const [inputHeight, setInputHeight] = useState(44);
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<LegacyMessage[]>([
     {role: 'in', name: '助理', text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。'},
   ]);
+  // ── New unified message list for AI↔AI collaboration rendering ────────────
+  const [allMessages, setAllMessages] = useState<NewMessage[]>([{
+    id: makeMessageId(),
+    type: 'text',
+    role: 'agent',
+    agentName: '助理',
+    content: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。',
+    timestamp: Date.now(),
+  }]);
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
   const [queuedAttachmentIds, setQueuedAttachmentIds] = useState<string[]>([]);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -152,7 +250,7 @@ export function ChatScreen() {
       .then(json => {
         if (!json) return;
         try {
-          const saved: Message[] = JSON.parse(json);
+          const saved: LegacyMessage[] = JSON.parse(json);
           if (Array.isArray(saved) && saved.length > 0) {
             setMessages(prev => {
               // If user hasn't sent anything new yet, restore full history
@@ -596,7 +694,7 @@ export function ChatScreen() {
                       text: '清空',
                       style: 'destructive',
                       onPress: () => {
-                        const welcome: Message = {role: 'in', name: '助理', text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。'};
+                        const welcome: LegacyMessage = {role: 'in', name: '助理', text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。'};
                         setMessages([welcome]);
                         AsyncStorage.removeItem(CHAT_HISTORY_KEY).catch(() => {});
                       },

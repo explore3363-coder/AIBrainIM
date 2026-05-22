@@ -7,6 +7,8 @@ export interface GatewayConfig {
   sessionKey: string;
   channel: string;
   target: string;
+  /** Computed: ws:// or wss:// derived from gatewayUrl */
+  wsProtocol: 'ws' | 'wss';
 }
 
 export interface GatewayConfigValidation {
@@ -24,16 +26,24 @@ export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   sessionKey: 'agent:zhuli:feishu:direct:ou_9782bd16e99998d38b13d05ff5cb648c',
   channel: 'feishu',
   target: '',
+  wsProtocol: 'ws',
 };
 
+function computeWsProtocol(gatewayUrl: string): 'ws' | 'wss' {
+  if (gatewayUrl.startsWith('https://')) return 'wss';
+  return 'ws';
+}
+
 function normalizeConfig(input?: Partial<GatewayConfig> | null): GatewayConfig {
+  const gwUrl = (input?.gatewayUrl ?? DEFAULT_GATEWAY_CONFIG.gatewayUrl).trim();
   return {
-    gatewayUrl: (input?.gatewayUrl ?? DEFAULT_GATEWAY_CONFIG.gatewayUrl).trim(),
+    gatewayUrl: gwUrl,
     gatewayToken: (input?.gatewayToken ?? DEFAULT_GATEWAY_CONFIG.gatewayToken).trim(),
     directMode: input?.directMode ?? DEFAULT_GATEWAY_CONFIG.directMode,
     sessionKey: (input?.sessionKey ?? DEFAULT_GATEWAY_CONFIG.sessionKey).trim(),
     channel: (input?.channel ?? DEFAULT_GATEWAY_CONFIG.channel).trim() || 'feishu',
     target: (input?.target ?? DEFAULT_GATEWAY_CONFIG.target).trim(),
+    wsProtocol: computeWsProtocol(gwUrl),
   };
 }
 
