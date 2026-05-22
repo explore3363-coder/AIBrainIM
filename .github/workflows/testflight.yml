@@ -35,6 +35,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          node: node20
 
       - name: Validate Apple CI inputs
         env:
