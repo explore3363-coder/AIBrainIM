@@ -57,6 +57,7 @@ function buildContextOverrides(): any {
     refresh: mockRefresh,
     runtimeMode: 'live',
     recentCaptures: [],
+    agentRuntimes: {},
     lastSyncedAt: Date.now(),
     sessionCount: 3,
     gatewaySummary: 'OpenClaw Gateway 已连接',
