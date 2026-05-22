@@ -32,7 +32,7 @@ jobs:
           node-version: 22
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@v1.159.0
         with:
           bundler-cache: true
           node: node20
