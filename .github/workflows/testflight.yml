@@ -17,7 +17,6 @@ env:
   APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
-  BUNDLE_PATH: vendor/bundle
 
 jobs:
   build:
@@ -30,13 +29,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1.159.0
-        with:
-          ruby-version: "3.2"
-          bundler-cache: true
-          node: node20
 
       - name: Validate Apple CI inputs
         env:
@@ -56,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Install Pods
-        run: bundle exec pod install
+        run: pod install
         working-directory: ios
 
       - name: Set Info.plist build version
@@ -72,34 +64,21 @@ jobs:
           mkdir -p ~/private_keys
           python3 <<'PYEOF'
           import os, base64, pathlib
-
           raw = os.environ.get('APPLE_API_KEY_CONTENT', '')
           key_id = os.environ.get('ASC_KEY_ID', '').strip()
-          if not key_id:
-              raise SystemExit('APPLE_API_KEY_ID / ASC_KEY_ID is empty')
-
+          if not key_id: raise SystemExit('APPLE_API_KEY_ID is empty')
           out = pathlib.Path.home() / 'private_keys' / f'AuthKey_{key_id}.p8'
-
-          if not raw.strip():
-              raise SystemExit('APPLE_API_KEY_CONTENT is empty')
-
+          if not raw.strip(): raise SystemExit('APPLE_API_KEY_CONTENT is empty')
           text = raw.strip()
           if '-----BEGIN' in text:
-              data = text.encode('utf-8')
-              mode = 'raw-pem-text'
+              data = text.encode('utf-8'); mode = 'pem'
           else:
               try:
-                  data = base64.b64decode(text, validate=True)
-                  mode = 'base64-decoded'
-              except Exception:
-                  data = text.encode('utf-8')
-                  mode = 'raw-text-fallback'
-
-          out.write_bytes(data)
-          os.chmod(out, 0o600)
-          print(f'p8 key mode: {mode}')
-          print(f'p8 key size: {len(data)} bytes')
-          print('p8 key written with 0600 permissions; content intentionally not printed.')
+                  data = base64.b64decode(text, validate=True); mode = 'b64'
+              except:
+                  data = text.encode('utf-8'); mode = 'text'
+          out.write_bytes(data); os.chmod(out, 0o600)
+          print(f'p8 ({mode}): {len(data)} bytes written')
           PYEOF
 
       - name: Create ExportOptions.plist
@@ -109,36 +88,24 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>method</key>
-            <string>app-store-connect</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
-            <key>teamID</key>
-            <string>${APPLE_TEAM_ID}</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <true/>
-            <key>destination</key>
-            <string>export</string>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>stripSwiftSymbols</key><true/>
+            <key>uploadBitcode</key><false/>
+            <key>uploadSymbols</key><true/>
+            <key>destination</key><string>export</string>
           </dict>
           </plist>
           PLIST
-          python3 <<'PYEOF'
-          import os
-          from pathlib import Path
-
-          path = Path('/tmp/ExportOptions.plist')
-          text = path.read_text()
-          team_id = os.environ.get('APPLE_TEAM_ID', '').strip()
-          if not team_id:
-              raise SystemExit('APPLE_TEAM_ID is empty')
-          path.write_text(text.replace('${APPLE_TEAM_ID}', team_id))
-          PYEOF
+          python3 -c "
+import os; from pathlib import Path
+t = Path('/tmp/ExportOptions.plist').read_text()
+tid = os.environ.get('APPLE_TEAM_ID','').strip()
+if not tid: raise SystemExit('APPLE_TEAM_ID empty')
+Path('/tmp/ExportOptions.plist').write_text(t.replace('\${APPLE_TEAM_ID}', tid))
+"
           plutil -p /tmp/ExportOptions.plist
 
       - name: Archive for App Store Connect
@@ -177,31 +144,18 @@ jobs:
         run: |
           IPA_PATH=$(find build/export -name '*.ipa' | head -1)
           if [ -z "$IPA_PATH" ] || [ ! -f "$IPA_PATH" ]; then
-            echo "ERROR: No IPA found"
-            find build -maxdepth 3 -type f | sort
-            exit 1
+            echo "ERROR: No IPA found"; find build -maxdepth 3 -type f | sort; exit 1
           fi
-          echo "IPA_PATH=$IPA_PATH"
-          echo "IPA size: $(du -h "$IPA_PATH" | cut -f1)"
+          echo "IPA=$IPA_PATH ($(du -h $IPA_PATH | cut -f1))"
 
       - name: Upload to App Store Connect
         run: |
           set -o pipefail
           IPA_PATH=$(find build/export -name '*.ipa' | head -1)
-          echo "Uploading $IPA_PATH to App Store Connect..."
-          xcrun altool \
-            --upload-app \
-            -f "$IPA_PATH" \
-            -t ios \
-            --apiKey "$ASC_KEY_ID" \
-            --apiIssuer "$ASC_ISSUER_ID" \
-            --verbose 2>&1 | tee build/upload.log
+          xcrun altool --upload-app -f "$IPA_PATH" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee build/upload.log
           UPLOAD_STATUS=$?
-          if [ $UPLOAD_STATUS -ne 0 ]; then
-            echo "ERROR: altool exited with status $UPLOAD_STATUS"
-            cat build/upload.log
-            exit $UPLOAD_STATUS
-          fi
+          if [ $UPLOAD_STATUS -ne 0 ]; then cat build/upload.log; exit $UPLOAD_STATUS; fi
           echo "Upload successful!"
 
       - name: Upload build logs artifact
@@ -209,7 +163,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xcode-build-logs
-          path: |
-            build/archive.log
-            build/export.log
+          path: build/archive.log build/export.log
           if-no-files-found: ignore
