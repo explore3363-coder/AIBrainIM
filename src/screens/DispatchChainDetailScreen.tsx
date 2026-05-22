@@ -9,7 +9,8 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import {DispatchTree, buildTreeFromTraces} from '../components/DispatchTree';
-import type {CommandTrace, RootStackParamList} from '../types';
+import type {CommandTrace} from '../types';
+import type {RootStackParamList} from '../App';
 
 const STATUS_META: Record<string, {label: string; accent: string; summary: string}> = {
   submitted:  {label: '已提交',   accent: '#fbbf24', summary: '等待助理拆解'},
@@ -197,8 +198,8 @@ export function DispatchChainDetailScreen() {
                 index={i}
                 total={traces.length}
                 timestamp={record.createdAt ? formatTime(record.createdAt + i * 1000) : undefined}
-                isActive={record.status !== 'completed' && record.status !== 'failed' && i === traces.length - 1}
-                isComplete={record.status === 'completed' || (record.status !== 'completed' && record.status !== 'failed' && i < traces.length - 1)}
+                isActive={(record.status as string) !== 'completed' && (record.status as string) !== 'failed' && i === traces.length - 1}
+                isComplete={(record.status as string) === 'completed' || ((record.status as string) !== 'completed' && (record.status as string) !== 'failed' && i < traces.length - 1)}
                 isFailed={record.status === 'failed'}
               />
             ))}
