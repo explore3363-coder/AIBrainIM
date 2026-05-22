@@ -58,6 +58,8 @@ function buildContextOverrides(): any {
     runtimeMode: 'live',
     recentCaptures: [],
     agentRuntimes: {},
+    dataBusConnected: false,
+    setDataBusConnected: jest.fn(),
     lastSyncedAt: Date.now(),
     sessionCount: 3,
     gatewaySummary: 'OpenClaw Gateway 已连接',
