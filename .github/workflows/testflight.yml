@@ -2,11 +2,7 @@ name: TestFlight Release
 'on':
   push:
     tags:
-    - v*.*.*
-    paths-ignore:
-    - '**.md'
-    - '**.txt'
-    - docs/**
+      - 'v*.*.*'
   workflow_dispatch: {}
 env:
   APP_NAME: AIBrainIM
@@ -15,85 +11,140 @@ env:
   APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
+
 jobs:
   build:
     runs-on:
-    - self-hosted
-    - macos
-    - xcode-26
+      - self-hosted
+      - macos
+      - xcode-26
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-    - name: Validate Apple CI inputs
-      env:
-        APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-      run: 'npm ci
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        npm run preflight:testflight'
-    - name: Cache Pods
-      uses: actions/cache@v4
-      with:
-        path: ios/Pods
-        key: pods-${{ hashFiles('ios/Podfile.lock') }}
-        restore-keys: pods-
-    - name: Install npm deps
-      run: npm ci
-    - name: Install CocoaPods
-      run: |
-        export PATH="/opt/homebrew/lib/ruby/gems/3.3.0/bin:/opt/homebrew/opt/ruby@3.3/bin:$PATH"
-        /opt/homebrew/opt/ruby@3.3/bin/gem install cocoapods --no-document 2>/dev/null || true
-        hash -r && which pod && pod --version || true
-    - name: Install Pods
-      run: |
-        export PATH="/opt/homebrew/lib/ruby/gems/3.3.0/bin:/opt/homebrew/opt/ruby@3.3/bin:$PATH"
-        pod install
-      working-directory: ios
-    - name: Set Info.plist build version
-      run: 'BUILD_NUMBER=$(date +%Y%m%d%H%M)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
-        /usr/libexec/PlistBuddy -c "Set CFBundleVersion $BUILD_NUMBER" ios/AIBrainIM/Info.plist'
-    - name: Decode API key
-      env:
-        APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-      run: 'mkdir -p ~/private_keys
+      - name: Validate Apple CI inputs
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          npm ci
+          npm run preflight:testflight
 
-        python3 -c "import os,base64,pathlib;raw=os.environ.get(''APPLE_API_KEY_CONTENT'','''');kid=os.environ.get(''ASC_KEY_ID'','''').strip();out=str(pathlib.Path.home())+'/private_keys/AuthKey_'+kid+'.p8';data=(raw.strip().encode(''utf-8'')if''-----BEGIN''in raw else base64.b64decode(raw.strip()));pathlib.Path(out).write_bytes(data);os.chmod(out,0o600);print(len(data))"'
-    - name: Create ExportOptions.plist
-      run: python3 -c "import os;open('/tmp/ExportOptions.plist','w').write('<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>method</key><string>app-store-connect</string><key>signingStyle</key><string>automatic</string><key>signingCertificate</key><string>Apple Distribution</string><key>teamID</key><string>'+os.environ.get('APPLE_TEAM_ID','').strip()+'</string><key>stripSwiftSymbols</key><true/><key>uploadBitcode</key><false/><key>uploadSymbols</key><true/><key>destination</key><string>export</string></dict></plist>')"
-    - name: Archive for App Store Connect
-      run: 'mkdir -p build
+      - name: Cache Pods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
 
-        set -o pipefail
+      - name: Install npm deps
+        run: npm ci
 
-        xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES -allowProvisioningUpdates -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" archive 2>&1 | tee build/archive.log'
-    - name: Export IPA and sign for App Store Connect
-      run: 'set -o pipefail
+      - name: Install Ruby 3.3
+        run: |
+          if [ ! -f /opt/homebrew/opt/ruby@3.3/bin/ruby ]; then
+            brew install ruby@3.3
+          fi
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
+          ruby --version
+          gem --version
 
-        xcodebuild -exportArchive -archivePath build/AIBrainIM.xcarchive -exportPath build/export -exportOptionsPlist /tmp/ExportOptions.plist -allowProvisioningUpdates -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee build/export.log'
-    - name: Verify IPA
-      run: 'IPA_PATH=$(find build/export -name ''*.ipa'' | head -1)
+      - name: Install CocoaPods
+        run: |
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
+          gem install cocoapods --no-document || true
+          which pod && pod --version || true
 
-        if [ -z "$IPA_PATH" ] || [ ! -f "$IPA_PATH" ]; then echo "ERROR: No IPA found"; find build -maxdepth 3 -type f | sort; exit 1; fi
+      - name: Install Pods
+        run: |
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
+          pod install
+        working-directory: ios
 
-        echo "IPA=$IPA_PATH ($(du -h $IPA_PATH | cut -f1))"'
-    - name: Upload to App Store Connect
-      run: 'set -o pipefail
+      - name: Set Info.plist build version
+        run: |
+          BUILD_NUMBER=$(date +%Y%m%d%H%M)
+          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $BUILD_NUMBER" ios/AIBrainIM/Info.plist
 
-        IPA_PATH=$(find build/export -name ''*.ipa'' | head -1)
+      - name: Write API key decode script
+        run: |
+          cat > /tmp/decode_asc_key.py << 'PYEOF'
+          import os, base64, pathlib
+          raw = os.environ.get('APPLE_API_KEY_CONTENT', '')
+          kid = os.environ.get('ASC_KEY_ID', '').strip()
+          out_path = str(pathlib.Path.home()) + '/private_keys/AuthKey_' + kid + '.p8'
+          raw_s = raw.strip()
+          data = raw_s.encode('utf-8') if '-----BEGIN' in raw_s else base64.b64decode(raw_s)
+          pathlib.Path(out_path).write_bytes(data)
+          os.chmod(out_path, 0o600)
+          print(len(data))
+          PYEOF
 
-        xcrun altool --upload-app -f "$IPA_PATH" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee build/upload.log
+      - name: Decode API key
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          mkdir -p ~/private_keys
+          python3 /tmp/decode_asc_key.py
 
-        if [ $? -ne 0 ]; then cat build/upload.log; exit 1; fi
+      - name: Create ExportOptions.plist
+        run: |
+          python3 -c "
+          import os
+          team = os.environ.get('APPLE_TEAM_ID', '').strip()
+          xml = '''<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+          <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+          <plist version=\"1.0\">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>teamID</key><string>''' + team + '''</string>
+            <key>stripSwiftSymbols</key><true/>
+            <key>uploadBitcode</key><false/>
+            <key>uploadSymbols</key><true/>
+            <key>destination</key><string>export</string>
+          </dict>
+          </plist>'''
+          open('/tmp/ExportOptions.plist', 'w').write(xml)
+          print('ExportOptions.plist created')
+          "
 
-        echo "Upload successful!"'
-    - name: Upload build logs artifact
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: xcode-build-logs
-        path: build/archive.log build/export.log
-        if-no-files-found: ignore
+      - name: Archive for App Store Connect
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES -allowProvisioningUpdates -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" archive 2>&1 | tee build/archive.log
+
+      - name: Export IPA and sign for App Store Connect
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive -archivePath build/AIBrainIM.xcarchive -exportPath build/export -exportOptionsPlist /tmp/ExportOptions.plist -allowProvisioningUpdates -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee build/export.log
+
+      - name: Verify IPA
+        run: |
+          IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          if [ -z "$IPA_PATH" ] || [ ! -f "$IPA_PATH" ]; then
+            echo "ERROR: No IPA found"
+            find build -maxdepth 3 -type f | sort
+            exit 1
+          fi
+          echo "IPA=$IPA_PATH ($(du -h $IPA_PATH | cut -f1))"
+
+      - name: Upload to App Store Connect
+        run: |
+          set -o pipefail
+          IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          xcrun altool --upload-app -f "$IPA_PATH" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee build/upload.log
+
+      - name: Upload build logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-build-logs
+          path: build/archive.log build/export.log
+          if-no-files-found: ignore
