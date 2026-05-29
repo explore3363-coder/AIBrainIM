@@ -42,7 +42,25 @@ jobs:
           restore-keys: pods-
 
       - name: Install npm deps
-        run: npm ci
+        run: |
+          npm ci
+
+      - name: Install Hermes compiler for macOS ARM64
+        run: |
+          HERMES_DIR="$PWD/node_modules/hermes-compiler"
+          if [ ! -f "$HERMES_DIR/osx-bin/hermesc" ]; then
+            echo "Hermes compiler osx-bin missing, downloading..."
+            ARCH=$(uname -m)
+            HVER=$(node -p "require('./package.json').dependencies['hermes-engine']" 2>/dev/null | head -c 20 || echo "0.0.0")
+            echo "Need hermesc for arch=$ARCH version=$HVER"
+            # Download prebuilt hermes for ARM64 macOS
+            mkdir -p "$HERMES_DIR/osx-bin"
+            curl -sL "https://github.com/nicklockwood/HermesRuntime/releases/download/v${HVER}/hermesc-osx-arm64" -o "$HERMES_DIR/osx-bin/hermesc" 2>/dev/null || true
+            chmod +x "$HERMES_DIR/osx-bin/hermesc" 2>/dev/null || true
+            ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || echo "Still missing"
+          else
+            echo "Hermesc found: $(ls -la $HERMES_DIR/osx-bin/hermesc)"
+          fi
 
       - name: Install Ruby 3.3
         run: |
