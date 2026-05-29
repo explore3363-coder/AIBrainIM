@@ -47,16 +47,14 @@ jobs:
 
       - name: Remove Bundle React Native script phase for device archive
         run: |
-          echo "=== Removing Bundle React Native script phase using text replacement ==="
-          python3 - << 'PYEOF'
+          echo "Removing Bundle React Native script phase using text replacement"
+          python3 << 'PYEOF'
           import re
 
           proj_file = "ios/AIBrainIM.xcodeproj/project.pbxproj"
           with open(proj_file, "r", encoding="utf-8") as f:
               content = f.read()
 
-          # Find the bundle phase UUID from buildPhases reference
-          # Pattern: UUID /* Bundle React Native code and images */,
           bundle_ref_pattern = r'([0-9A-F]{24})\s*/\*\s*Bundle React Native code and images\s*\*/\s*,'
           matches = list(re.finditer(bundle_ref_pattern, content))
           if not matches:
@@ -65,19 +63,12 @@ jobs:
               bundle_uuid = matches[0].group(1)
               print(f"Found bundle phase UUID: {bundle_uuid}")
 
-              # Remove from buildPhases array: line with UUID /* Bundle React Native ... */,
               content = re.sub(bundle_ref_pattern, '', content)
 
-              # Remove the build phase object definition:
-              # Starts with: UUID /* Bundle React Native code and images */ = {
-              # Ends with: };
               phase_obj_start = bundle_uuid + r'\s*/\*\s*Bundle React Native code and images\s*\*/\s*=\s*\{'
               phase_obj_pattern = phase_obj_start + r'.*?
 	\};'
               content = re.sub(phase_obj_pattern, '', content, flags=re.DOTALL)
-
-              # Remove the name = "Bundle React Native code and images"; line from other phases
-              # (there shouldn't be any other references)
 
               with open(proj_file, "w", encoding="utf-8") as f:
                   f.write(content)
