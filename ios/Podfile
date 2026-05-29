@@ -29,8 +29,7 @@ target 'AIBrainIM' do
       :mac_catalyst_enabled => false,
     )
 
-    # Fix code signing for all Pods targets: use '-' (ad hoc) to explicitly skip signing
-    # without triggering "empty identity" errors. The main app binary will be signed separately.
+    # 1. Disable code signing for ALL Pods targets (they are static libs/resources, not signed)
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
@@ -39,6 +38,27 @@ target 'AIBrainIM' do
         config.build_settings['CODE_SIGN_IDENTITY'] = '-'
         config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
       end
+    end
+
+    # 2. Fix the main AIBrainIM.xcodeproj to use manual signing with correct profile
+    app_project_path = File.join(installer.sandbox.root, '..', 'AIBrainIM.xcodeproj')
+    if File.exist?(app_project_path)
+      app_project = Xcodeproj::Project.open(app_project_path)
+      app_project.targets.each do |target|
+        if target.name == 'AIBrainIM'
+          target.build_configurations.each do |config|
+            config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+            config.build_settings['CODE_SIGN_IDENTITY'] = 'iPhone Distribution: Hong Yang (7S96N8A32U)'
+            config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'AIBrainIM-CI-AppStore'
+            config.build_settings['DEVELOPMENT_TEAM'] = '7S96N8A32U'
+            config.build_settings['CODE_SIGNING_ALLOWED'] = 'YES'
+          end
+          puts "Applied manual signing to AIBrainIM target"
+        end
+      end
+      app_project.save
+    else
+      puts "WARNING: AIBrainIM.xcodeproj not found at #{app_project_path}"
     end
   end
 end
