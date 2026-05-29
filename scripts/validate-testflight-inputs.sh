@@ -9,10 +9,15 @@ missing=0
 resolve_env() {
   local primary="$1"
   local fallback="${2:-}"
-  local value="${!primary:-}"
+  local value=""
+
+  # Temporarily suspend set -u for the indirect expansion below,
+  # then restore it so the rest of the script keeps strict error handling.
+  # Using a subshell so we don't need to restore explicitly.
+  value=$( set +u; eval 'echo "${'"$primary"'}"' 2>/dev/null || echo "" )
 
   if [ -z "$value" ] && [ -n "$fallback" ]; then
-    value="${!fallback:-}"
+    value=$( set +u; eval 'echo "${'"$fallback"'}"' 2>/dev/null || echo "" )
   fi
 
   printf '%s' "$value"

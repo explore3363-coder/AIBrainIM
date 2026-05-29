@@ -19,7 +19,6 @@ target 'AIBrainIM' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
@@ -28,29 +27,17 @@ target 'AIBrainIM' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
     )
 
-    # Disable code signing for Pods targets - only the main app binary needs signing
+    # Fix code signing for all Pods targets: use '-' (ad hoc) to explicitly skip signing
+    # without triggering "empty identity" errors. The main app binary will be signed separately.
     installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |build_config|
-        build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-        build_config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-        build_config.build_settings['CODE_SIGNING_REQUIRED_FOR_EXTENSIONS'] = 'NO'
-        build_config.build_settings['CODE_SIGN_IDENTITY'] = ''
-        build_config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
-      end
-    end
-
-    # Ensure main app target uses correct signing
-    installer.generated_projects.each do |project|
-      project.targets.each do |target|
-        if target.name == 'AIBrainIM'
-          target.build_configurations.each do |config|
-            config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
-            config.build_settings['DEVELOPMENT_TEAM'] = ''
-          end
-        end
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+        config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+        config.build_settings['CODE_SIGNING_REQUIRED_FOR_EXTENSIONS'] = 'NO'
+        config.build_settings['CODE_SIGN_IDENTITY'] = '-'
+        config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
       end
     end
   end
