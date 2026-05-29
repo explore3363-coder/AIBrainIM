@@ -912,7 +912,96 @@ export function DashboardScreen() {
         />
       }
     >
-      {/* ── Hero Section ── */}
+      {/* ── Redesigned Header Bar ── */}
+      <View style={styles.headerBar}>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerLogo}>
+            <Text style={styles.headerLogoText}>⬡</Text>
+          </View>
+          <View>
+            <Text style={styles.headerTitle}>AI Brain</Text>
+            <Text style={styles.headerSubtitle}>Industrial AI Collaboration</Text>
+          </View>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerIconBtn}>
+            <Text style={styles.headerIconText}>🔍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerIconBtn}>
+            <Text style={styles.headerIconText}>🔔</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ── Redesigned Hero Section ── */}
+      <View style={styles.heroNew}>
+        {/* 3D-style messaging bubble graphic */}
+        <View style={styles.bubbleContainer}>
+          <View style={styles.bubbleGlowOuter} />
+          <View style={styles.bubbleGlowMiddle} />
+          <View style={styles.bubbleGlowInner} />
+          <View style={styles.bubbleCore}>
+            <View style={styles.bubbleTail} />
+            <View style={styles.bubbleIcon}>
+              <Text style={styles.bubbleIconText}>💬</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Bilingual slogan */}
+        <Text style={styles.heroSlogan}>Start collaborating</Text>
+        <Text style={styles.heroSloganZh}>开始协作，解锁工业AI的力量</Text>
+        <Text style={styles.heroSub}>Unlock the power of industrial AI</Text>
+
+        {/* Primary CTA */}
+        <TouchableOpacity
+          style={styles.ctaBtn}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Tabs', {screen: 'Chat'})}
+        >
+          <Text style={styles.ctaBtnIcon}>+</Text>
+          <Text style={styles.ctaBtnText}>Start New Collaboration</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Action Cards ── */}
+      <View style={styles.actionCards}>
+        <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Tabs', {screen: 'Chat'})}
+        >
+          <View style={styles.actionCardLeft}>
+            <View style={[styles.actionCardIcon, {backgroundColor: 'rgba(77,255,136,0.12)'}]}>
+              <Text style={styles.actionCardIconText}>🚀</Text>
+            </View>
+            <View style={styles.actionCardText}>
+              <Text style={styles.actionCardTitle}>Explore Collaboration Spaces</Text>
+              <Text style={styles.actionCardDesc}>探索协作空间</Text>
+            </View>
+          </View>
+          <Text style={styles.actionCardArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('SmartMine')}
+        >
+          <View style={styles.actionCardLeft}>
+            <View style={[styles.actionCardIcon, {backgroundColor: 'rgba(179,102,255,0.12)'}]}>
+              <Text style={styles.actionCardIconText}>⛏️</Text>
+            </View>
+            <View style={styles.actionCardText}>
+              <Text style={styles.actionCardTitle}>Connect Devices & Data</Text>
+              <Text style={styles.actionCardDesc}>连接设备与数据</Text>
+            </View>
+          </View>
+          <Text style={styles.actionCardArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Original Hero (preserved for runtime context) ── */}
       <View style={styles.hero}>
         {/* Industrial background layers */}
         <View style={styles.heroBg} />
@@ -1467,7 +1556,7 @@ const BR = 24;
 const styles = StyleSheet.create({
   content: {padding: 16, paddingBottom: 100, gap: 0},
 
-  hero: {
+  hero:ew: {
     borderRadius: BR + 4,
     overflow: 'hidden',
     position: 'relative',
@@ -2126,4 +2215,239 @@ const styles = StyleSheet.create({
     color: C.textMuted,
     fontSize: 11,
   },
-});
+},
+  // ── Redesigned Hero + Header Styles ───────────────────────────────────────
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: LAYOUT.pageMargin,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerLogo: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerLogoText: {
+    fontSize: 18,
+    color: C.primary,
+  },
+  headerTitle: {
+    color: C.textTitle,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  headerSubtitle: {
+    color: C.textSecondary,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIconText: {
+    fontSize: 16,
+  },
+
+  // Hero
+  heroNew: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: LAYOUT.pageMargin,
+    position: 'relative',
+  },
+  bubbleContainer: {
+    width: 120,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  bubbleGlowOuter: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(77,255,136,0.06)',
+    shadowColor: C.primary,
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 1,
+    shadowRadius: 30,
+  },
+  bubbleGlowMiddle: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(77,255,136,0.10)',
+  },
+  bubbleGlowInner: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(77,255,136,0.16)',
+  },
+  bubbleCore: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: C.bgCard,
+    borderWidth: 2,
+    borderColor: C.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: C.primary,
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 0.8,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  bubbleTail: {
+    position: 'absolute',
+    bottom: -6,
+    left: 16,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: C.primary,
+  },
+  bubbleIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bubbleIconText: {
+    fontSize: 24,
+  },
+  heroSlogan: {
+    color: C.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  heroSloganZh: {
+    color: C.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  heroSub: {
+    color: C.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.primary,
+    borderRadius: LAYOUT.cardRadiusSmall,
+    height: 50,
+    paddingHorizontal: 24,
+    marginTop: 20,
+    gap: 8,
+    shadowColor: C.primary,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  ctaBtnIcon: {
+    fontSize: 18,
+    color: '#080A0F',
+    fontWeight: '900',
+  },
+  ctaBtnText: {
+    color: '#080A0F',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  // Action Cards
+  actionCards: {
+    paddingHorizontal: LAYOUT.pageMargin,
+    gap: 12,
+    marginBottom: 4,
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.bgCard,
+    borderRadius: LAYOUT.cardRadius,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    padding: 16,
+  },
+  actionCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  actionCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCardIconText: {
+    fontSize: 20,
+  },
+  actionCardText: {
+    flex: 1,
+  },
+  actionCardTitle: {
+    color: C.textTitle,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  actionCardDesc: {
+    color: C.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  actionCardArrow: {
+    color: C.textMuted,
+    fontSize: 22,
+    fontWeight: '300',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: C.borderSubtle,
+    marginHorizontal: LAYOUT.pageMargin,
+    marginVertical: 20,
+  },
+};
