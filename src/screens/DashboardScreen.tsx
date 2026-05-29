@@ -17,6 +17,7 @@ import type {ProductionData, Equipment, Alert} from '../types/smartmine';
 import {useAppContext} from '../context/AppContext';
 import {useAgentRuntime, useAgentRuntimes, useActiveAgents, useMiningKPIs} from '../hooks';
 import {MetricCard} from '../components/MetricCard';
+import {MetricPill} from '../components/MetricPill';
 import {SectionTitle} from '../components/SectionTitle';
 import {StoreCard} from '../components/StoreCard';
 import {FeedItem} from '../components/FeedItem';
@@ -911,22 +912,32 @@ export function DashboardScreen() {
         />
       }
     >
+      {/* ── Hero Section ── */}
       <View style={styles.hero}>
-        <View style={styles.heroGlass} />
-        <View style={styles.heroBody}>
-          <View style={styles.heroText}>
-            <Text style={styles.eyebrow}>AI 协作平台</Text>
-            <Text style={styles.heroTitle}>智能协同中枢</Text>
-            <Text style={styles.heroSub}>随时在线 · 任务自动流转 · 附件即传即用</Text>
-          </View>
-          <View style={styles.livePill}>
-            <View style={[styles.liveDot, runtimeMode === 'fallback' && styles.liveDotFallback]} />
-            <Text style={[styles.liveText, runtimeMode === 'fallback' && styles.liveTextFallback]}>
-              {runtimeMode === 'live' ? '真实在线' : '回退模式'}
-            </Text>
+        {/* Industrial background layers */}
+        <View style={styles.heroBg} />
+        <View style={styles.heroGlowGreen} />
+        <View style={styles.heroGlowBlue} />
+        <View style={styles.heroGridLines} />
+        {/* Content */}
+        <View style={styles.heroContent}>
+          <View style={styles.heroLeft}>
+            <View style={styles.heroBrandRow}>
+              <Text style={styles.heroBrand}>AI Brain</Text>
+              <View style={styles.livePill}>
+                <View style={[styles.liveDot, runtimeMode === 'fallback' && styles.liveDotFallback]} />
+                <Text style={[styles.liveText, runtimeMode === 'fallback' && styles.liveTextFallback]}>
+                  {runtimeMode === 'live' ? 'LIVE' : 'DEMO'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.heroTitle}>工业智能操作系统</Text>
+            <Text style={styles.heroSub}>Industrial Intelligence OS</Text>
+            <Text style={styles.heroTagline}>把目标变成可执行任务</Text>
           </View>
         </View>
-        <View style={styles.cornerAccent} />
+        {/* Corner accent */}
+        <View style={styles.heroCorner} />
       </View>
 
       {runtimeMode === 'fallback' && (
@@ -948,20 +959,28 @@ export function DashboardScreen() {
         </View>
       )}
 
-      <View style={styles.metricsGrid}>
-        <MetricCard label="活跃 Agent" value={`${activeCount}/${safeAgents.length}`} accent={C.accent} />
-        <MetricCard label="进行中" value={`${runningCount}`} accent={C.working} />
-        <MetricCard label="上传队列" value={`${uploadingCount}`} accent="#34d399" />
-        <MetricCard label="需确认" value={`${pendingConfirmations}`} accent={C.highUrgency} />
-        <MetricCard label="活跃会话" value={`${sessionCount}`} accent={C.primary} />
+      {/* ── Stats Pills (Horizontal Scroll) ── */}
+      <Text style={styles.sectionLabel}>实时状态 / Live Status</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.metricsRow}
+        style={styles.metricsScroll}
+      >
+        <MetricPill label="活跃 Agent" value={`${activeCount}/${safeAgents.length}`} accent={C.accent} subLabel="Active" />
+        <MetricPill label="进行中" value={`${runningCount}`} accent={C.working} subLabel="Running" />
+        <MetricPill label="上传队列" value={`${uploadingCount}`} accent="#34d399" subLabel="Uploading" />
+        <MetricPill label="需确认" value={`${pendingConfirmations}`} accent={C.highUrgency} subLabel="Pending" />
+        <MetricPill label="活跃会话" value={`${sessionCount}`} accent={C.primary} subLabel="Sessions" />
         {lastSyncedAt ? (
-          <MetricCard
+          <MetricPill
             label="最后同步"
-            value={new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', second: '2-digit'})}
+            value={new Date(lastSyncedAt).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'})}
             accent={runtimeMode === 'live' ? '#34d399' : '#fbbf24'}
+            subLabel="Last Sync"
           />
         ) : null}
-      </View>
+      </ScrollView>
 
       {/* ── 实时 Agent 态势感知区 ── */}
       <View style={styles.agentSitrepBoard}>
@@ -1451,47 +1470,115 @@ const styles = StyleSheet.create({
   hero: {
     borderRadius: BR + 4,
     overflow: 'hidden',
-    backgroundColor: 'rgba(10,18,36,0.9)',
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    marginBottom: 24,
+    minHeight: 160,
   },
-  heroGlass: {
+  heroBg: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(56,100,200,0.06)',
+    backgroundColor: '#060912',
     borderRadius: BR + 4,
   },
-  heroBody: {
+  heroGlowGreen: {
+    position: 'absolute', top: -20, right: -20,
+    width: 160, height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(77,255,136,0.08)',
+    shadowColor: '#4DFF88',
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 1,
+    shadowRadius: 40,
+  },
+  heroGlowBlue: {
+    position: 'absolute', bottom: -30, left: -10,
+    width: 120, height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(26,56,180,0.12)',
+  },
+  heroGridLines: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    opacity: 0.04,
+  },
+  heroContent: {
+    position: 'relative',
+    padding: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 22,
+    alignItems: 'flex-end',
   },
-  heroText: {flex: 1, paddingRight: 12},
-  eyebrow: {color: C.accent, fontSize: 11, letterSpacing: 1.5, fontWeight: '700', marginBottom: 10},
-  heroTitle: {color: C.textTitle, fontSize: 30, fontWeight: '900', letterSpacing: -0.5},
-  heroSub: {color: C.textMuted, fontSize: 13, lineHeight: 19, marginTop: 7},
+  heroLeft: {flex: 1},
+  heroBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 10,
+  },
+  heroBrand: {
+    color: C.primary,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  heroTitle: {
+    color: C.textPrimary,
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  heroSub: {
+    color: C.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  heroTagline: {
+    color: C.textMuted,
+    fontSize: 11,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   livePill: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6,
-    backgroundColor: 'rgba(34,211,238,0.1)',
-    borderWidth: 1, borderColor: C.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(77,255,136,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(77,255,136,0.3)',
   },
-  liveDot: {width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent, marginRight: 6},
+  liveDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary, marginRight: 6},
   liveDotFallback: {backgroundColor: '#f97316'},
-  liveText: {color: C.accent, fontSize: 11, fontWeight: '800'},
+  liveText: {color: C.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1},
   liveTextFallback: {color: '#f97316'},
-  cornerAccent: {
-    position: 'absolute', bottom: -1, right: -1,
-    width: 48, height: 48, borderTopLeftRadius: BR,
-    backgroundColor: 'rgba(34,211,238,0.07)',
-    borderTopWidth: 1, borderLeftWidth: 1,
-    borderColor: 'rgba(34,211,238,0.2)',
+  heroCorner: {
+    position: 'absolute',
+    bottom: 0, right: 0,
+    width: 60, height: 60,
+    borderTopLeftRadius: BR,
+    backgroundColor: 'rgba(77,255,136,0.05)',
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: 'rgba(77,255,136,0.15)',
+  },
+
+  sectionLabel: {
+    color: C.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  metricsScroll: {marginBottom: 8},
+  metricsRow: {
+    flexDirection: 'row',
+    paddingRight: 20,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
 
   metricsGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 24},
