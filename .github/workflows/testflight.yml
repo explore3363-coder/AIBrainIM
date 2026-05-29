@@ -69,6 +69,7 @@ jobs:
           
           # Remove the bundle script phase using xcodeproj
           ruby -e '
+            Encoding.default_external = "utf-8"
             require "xcodeproj"
             project_path = "ios/AIBrainIM.xcodeproj"
             project = Xcodeproj::Project.open(project_path)
