@@ -45,56 +45,47 @@ jobs:
         run: |
           npm ci
 
-      - name: Install xcodeproj gem using Homebrew ruby
-        run: |
-          export PATH="/opt/homebrew/opt/ruby@3.3/bin:$PATH"
-          export GEM_HOME=/opt/homebrew/lib/ruby/gems/3.3.0
-          export GEM_PATH=/opt/homebrew/lib/ruby/gems/3.3.0
-          export PATH="$GEM_HOME/bin:$PATH"
-          mkdir -p "$GEM_HOME"
-          ruby --version && gem --version
-          gem install xcodeproj --no-document 2>&1 | tail -5
-          echo "GEM_HOME=$GEM_HOME"
-          ls "$GEM_HOME/bin/" 2>/dev/null | head -5
-
       - name: Remove Bundle React Native script phase for device archive
         run: |
-          echo "=== Removing Bundle React Native script phase ==="
-          export PATH="/opt/homebrew/opt/ruby@3.3/bin:$PATH"
-          export GEM_HOME=/opt/homebrew/lib/ruby/gems/3.3.0
-          export GEM_PATH=/opt/homebrew/lib/ruby/gems/3.3.0
-          export PATH="$GEM_HOME/bin:$PATH"
-          
-          ruby --version && gem list xcodeproj
-          
-          # Remove the bundle script phase using xcodeproj
-          ruby -e '
-            begin
-              Encoding.default_external = "utf-8"
-              require "xcodeproj"
-              project_path = "ios/AIBrainIM.xcodeproj"
-              project = Xcodeproj::Project.open(project_path)
-              removed = false
-              project.targets.each do |target|
-                if target.name == "AIBrainIM"
-                  phases = target.shell_script_build_phases
-                  to_remove = phases.select { |p| p.name && p.name.include?("Bundle React Native") }
-                  to_remove.each do |p|
-                    phases.delete(p)
-                    project.objects_by_uuid.delete(p.uuid)
-                    removed = true
-                  end
-                end
-              end
-              project.save
-              puts removed ? "Bundle script phase removed successfully" : "Bundle phase not found in target"
-            rescue => e
-              $stderr.puts "ERROR: #{e.class}: #{e.message}"
-              $stderr.puts e.backtrace.first(5).join(chr(10))
-              exit 2
-            end
-          end
-          echo "Ruby exit: $?"
+          echo "=== Removing Bundle React Native script phase using Python plistlib ==="
+          python3 - << 'PYEOF'
+          import plistlib
+          import re
+          import os
+
+          proj_file = "ios/AIBrainIM.xcodeproj/project.pbxproj"
+          with open(proj_file, "rb") as f:
+              plist = plistlib.load(f)
+
+          # Find and remove the Bundle React Native build phase
+          bundle_uuid = None
+          targets = plist.get("targets", [])
+          for target in targets:
+              build_phases = target.get("buildPhases", [])
+              new_phases = []
+              for phase_uuid in build_phases:
+                  phase = plist.get("objects", {}).get(phase_uuid, {})
+                  if phase.get("isa") == "PBXShellScriptBuildPhase":
+                      name = phase.get("name", "")
+                      if "Bundle React Native" in name:
+                          bundle_uuid = phase_uuid
+                          print(f"Found bundle phase: {phase_uuid} ({name})")
+                          continue  # Skip this phase - remove it
+              target["buildPhases"] = new_phases if new_phases else build_phases
+
+          if bundle_uuid:
+              # Remove the bundle phase object definition
+              if bundle_uuid in plist.get("objects", {}):
+                  del plist["objects"][bundle_uuid]
+                  print(f"Removed bundle phase object: {bundle_uuid}")
+
+              # Write modified plist back
+              with open(proj_file, "wb") as f:
+                  plistlib.dump(plist, f)
+              print("Bundle phase removed successfully")
+          else:
+              print("Bundle phase not found in target")
+          PYEOF
     
       - name: Install Ruby 3.3
         run: |
