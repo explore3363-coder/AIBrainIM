@@ -47,41 +47,41 @@ jobs:
 
       - name: Remove Bundle React Native script phase for device archive
         run: |
-          echo "=== Removing Bundle React Native script phase using Python plistlib ==="
+          echo "=== Removing Bundle React Native script phase using text replacement ==="
           python3 - << 'PYEOF'
-          import plistlib
+          import re
 
           proj_file = "ios/AIBrainIM.xcodeproj/project.pbxproj"
-          with open(proj_file, "rb") as f:
-              plist = plistlib.load(f)
+          with open(proj_file, "r", encoding="utf-8") as f:
+              content = f.read()
 
-          bundle_uuid = None
-          objects = plist.get("objects", {})
-          targets = plist.get("targets", [])
-
-          for target in targets:
-              build_phases = target.get("buildPhases", [])
-              filtered = []
-              for phase_uuid in build_phases:
-                  phase = objects.get(phase_uuid, {})
-                  if phase.get("isa") == "PBXShellScriptBuildPhase":
-                      name = phase.get("name", "")
-                      if "Bundle React Native" in name:
-                          bundle_uuid = phase_uuid
-                          print(f"Found bundle phase: {phase_uuid} ({name})")
-                          continue  # Skip = remove
-                  filtered.append(phase_uuid)
-              target["buildPhases"] = filtered
-
-          if bundle_uuid and bundle_uuid in objects:
-              del objects[bundle_uuid]
-              print(f"Removed bundle phase object: {bundle_uuid}")
-
-              with open(proj_file, "wb") as f:
-                  plistlib.dump(plist, f)
-              print("Bundle phase removed successfully")
+          # Find the bundle phase UUID from buildPhases reference
+          # Pattern: UUID /* Bundle React Native code and images */,
+          bundle_ref_pattern = r'([0-9A-F]{24})\s*/\*\s*Bundle React Native code and images\s*\*/\s*,'
+          matches = list(re.finditer(bundle_ref_pattern, content))
+          if not matches:
+              print("Bundle phase reference not found")
           else:
-              print("Bundle phase not found")
+              bundle_uuid = matches[0].group(1)
+              print(f"Found bundle phase UUID: {bundle_uuid}")
+
+              # Remove from buildPhases array: line with UUID /* Bundle React Native ... */,
+              content = re.sub(bundle_ref_pattern, '', content)
+
+              # Remove the build phase object definition:
+              # Starts with: UUID /* Bundle React Native code and images */ = {
+              # Ends with: };
+              phase_obj_start = bundle_uuid + r'\s*/\*\s*Bundle React Native code and images\s*\*/\s*=\s*\{'
+              phase_obj_pattern = phase_obj_start + r'.*?
+	\};'
+              content = re.sub(phase_obj_pattern, '', content, flags=re.DOTALL)
+
+              # Remove the name = "Bundle React Native code and images"; line from other phases
+              # (there shouldn't be any other references)
+
+              with open(proj_file, "w", encoding="utf-8") as f:
+                  f.write(content)
+              print("Bundle phase removed successfully")
           PYEOF
     
       - name: Install Ruby 3.3
