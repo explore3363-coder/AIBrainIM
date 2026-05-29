@@ -60,7 +60,7 @@ jobs:
           xcodebuild -workspace ios/AIBrainIM.xcworkspace \
             -scheme AIBrainIM \
             -configuration Debug \
-            -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
+            -destination "generic/platform=iOS Simulator" \
             build \
             CODE_SIGNING_ALLOWED=NO
 
