@@ -2,10 +2,13 @@
 // 通过 AI协作平台后端 /api/smartmine/* 代理 API 获取矿山数据
 // API 不可用时自动降级到模拟数据
 
-import {DEFAULT_GATEWAY_CONFIG} from './gatewayConfig';
 import type {ProductionData, Equipment, Alert, Camera, SafetyKPI, OreBodySensorsData} from '../types/smartmine';
 
-const SM_BASE = () => `${DEFAULT_GATEWAY_CONFIG.gatewayUrl}/api/smartmine`;
+// AI协作平台(platform-server :3000) 作为智慧矿山统一数据源
+// 融合后: AIBrainIM移动端 → AI协作平台( :3000/api/smartmine/* ) → 智慧矿山后端
+const PLATFORM_SERVER_URL = 'http://localhost:3000';
+
+const SM_BASE = () => `${PLATFORM_SERVER_URL}/api/smartmine`;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -71,7 +74,25 @@ export const SmartMineService = {
     try {
       const res = await fetch(`${SM_BASE()}/production/today`, withTimeout(5000));
       if (!res.ok) throw new Error('API unavailable');
-      return await res.json();
+      const raw = await res.json();
+      // 转换 API 响应格式 → ProductionData 格式
+      if (raw && !raw.today) {
+        return {
+          today: {
+            output: raw.oreVolume ?? 0,
+            unit: '吨',
+            recovery: raw.grade ? parseFloat((raw.grade * 100).toFixed(1)) : 0,
+            oee: raw.oee ?? 0,
+            safetyDays: raw.safetyDays ?? 0,
+          },
+          monthly: {
+            output: raw.monthlyOutput ?? 0,
+            target: raw.monthlyTarget ?? 0,
+            completion: raw.monthlyCompletion ?? 0,
+          },
+        };
+      }
+      return raw;
     } catch {
       return MOCK_PRODUCTION;
     }

@@ -17,6 +17,9 @@ export interface Agent {
   runtimeMs?: number;
   lastActiveAt?: number;
   sourceMode?: 'live' | 'fallback';
+  // 平台运行时指标（来自 AgentPlatformService）
+  queueDepth?: number;
+  platformDispatchId?: string;
 }
 
 export interface Task {

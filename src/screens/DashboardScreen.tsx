@@ -1345,7 +1345,7 @@ export function DashboardScreen() {
       </View>
 
       {/* ── 智慧矿山态势感知（实时增强） ── */}
-      {smProduction && (
+      {smProduction?.today && (
         <>
           <SectionTitle
             title="⛏️ 矿山态势感知"
@@ -1380,16 +1380,16 @@ export function DashboardScreen() {
                 title="今日产量"
                 icon="⛏️"
                 data={[
-                  { label: '产量', value: smProduction.today.output, unit: smProduction.today.unit, trend: smOutputTrend as ('up' | 'down' | 'stable') ?? 'stable', status: smOutputTrend === 'down' ? 'warning' as const : 'normal' as const },
-                  { label: '回收率', value: smProduction.today.recovery, unit: '%', trend: 'stable' as const, status: 'normal' as const },
+                  { label: '产量', value: smProduction?.today?.output ?? 0, unit: smProduction?.today?.unit ?? "吨", trend: smOutputTrend as ('up' | 'down' | 'stable') ?? 'stable', status: smOutputTrend === 'down' ? 'warning' as const : 'normal' as const },
+                  { label: '回收率', value: smProduction?.today?.recovery ?? 0, unit: '%', trend: 'stable' as const, status: 'normal' as const },
                 ]}
               />
               <SmartMineCard
                 title="OEE · 安全"
                 icon="📊"
                 data={[
-                  { label: 'OEE', value: smProduction.today.oee, unit: '%', trend: 'up' as const, status: 'normal' as const },
-                  { label: '安全天数', value: smProduction.today.safetyDays, unit: '天', status: 'normal' as const },
+                  { label: 'OEE', value: smProduction?.today?.oee ?? 0, unit: '%', trend: 'up' as const, status: 'normal' as const },
+                  { label: '安全天数', value: smProduction?.today?.safetyDays ?? 0, unit: '天', status: 'normal' as const },
                 ]}
               />
             </View>

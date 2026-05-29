@@ -13,6 +13,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import type {Agent, AgentStatus} from '../types';
+import {AgentPlatformService} from '../services/AgentPlatformService';
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
   online:  '在线',
@@ -62,6 +63,11 @@ export function AgentScreen() {
     accent: C.primary,
     current: '待命',
   });
+  const [platformHealthy, setPlatformHealthy] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    AgentPlatformService.healthCheck().then(ok => setPlatformHealthy(ok));
+  }, []);
 
   useEffect(() => {
     if (!safeAgents.length) return;
@@ -155,6 +161,9 @@ export function AgentScreen() {
             : runtimeMode === 'live'
               ? '已连接 · 实时同步'
               : `回退模式 · ${runtimeError ?? '等待网关恢复'}`}
+        </Text>
+        <Text style={[styles.syncText, {color: platformHealthy ? '#34d399' : platformHealthy === false ? '#f87171' : C.textMuted}]}>
+          {platformHealthy === null ? '' : platformHealthy ? '协作平台在线 ✅' : '协作平台离线 ⚠️'}
         </Text>
       </View>
 
@@ -265,6 +274,25 @@ export function AgentScreen() {
               : selected.sourceMode === 'fallback'
                 ? '离线模式 · 显示最后已知状态'
                 : '暂无 session 数据'}
+          </Text>
+
+          <Text style={styles.detailLabel}>最后心跳</Text>
+          <Text style={styles.detailValue}>
+            {selected.lastActiveAt
+              ? (() => {
+                  const diff = Date.now() - selected.lastActiveAt;
+                  const mins = Math.floor(diff / 60000);
+                  const secs = Math.floor((diff % 60000) / 1000);
+                  return mins > 0 ? `${mins} 分钟前` : secs >= 0 ? `${secs} 秒前` : '刚刚';
+                })()
+              : '无心跳记录'}
+          </Text>
+
+          <Text style={styles.detailLabel}>队列深度</Text>
+          <Text style={styles.detailValue}>
+            {selected.queueDepth !== undefined
+              ? `${selected.queueDepth} 个待处理${selected.queueDepth > 3 ? ' ⚠️' : selected.queueDepth === 0 ? ' ✅' : ''}`
+              : '无法获取'}
           </Text>
 
           <Text style={styles.detailLabel}>执行负载</Text>
