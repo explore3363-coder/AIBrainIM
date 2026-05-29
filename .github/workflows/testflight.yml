@@ -45,15 +45,32 @@ jobs:
         run: |
           npm ci
 
-      - name: Create dummy JS bundle to skip bundling phase
+      - name: Fix Hermes binary path for Xcode bundling
         run: |
-          echo "=== Creating dummy bundle to skip bundling phase ==="
-          mkdir -p ios/AIBrainIM/bundle
-          # Create a minimal valid JS bundle to satisfy the bundling phase check
-          echo "/* dummy bundle */" > ios/AIBrainIM/bundle/main.jsbundle
-          # Also create in DerivedData path where xcodebuild looks
-          mkdir -p build/DerivedData/BuildProducts/Release-iphoneos/AIBrainIM.app
-          cp ios/AIBrainIM/bundle/main.jsbundle build/DerivedData/BuildProducts/Release-iphoneos/AIBrainIM.app/main.jsbundle 2>/dev/null || true
+          HERMES_COMPILER="$PWD/node_modules/hermes-compiler"
+          HERMES_CLI="$HERMES_COMPILER/hermesc/osx-bin/hermesc"
+          # The hermes script is at hermes-compiler/hermesc/hermesc.js
+          # It needs a hermes binary - look in hermes-engine/vendor
+          HENGINE="$PWD/node_modules/hermes-engine"
+          echo "Checking hermes-engine for binaries..."
+          ls "$HENGINE/" 2>/dev/null | head -10
+          # hermes-engine should have the prebuilt binaries
+          HBIN=$(find "$HENGINE" -name "hermes" -type f 2>/dev/null | head -3)
+          echo "Found hermes binary: $HBIN"
+          if [ -n "$HBIN" ]; then
+            mkdir -p "$HERMES_COMPILER/hermesc/osx-bin"
+            cp "$HBIN" "$HERMES_COMPILER/hermesc/osx-bin/hermesc"
+            chmod +x "$HERMES_COMPILER/hermesc/osx-bin/hermesc"
+            ls -la "$HERMES_COMPILER/hermesc/osx-bin/"
+            echo "Hermes binary installed at $HERMES_CLI"
+          else
+            echo "No hermes binary found in hermes-engine"
+            find "$HENGINE" -maxdepth 3 -name "*" -type f 2>/dev/null | head -20
+          fi
+          # Also check react-native package
+          RNPACK="$PWD/node_modules/react-native"
+          echo "Checking react-native for Hermes..."
+          find "$RNPACK" -name "hermes*" -type f 2>/dev/null | head -10
           echo "Bundle created
 
       - name: Install Ruby 3.3
