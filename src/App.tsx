@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {StatusBar, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
@@ -39,6 +39,7 @@ import {ConfirmationsScreen}   from './screens/ConfirmationsScreen';
 import {UploadScreen}          from './screens/UploadScreen';
 import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
 import {SmartMineScreen} from './screens/SmartMineScreen';
+import {LoginScreen} from './screens/LoginScreen';
 
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ function TabNavigator() {
   );
 }
 
-function RootNavigator() {
+function RootNavigator({onLogout}: {onLogout: () => void}) {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -120,7 +121,9 @@ function RootNavigator() {
         contentStyle: {backgroundColor: C.bgRoot},
       }}
     >
-      <Stack.Screen name="Tabs" component={TabNavigator} options={{headerShown: false}} />
+      <Stack.Screen name="Tabs" options={{headerShown: false}}>
+        {() => <TabNavigator />}
+      </Stack.Screen>
       <Stack.Screen name="MemoryStore"    component={MemoryStoreScreen}    options={{title: '记忆库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="KnowledgeBase"  component={KnowledgeBaseScreen}  options={{title: '知识库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="FileLibrary"     component={FileLibraryScreen}    options={{title: '附件库',       headerBackTitle: '返回'}} />
@@ -141,13 +144,28 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleLogin = () => {
+    // TODO: connect to OpenClaw IM channel after auth
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+  };
+
   return (
     <SafeAreaProvider>
       <AppProvider>
         <NavigationContainer>
           <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
             <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
-            <RootNavigator />
+            {isAuthenticated ? (
+              <RootNavigator onLogout={handleLogout} />
+            ) : (
+              <LoginScreen onLogin={handleLogin} />
+            )}
           </SafeAreaView>
         </NavigationContainer>
       </AppProvider>
