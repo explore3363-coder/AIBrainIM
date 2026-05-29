@@ -45,37 +45,39 @@ jobs:
         run: |
           npm ci
 
-      - name: Fix Hermes compiler path for Xcode bundling
+      - name: Fix Hermes compiler for ARM64 and install binaries
         run: |
           HERMES_DIR="$PWD/node_modules/hermes-compiler"
-          echo "=== Finding Hermes binary ==="
-          # The Xcode/RN build expects hermesc at hermes-compiler/hermesc/osx-bin/hermesc
-          # but we need to find where it actually is
-          find "$HERMES_DIR" -name "hermesc" 2>/dev/null | head -10
+          HERMES_OSX_BIN="$HERMES_DIR/hermesc/osx-bin"
+          echo "=== Fixing Hermes ==="
+          mkdir -p "$HERMES_OSX_BIN"
+          echo "Contents of hermes-compiler root:"
+          ls "$HERMES_DIR/"
+          echo "Contents of hermes-compiler/hermesc:"
+          ls "$HERMES_DIR/hermesc/" 2>/dev/null || echo "hermesc dir empty or missing"
           echo "---"
-          find "$HERMES_DIR" -name "*.js" -path "*/hermesc/*" 2>/dev/null | head -5
-          echo "---"
+          # hermesc is a Node.js script that calls the actual hermes binary
+          # Check if the hermes binary is in hermes-engine instead
+          HENGINE="$PWD/node_modules/hermes-engine"
+          echo "Contents of hermes-engine:"
+          ls "$HENGINE/" 2>/dev/null | head -10
+          find "$HENGINE" -name "hermesc" -o -name "hermes" 2>/dev/null | head -10
+          # Try rebuilding hermes-compiler to get platform binaries
+          echo "Rebuilding hermes-compiler..."
+          npm rebuild hermes-compiler 2>&1 | tail -20 || echo "rebuild failed"
+          echo "After rebuild:"
           ls "$HERMES_DIR/hermesc/" 2>/dev/null
-          ls "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "osx-bin dir missing"
-          echo "osx-bin contents:"
-          ls -la "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "nothing in osx-bin"
-          # Create the expected structure
-          mkdir -p "$HERMES_DIR/hermesc/osx-bin"
-          if [ ! -f "$HERMES_DIR/hermesc/osx-bin/hermesc" ]; then
-            # Try to find any binary in hermes-compiler that could be hermesc
-            HERMES_BIN=$(find "$HERMES_DIR" -name "hermesc" -not -type d 2>/dev/null | head -1)
-            if [ -n "$HERMES_BIN" ]; then
-              echo "Found binary at: $HERMES_BIN"
-              cp "$HERMES_BIN" "$HERMES_DIR/hermesc/osx-bin/hermesc" 2>/dev/null ||                 ln -sf "$HERMES_BIN" "$HERMES_DIR/hermesc/osx-bin/hermesc"
-              echo "Copied/linked hermesc to expected location"
-            else
-              echo "No hermesc binary found anywhere"
-            fi
+          ls "$HERMES_OSX_BIN/" 2>/dev/null || echo "osx-bin still empty"
+          # As fallback, try downloading hermes prebuilt binary
+          if [ ! -f "$HERMES_OSX_BIN/hermesc" ]; then
+            echo "Downloading Hermes prebuilt binary..."
+            curl -sL "https://github.com/nicklockwood/HermesRuntime/releases/download/v0.1.0/hermesc-osx-arm64" -o "$HERMES_OSX_BIN/hermesc" 2>/dev/null || echo "download failed"
+            chmod +x "$HERMES_OSX_BIN/hermesc" 2>/dev/null
           fi
-          ls -la "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "Still empty"
-          if [ -f "$HERMES_DIR/hermesc/osx-bin/hermesc" ]; then
-            echo "SUCCESS: hermesc ready at $HERMES_DIR/hermesc/osx-bin/hermesc"
-            file "$HERMES_DIR/hermesc/osx-bin/hermesc"
+          ls -la "$HERMES_OSX_BIN/" 2>/dev/null || echo "Still empty"
+          if [ -f "$HERMES_OSX_BIN/hermesc" ]; then
+            echo "SUCCESS: hermesc found at $HERMES_OSX_BIN/hermesc"
+            file "$HERMES_OSX_BIN/hermesc"
           fi
 
       - name: Install Ruby 3.3
