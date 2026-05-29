@@ -48,19 +48,20 @@ jobs:
       - name: Install Hermes compiler for macOS ARM64
         run: |
           HERMES_DIR="$PWD/node_modules/hermes-compiler"
+          echo "Checking hermesc..."
+          ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || echo "osx-bin dir missing"
           if [ ! -f "$HERMES_DIR/osx-bin/hermesc" ]; then
-            echo "Hermes compiler osx-bin missing, downloading..."
-            ARCH=$(uname -m)
-            HVER=$(node -p "require('./package.json').dependencies['hermes-engine']" 2>/dev/null | head -c 20 || echo "0.0.0")
-            echo "Need hermesc for arch=$ARCH version=$HVER"
-            # Download prebuilt hermes for ARM64 macOS
-            mkdir -p "$HERMES_DIR/osx-bin"
-            curl -sL "https://github.com/nicklockwood/HermesRuntime/releases/download/v${HVER}/hermesc-osx-arm64" -o "$HERMES_DIR/osx-bin/hermesc" 2>/dev/null || true
-            chmod +x "$HERMES_DIR/osx-bin/hermesc" 2>/dev/null || true
-            ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || echo "Still missing"
-          else
-            echo "Hermesc found: $(ls -la $HERMES_DIR/osx-bin/hermesc)"
+            echo "hermesc missing - running npm rebuild"
+            cd "$HERMES_DIR" && npm rebuild 2>&1 | tail -5 || true
+            ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || true
           fi
+          if [ ! -f "$HERMES_DIR/osx-bin/hermesc" ]; then
+            echo "Still missing - downloading from React Native releases"
+            mkdir -p "$HERMES_DIR/osx-bin"
+            curl -sL "https://raw.githubusercontent.com/facebook/react-native/main/packages/react-native/Libraries/Renderer/implementations/HermesRenderer/osx-bin/hermesc" -o "$HERMES_DIR/osx-bin/hermesc" 2>/dev/null || true
+            chmod +x "$HERMES_DIR/osx-bin/hermesc" 2>/dev/null || true
+          fi
+          ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || true
 
       - name: Install Ruby 3.3
         run: |
