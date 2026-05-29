@@ -45,6 +45,10 @@ jobs:
         run: |
           npm ci
 
+      - name: Install xcodeproj gem
+        run: |
+          gem install xcodeproj --no-document 2>&1 | tail -5
+
       - name: Remove Bundle React Native script phase for device archive
         run: |
           echo "=== Removing Bundle React Native script phase from Xcode project ==="
