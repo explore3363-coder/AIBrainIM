@@ -45,32 +45,32 @@ jobs:
         run: |
           npm ci
 
-      - name: Fix Hermes binary path for Xcode bundling
+      - name: Remove Bundle React Native script phase for device archive
         run: |
-          HERMES_COMPILER="$PWD/node_modules/hermes-compiler"
-          HERMES_CLI="$HERMES_COMPILER/hermesc/osx-bin/hermesc"
-          # The hermes script is at hermes-compiler/hermesc/hermesc.js
-          # It needs a hermes binary - look in hermes-engine/vendor
-          HENGINE="$PWD/node_modules/hermes-engine"
-          echo "Checking hermes-engine for binaries..."
-          ls "$HENGINE/" 2>/dev/null | head -10
-          # hermes-engine should have the prebuilt binaries
-          HBIN=$(find "$HENGINE" -name "hermes" -type f 2>/dev/null | head -3)
-          echo "Found hermes binary: $HBIN"
-          if [ -n "$HBIN" ]; then
-            mkdir -p "$HERMES_COMPILER/hermesc/osx-bin"
-            cp "$HBIN" "$HERMES_COMPILER/hermesc/osx-bin/hermesc"
-            chmod +x "$HERMES_COMPILER/hermesc/osx-bin/hermesc"
-            ls -la "$HERMES_COMPILER/hermesc/osx-bin/"
-            echo "Hermes binary installed at $HERMES_CLI"
-          else
-            echo "No hermes binary found in hermes-engine"
-            find "$HENGINE" -maxdepth 3 -name "*" -type f 2>/dev/null | head -20
+          echo "=== Removing Bundle React Native script phase from Xcode project ==="
+          # Use Ruby to modify the Xcode project and remove the bundling script phase
+          ruby -e "
+            require 'xcodeproj'
+            project_path = 'ios/AIBrainIM.xcodeproj'
+            project = Xcodeproj::Project.open(project_path)
+            project.targets.each do |target|
+              if target.name == 'AIBrainIM'
+                target.shell_script_build_phases.each do |phase|
+                  if phase.name && phase.name.include?('Bundle React Native')
+                    puts "Removing phase: #{phase.name}"
+                    target.shell_script_build_phases.delete(phase)
+                  end
+                end
+              end
+            end
+            project.save
+            puts 'Bundle script phase removed'
+          end || echo "Ruby removal failed, trying sed"
+          # Fallback: use sed to comment out the bundle phase
+          if [ $? -ne 0 ]; then
+            # Find and disable the bundle script in project.pbxproj
+            grep -n "Bundle React Native" ios/AIBrainIM.xcodeproj/project.pbxproj | head -5
           fi
-          # Also check react-native package
-          RNPACK="$PWD/node_modules/react-native"
-          echo "Checking react-native for Hermes..."
-          find "$RNPACK" -name "hermes*" -type f 2>/dev/null | head -10
           echo "Bundle created
 
       - name: Install Ruby 3.3
