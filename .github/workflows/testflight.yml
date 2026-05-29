@@ -48,22 +48,34 @@ jobs:
       - name: Fix Hermes compiler path for Xcode bundling
         run: |
           HERMES_DIR="$PWD/node_modules/hermes-compiler"
-          echo "=== Fixing Hermes path ==="
+          echo "=== Finding Hermes binary ==="
           # The Xcode/RN build expects hermesc at hermes-compiler/hermesc/osx-bin/hermesc
-          if [ -d "$HERMES_DIR/hermesc" ]; then
-            echo "hermesc structure:"
-            find "$HERMES_DIR/hermesc" -maxdepth 2 2>/dev/null | head -20
-            # Ensure correct path exists
-            mkdir -p "$HERMES_DIR/hermesc/osx-bin"
-            # Check if hermes binary is in the osx-bin subdir
-            if [ -f "$HERMES_DIR/hermesc/osx-bin/hermesc" ]; then
-              echo "hermesc already at correct path!"
-            elif [ -f "$HERMES_DIR/hermesc/osx-bin/.." ]; then
-              ls "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "osx-bin empty"
+          # but we need to find where it actually is
+          find "$HERMES_DIR" -name "hermesc" 2>/dev/null | head -10
+          echo "---"
+          find "$HERMES_DIR" -name "*.js" -path "*/hermesc/*" 2>/dev/null | head -5
+          echo "---"
+          ls "$HERMES_DIR/hermesc/" 2>/dev/null
+          ls "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "osx-bin dir missing"
+          echo "osx-bin contents:"
+          ls -la "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "nothing in osx-bin"
+          # Create the expected structure
+          mkdir -p "$HERMES_DIR/hermesc/osx-bin"
+          if [ ! -f "$HERMES_DIR/hermesc/osx-bin/hermesc" ]; then
+            # Try to find any binary in hermes-compiler that could be hermesc
+            HERMES_BIN=$(find "$HERMES_DIR" -name "hermesc" -not -type d 2>/dev/null | head -1)
+            if [ -n "$HERMES_BIN" ]; then
+              echo "Found binary at: $HERMES_BIN"
+              cp "$HERMES_BIN" "$HERMES_DIR/hermesc/osx-bin/hermesc" 2>/dev/null ||                 ln -sf "$HERMES_BIN" "$HERMES_DIR/hermesc/osx-bin/hermesc"
+              echo "Copied/linked hermesc to expected location"
+            else
+              echo "No hermesc binary found anywhere"
             fi
-          else
-            echo "hermesc dir NOT found at $HERMES_DIR/hermesc"
-            find "$HERMES_DIR" -name "hermesc" -type f 2>/dev/null | head -5 || echo "No hermesc binary found"
+          fi
+          ls -la "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null || echo "Still empty"
+          if [ -f "$HERMES_DIR/hermesc/osx-bin/hermesc" ]; then
+            echo "SUCCESS: hermesc ready at $HERMES_DIR/hermesc/osx-bin/hermesc"
+            file "$HERMES_DIR/hermesc/osx-bin/hermesc"
           fi
 
       - name: Install Ruby 3.3
