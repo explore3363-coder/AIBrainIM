@@ -20,8 +20,8 @@ export interface GatewayConfigValidation {
 const STORAGE_KEY = '@AIBrainIM:gatewayConfig';
 
 export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
-  gatewayUrl: 'http://192.168.3.26:18789',
-  gatewayToken: '',
+  gatewayUrl: 'https://node.tail67ac15.ts.net',
+  gatewayToken: 'aebb240dad9c7ba10d99daf6a4388cfb56708000e5694c9c',
   directMode: true, // 直连 OpenClaw sessions_send，不走 Feishu 回退
   sessionKey: 'agent:zhuli:feishu:direct:ou_9782bd16e99998d38b13d05ff5cb648c',
   channel: 'feishu',
