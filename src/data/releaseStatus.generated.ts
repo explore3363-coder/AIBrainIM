@@ -5,18 +5,17 @@ export const generatedReleaseStatus = {
   "applePrerequisitesReady": true,
   "firstTestFlightBuildUploaded": false,
   "appStoreAssetsReady": true,
-  "summary": "Apple / TestFlight 前置项已通过本地结构校验并完成最近一次总预检；App Store 素材真值已通过仓库校验并完成最近一次总预检；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 3 个阻塞",
+  "summary": "Apple / TestFlight 前置项已通过本地结构校验并完成最近一次总预检；App Store 素材真值已通过仓库校验并完成最近一次总预检；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 2 个阻塞",
   "triggerTagName": "v0.1.0",
   "triggerGateReady": false,
   "triggerGateFailures": [
-    "工作区仍有未提交改动，当前不会安全触发 v0.1.0：M .env.apple；M ios/Podfile；M scripts/validate-testflight-inputs.sh；M src/screens/AgentScreen.tsx；M src/screens/DashboardScreen.tsx；M src/services/SmartMineService.ts；M src/types/index.ts；?? src/services/AgentPlatformService.ts",
     "本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号",
     "origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
   ],
-  "validatedAt": 1780013105189,
-  "assetsValidatedAt": 1780013105189,
-  "updatedAt": 1780013105333,
-  "preflightReportGeneratedAt": "2026-05-29T00:05:05.189Z",
+  "validatedAt": 1780013107216,
+  "assetsValidatedAt": 1780013107216,
+  "updatedAt": 1780013368347,
+  "preflightReportGeneratedAt": "2026-05-29T00:05:07.216Z",
   "preflightOverallStatus": "PASS",
   "preflightBlockingCount": 0,
   "preflightFailedChecks": [],
@@ -91,6 +90,19 @@ export const generatedReleaseStatus = {
         "App Store asset check complete (TestFlight - non-blocking)."
       ],
       "stderrTail": []
+    },
+    {
+      "label": "同步 releaseStatus.generated.ts",
+      "ok": true,
+      "status": 0,
+      "durationMs": 2026,
+      "stdoutTail": [
+        "> AIBrainIM@0.1.0 sync:release-status",
+        "> node scripts/sync-release-status.mjs",
+        "Release status generated: src/data/releaseStatus.generated.ts",
+        "Apple / TestFlight 前置项已通过本地结构校验并完成最近一次总预检；App Store 素材真值已通过仓库校验并完成最近一次总预检；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 3 个阻塞"
+      ],
+      "stderrTail": []
     }
   ],
   "preflightNextActions": [
@@ -110,6 +122,6 @@ export const generatedReleaseStatus = {
     "version": "0.1.0",
     "apple": "ok",
     "assets": "ok",
-    "preflight": "代码、测试、Apple 前置项、发布配置与 App Store 素材校验均已通过。 | 上传提测真值：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本 | trigger:testflight 门禁：工作区仍有未提交改动，当前不会安全触发 v0.1.0：M .env.apple；M ios/Podfile；M scripts/validate-testflight-inputs.sh；M src/screens/AgentScreen.tsx；M src/screens/DashboardScreen.tsx；M src/services/SmartMineService.ts；M src/types/index.ts；?? src/services/AgentPlatformService.ts；本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号；origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
+    "preflight": "代码、测试、Apple 前置项、发布配置与 App Store 素材校验均已通过。 | 上传提测真值：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本 | trigger:testflight 门禁：本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号；origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
   }
 } as const;
