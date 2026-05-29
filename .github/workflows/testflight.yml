@@ -45,11 +45,14 @@ jobs:
         run: |
           npm ci
 
-      - name: Install xcodeproj gem (user level)
+      - name: Install xcodeproj gem using Homebrew ruby
         run: |
-          export GEM_HOME="$HOME/.gem/ruby/3.3.0"
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:$PATH"
+          export GEM_HOME=/opt/homebrew/lib/ruby/gems/3.3.0
+          export GEM_PATH=/opt/homebrew/lib/ruby/gems/3.3.0
           export PATH="$GEM_HOME/bin:$PATH"
           mkdir -p "$GEM_HOME"
+          ruby --version && gem --version
           gem install xcodeproj --no-document 2>&1 | tail -5
           echo "GEM_HOME=$GEM_HOME"
           ls "$GEM_HOME/bin/" 2>/dev/null | head -5
@@ -57,20 +60,14 @@ jobs:
       - name: Remove Bundle React Native script phase for device archive
         run: |
           echo "=== Removing Bundle React Native script phase ==="
-          # Use Homebrew's ruby to install and run xcodeproj
           export PATH="/opt/homebrew/opt/ruby@3.3/bin:$PATH"
           export GEM_HOME=/opt/homebrew/lib/ruby/gems/3.3.0
           export GEM_PATH=/opt/homebrew/lib/ruby/gems/3.3.0
           export PATH="$GEM_HOME/bin:$PATH"
           
-          # Verify ruby and gem are available
-          which ruby && ruby --version
-          which gem && gem --version
+          ruby --version && gem list xcodeproj
           
-          # Install xcodeproj (using Homebrew's ruby which has write permission to GEM_HOME)
-          gem install xcodeproj --no-document 2>&1 | tail -3
-          
-          # Now remove the bundle script phase
+          # Remove the bundle script phase using xcodeproj
           ruby -e '
             require "xcodeproj"
             project_path = "ios/AIBrainIM.xcodeproj"
@@ -90,8 +87,9 @@ jobs:
               end
             end
             project.save
-            puts removed ? "Bundle script phase removed" : "Bundle phase not found"
+            puts removed ? "Bundle script phase removed successfully" : "Bundle phase not found in target"
           end
+          echo "Remove exit code: $?"
     
       - name: Install Ruby 3.3
         run: |
