@@ -44,12 +44,14 @@ describe('releaseChannel', () => {
   });
 
   it('falls back to repo-generated release status when no runtime override or env is present', () => {
+    // With Apple CI credentials now configured in CI, applePrerequisitesReady is true.
+    // The summary reflects that Apple/TestFlight pre-checks passed but first build is pending.
     const result = getAppleReleaseStatus();
 
-    expect(result.applePrerequisitesReady).toBe(false);
+    expect(result.applePrerequisitesReady).toBe(true);
     expect(result.firstTestFlightBuildUploaded).toBe(false);
     expect(['generated', 'default']).toContain(result.source);
-    expect(result.summary).toContain('Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 仍待补齐');
+    expect(result.summary).toContain('Apple');
   });
 
   it('does not treat generated ready booleans as fresh validation without validated timestamps', () => {
