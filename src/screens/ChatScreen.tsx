@@ -1051,7 +1051,7 @@ export function ChatScreen() {
 const styles = StyleSheet.create({
   root:         {flex: 1, backgroundColor: C.bgRoot},
   flex:         {flex: 1},
-  header:       {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
+  header:       {paddingHorizontal: LAYOUT.pageMargin, paddingTop: 16, paddingBottom: 12},
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

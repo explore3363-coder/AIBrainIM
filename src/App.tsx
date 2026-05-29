@@ -83,15 +83,20 @@ function TabNavigator() {
         tabBarLabel: () => null,
       }}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('总览', '🏠')}} />
-      <Tab.Screen name="Chat" component={ChatScreen} options={{tabBarIcon: _tabIcon('对话', '💬')}} />
-      <Tab.Screen name="Agent" component={AgentScreen} options={{tabBarIcon: _tabIcon('智能体', '🧠')}} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('首页', '🛡')}} />
+      <Tab.Screen name="Chat" component={ChatScreen} options={{tabBarIcon: _tabIcon('协作', '👥')}} />
       <Tab.Screen
-        name="Tasks"
-        component={TaskScreen}
-        options={{tabBarIcon: _tabIconWithBadge('任务', '📋', runningTaskCount > 0 ? runningTaskCount : undefined)}}
+        name="Plus"
+        component={DummyScreen}
+        options={{
+          tabBarIcon: ({focused}) => <TabBarIcon label="" emoji="+" focused={false} isCenterFAB />,
+          tabBarButton: (props) => <TouchableOpacity {...props} activeOpacity={1} />,
+        }}
+        listeners={({navigation}) => ({
+          tabPress: (e) => { e.preventDefault(); },
+        })}
       />
-      <Tab.Screen name="SmartMine" component={SmartMineScreen} options={{tabBarIcon: _tabIcon('矿山', '⛏️')}} />
+      <Tab.Screen name="Resources" component={FileLibraryScreen} options={{tabBarIcon: _tabIcon('资源', '📦')}} />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
