@@ -10,7 +10,7 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
-import {C} from '../data/constants';
+import {C, LAYOUT} from '../data/constants';
 import {commandTraceMock, aiFeedMock} from '../data/mockData';
 import {SmartMineCard} from '../components/SmartMineCard';
 import type {ProductionData, Equipment, Alert} from '../types/smartmine';
@@ -1556,7 +1556,7 @@ const BR = 24;
 const styles = StyleSheet.create({
   content: {padding: 16, paddingBottom: 100, gap: 0},
 
-  hero:ew: {
+  hero: {
     borderRadius: BR + 4,
     overflow: 'hidden',
     position: 'relative',
@@ -2215,7 +2215,6 @@ const styles = StyleSheet.create({
     color: C.textMuted,
     fontSize: 11,
   },
-},
   // ── Redesigned Hero + Header Styles ───────────────────────────────────────
   headerBar: {
     flexDirection: 'row',
@@ -2360,7 +2359,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
-  heroSub: {
+  heroSubtitle: {
     color: C.textMuted,
     fontSize: 12,
     fontWeight: '500',
@@ -2450,4 +2449,4 @@ const styles = StyleSheet.create({
     marginHorizontal: LAYOUT.pageMargin,
     marginVertical: 20,
   },
-};
+});

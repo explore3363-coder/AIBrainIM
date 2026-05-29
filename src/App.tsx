@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {StatusBar, StyleSheet} from 'react-native';
+import {StatusBar, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -56,6 +56,8 @@ const _tabIconWithBadge = (label: string, emoji: string, count: number | undefin
   <TabBarIcon label={label} emoji={emoji} focused={focused} badge={count} />
 );
 
+function DummyScreen() { return null; }
+
 function TabNavigator() {
   const {pendingConfirmations, uploads, tasks} = useAppContext();
 
@@ -90,7 +92,7 @@ function TabNavigator() {
         component={DummyScreen}
         options={{
           tabBarIcon: ({focused}) => <TabBarIcon label="" emoji="+" focused={false} isCenterFAB />,
-          tabBarButton: (props) => <TouchableOpacity {...props} activeOpacity={1} />,
+          tabBarButton: (props: any) => <TouchableOpacity {...props} activeOpacity={1} />,
         }}
         listeners={({navigation}) => ({
           tabPress: (e) => { e.preventDefault(); },

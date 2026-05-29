@@ -24,7 +24,7 @@ import {
 import DocumentPicker, {
   type DocumentPickerResponse,
 } from 'react-native-document-picker';
-import {C} from '../data/constants';
+import {C, LAYOUT} from '../data/constants';
 import {MessageBubble} from '../components/MessageBubble';
 import {TaskDecomposeCard} from '../components/TaskDecomposeCard';
 import {AgentCollaborationGraph} from '../components/AgentCollaborationGraph';
