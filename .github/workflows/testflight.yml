@@ -45,9 +45,14 @@ jobs:
         run: |
           npm ci
 
-      - name: Install xcodeproj gem
+      - name: Install xcodeproj gem (user level)
         run: |
+          export GEM_HOME="$HOME/.gem/ruby/3.3.0"
+          export PATH="$GEM_HOME/bin:$PATH"
+          mkdir -p "$GEM_HOME"
           gem install xcodeproj --no-document 2>&1 | tail -5
+          echo "GEM_HOME=$GEM_HOME"
+          ls "$GEM_HOME/bin/" 2>/dev/null | head -5
 
       - name: Remove Bundle React Native script phase for device archive
         run: |
