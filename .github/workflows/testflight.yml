@@ -45,43 +45,15 @@ jobs:
         run: |
           npm ci
 
-      - name: Install Hermes prebuilt binary for macOS ARM64
+      - name: Pre-bundle JS for iOS Release
         run: |
-          set -x
-          HERMES_DIR="$PWD/node_modules/hermes-compiler"
-          OS_TYPE=$(uname -s | tr '[:upper:]' '[:lower:]')
-          ARCH_TYPE=$(uname -m)
-          if [ "$ARCH_TYPE" = "arm64" ]; then
-            ARCH_TYPE="aarch64"
-          fi
-          VENDOR_DIR="$HERMES_DIR/vendor/${OS_TYPE}-${ARCH_TYPE}"
-          echo "OS: $OS_TYPE ARCH: $ARCH_TYPE"
-          echo "Expected vendor dir: $VENDOR_DIR"
-          echo "Contents of hermes-compiler:"
-          ls "$HERMES_DIR/"
-          echo "Contents of hermes-compiler/hermesc:"
-          ls "$HERMES_DIR/hermesc/" 2>/dev/null
-          echo "Vendor dir contents:"
-          ls "$VENDOR_DIR/" 2>/dev/null || echo "Vendor dir missing"
-          # Find the actual hermes binary
-          HERMES_BIN=$(find "$HERMES_DIR" -name "hermesc" -not -type d 2>/dev/null | head -5)
-          echo "All hermes binaries found: $HERMES_BIN"
-          # Create osx-bin with the correct binary
-          mkdir -p "$HERMES_DIR/hermesc/osx-bin"
-          if [ -f "$VENDOR_DIR/hermesc" ]; then
-            echo "Found binary at vendor: $VENDOR_DIR/hermesc"
-            cp "$VENDOR_DIR/hermesc" "$HERMES_DIR/hermesc/osx-bin/hermesc"
-            chmod +x "$HERMES_DIR/hermesc/osx-bin/hermesc"
-            echo "Copied hermes binary to osx-bin"
-          elif [ -n "$HERMES_BIN" ]; then
-            FIRST_BIN=$(echo "$HERMES_BIN" | head -1)
-            echo "Using first available binary: $FIRST_BIN"
-            cp "$FIRST_BIN" "$HERMES_DIR/hermesc/osx-bin/hermesc"
-            chmod +x "$HERMES_DIR/hermesc/osx-bin/hermesc"
-          fi
-          ls -la "$HERMES_DIR/hermesc/osx-bin/" 2>/dev/null
-          file "$HERMES_DIR/hermesc/osx-bin/hermesc" 2>/dev/null
-          set +x
+          echo "=== Pre-bundling JS for iOS Release ==="
+          mkdir -p ios/AIBrainIM/bundle
+          npx react-native bundle             --platform ios             --dev false             --entry-file index.js             --bundle-output ios/AIBrainIM/bundle/main.jsbundle             --assets-dest ios/AIBrainIM             --minify true             --reset-cache 2>&1 | tail -20
+          echo "Bundle size:"
+          ls -lh ios/AIBrainIM/bundle/main.jsbundle 2>/dev/null || echo "Bundle not created"
+          mkdir -p build/DerivedData/BuildProducts/Release-iphoneos/AIBrainIM.app
+          cp ios/AIBrainIM/bundle/main.jsbundle build/DerivedData/BuildProducts/Release-iphoneos/AIBrainIM.app/ 2>/dev/null || true
 
       - name: Install Ruby 3.3
         run: |
