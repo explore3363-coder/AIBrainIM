@@ -45,20 +45,24 @@ jobs:
         run: |
           npm ci
 
-      - name: Install Hermes compiler for macOS ARM64
+      - name: Fix Hermes compiler path for Xcode bundling
         run: |
           HERMES_DIR="$PWD/node_modules/hermes-compiler"
-          echo "=== Checking Hermes ==="
-          ls -la "$HERMES_DIR/" 2>/dev/null | head -5 || echo "hermes-compiler dir missing"
-          echo "OS: $(uname -s) ARCH: $(uname -m)"
-          if [ -d "$HERMES_DIR" ]; then
-            find "$HERMES_DIR" -name "hermesc" -type f 2>/dev/null | head -5 || echo "No hermesc found"
-            ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || echo "osx-bin missing"
-            # Reinstall to get correct platform binary
-            npm install hermes-compiler --save-dev 2>&1 | tail -10 || true
-            ls -la "$HERMES_DIR/osx-bin/" 2>/dev/null || echo "Still no osx-bin after reinstall"
+          echo "=== Fixing Hermes path ==="
+          if [ -d "$HERMES_DIR/hermesc" ]; then
+            echo "Found hermesc at: $HERMES_DIR/hermesc/"
+            ls "$HERMES_DIR/hermesc/"
+            # Xcode/RN build expects hermesc at osx-bin/hermesc
+            if [ ! -d "$HERMES_DIR/osx-bin" ]; then
+              mkdir -p "$HERMES_DIR/osx-bin"
+              if [ -f "$HERMES_DIR/hermesc/osx-bin/hermesc" ]; then
+                ln -sf "$HERMES_DIR/hermesc/osx-bin/"* "$HERMES_DIR/osx-bin/"
+              fi
+            fi
+            ls "$HERMES_DIR/osx-bin/" 2>/dev/null || echo "osx-bin still empty"
           else
-            echo "hermes-compiler not found in node_modules"
+            echo "hermesc dir not found"
+            find "$HERMES_DIR" -name "hermesc" -type f 2>/dev/null | head -5 || echo "No hermesc binary"
           fi
 
       - name: Install Ruby 3.3
