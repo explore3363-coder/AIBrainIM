@@ -90,13 +90,11 @@ jobs:
               puts removed ? "Bundle script phase removed successfully" : "Bundle phase not found in target"
             rescue => e
               $stderr.puts "ERROR: #{e.class}: #{e.message}"
-              $stderr.puts e.backtrace.first(5).join("
-")
+              $stderr.puts e.backtrace.first(5).join(chr(10))
               exit 2
             end
           end
           echo "Ruby exit: $?"
-          echo "Remove exit code: $?"
     
       - name: Install Ruby 3.3
         run: |
