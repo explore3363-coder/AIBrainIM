@@ -794,6 +794,20 @@ export function ChatScreen() {
             />
           }
         >
+          {/* Voice Input Indicator */}
+          <View style={styles.voiceIndicator}>
+            <View style={styles.voiceLeft}>
+              <View style={styles.voiceDot} />
+              <Text style={styles.voiceLabel}>Voice Ready</Text>
+              <Text style={styles.voiceSub}>🎤 语音输入已就绪</Text>
+            </View>
+            <View style={styles.waveformRow}>
+              {[0.4, 0.7, 1.0, 0.6, 0.85, 0.5, 0.9, 0.65, 0.8, 0.55].map((h, i) => (
+                <View key={i} style={[styles.waveformBar, {height: 12 * h, backgroundColor: i === 4 ? C.primary : C.primary + '50'}]} />
+              ))}
+            </View>
+          </View>
+
           <View style={styles.dispatchStatusCard}>
             <View style={styles.dispatchStatusTop}>
               <Text style={styles.dispatchStatusTitle}>当前调度状态</Text>
@@ -1245,6 +1259,51 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.borderActive,
   },
   chipText: {color: C.primary, fontSize: 12, fontWeight: '800'},
+
+  // Voice input indicator
+  voiceIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(77,255,136,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(77,255,136,0.18)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  voiceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  voiceDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.primary,
+  },
+  voiceLabel: {
+    color: C.primary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  voiceSub: {
+    color: C.textMuted,
+    fontSize: 11,
+    marginLeft: 4,
+  },
+  waveformRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 16,
+  },
+  waveformBar: {
+    width: 3,
+    borderRadius: 2,
+  },
 
   inputRow: {
     flexDirection: 'row', gap: 9, alignItems: 'flex-end',

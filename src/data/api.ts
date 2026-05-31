@@ -621,22 +621,22 @@ export async function sendMessage(text: string): Promise<SendMessageResult> {
 
     if (config.directMode) {
       try {
-        const result = await gatewayInvoke('sessions_send', 'json', {
-          sessionKey: config.sessionKey,
-          message: text,
-          timeoutSeconds: 20,
-        }, config);
-        const directResult = extractMessageResult(result);
-        const ok = directResult.status === 'ok' || Boolean(directResult.reply);
-        if (!ok) {
-          throw new Error(directResult.error || directResult.status || '直连会话调用失败');
+        // Task 3: Direct HTTP POST with exponential backoff retry (max 3 attempts)
+        const result = await sessionsSendMessage(
+          text,
+          config.sessionKey,
+          config.gatewayUrl,
+          config.gatewayToken,
+        );
+        if (!result.ok) {
+          throw new Error(result.error || '直连会话调用失败');
         }
         return {
           sent: true,
           taskId,
-          dispatchId: directResult.runId ?? dispatchId,
-          sessionKey: directResult.sessionKey ?? config.sessionKey,
-          reply: directResult.reply ?? '已收到回复。',
+          dispatchId: result.runId ?? dispatchId,
+          sessionKey: result.sessionKey ?? config.sessionKey,
+          reply: result.reply ?? '已收到回复。',
         };
       } catch (directErr) {
         // sessions_send not available — degrade gracefully to Feishu fallback
@@ -757,5 +757,109 @@ export function buildDispatchRecordUpdate(activity: {
     sessionKey: activity.sessionKey,
     stageText,
     updatedAt: activity.updatedAt ?? Date.now(),
+  };
+}
+
+// ─── Task 3: Direct sessions_send with exponential backoff retry ─────────────────
+
+export interface SessionsSendResult {
+  ok: boolean;
+  reply?: string;
+  runId?: string;
+  sessionKey?: string;
+  status?: string;
+  error?: string;
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Direct HTTP POST to OpenClaw Gateway sessions endpoint.
+ * Uses exponential backoff retry (max 3 attempts).
+ * Endpoint: POST /api/sessions/{sessionKey}/messages
+ * Body: {"content": "...", "role": "user"}
+ */
+export async function sessionsSendMessage(
+  message: string,
+  sessionKey: string,
+  gatewayUrl: string,
+  token: string,
+): Promise<SessionsSendResult> {
+  const MAX_RETRIES = 3;
+  let lastError: string = '';
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 20000);
+
+    try {
+      const res = await fetch(`${gatewayUrl}/api/sessions/${encodeURIComponent(sessionKey)}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({content: message, role: 'user'}),
+        signal: ctrl.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${body || res.statusText}`);
+      }
+
+      const data = (await res.json()) as Record<string, unknown>;
+
+      // Try to extract reply from various response shapes
+      let reply: string | undefined;
+      if (typeof data.reply === 'string') {
+        reply = data.reply;
+      } else if (typeof data.content === 'string') {
+        reply = data.content;
+      } else if (Array.isArray(data.content) && data.content.length > 0) {
+        const first = data.content[0];
+        if (typeof first === 'object' && first !== null) {
+          const firstObj = first as Record<string, unknown>;
+          if (typeof firstObj.text === 'string') {
+            try {
+              const inner = JSON.parse(firstObj.text as string);
+              reply = inner.reply ?? inner.content ?? firstObj.text;
+            } catch {
+              reply = firstObj.text as string;
+            }
+          }
+        }
+      }
+
+      return {
+        ok: true,
+        reply: reply ?? '已收到回复。',
+        runId: data.runId as string | undefined,
+        sessionKey: data.sessionKey as string | undefined,
+        status: (data.status as string | undefined) ?? 'ok',
+      };
+    } catch (err) {
+      clearTimeout(timeout);
+      lastError = err instanceof Error ? err.message : String(err);
+
+      // Don't retry on abort (user cancellation) or client errors
+      if (lastError.includes('abort') || lastError.includes('HTTP 4')) {
+        break;
+      }
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        await sleep(delay);
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    error: lastError || '发送失败',
   };
 }

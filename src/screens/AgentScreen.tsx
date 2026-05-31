@@ -218,9 +218,19 @@ export function AgentScreen() {
           ))}
         </View>
 
+        {/* ── HUD Agent Grid with Ring Effects + Live Badges + Confidence ── */}
         <View style={styles.agentGrid}>
           {agents.map(agent => {
             const sel = selected.id === agent.id;
+            const statusColor = STATUS_COLOR[agent.status];
+            // Confidence: derived from status + queue depth + recency
+            const queueLoad = agent.queueDepth ?? 0;
+            const lastActiveAgo = agent.lastActiveAt ? Math.floor((Date.now() - agent.lastActiveAt) / 60000) : 999;
+            const baseScore = agent.status === 'working' ? 85 : agent.status === 'online' ? 70 : agent.status === 'watching' ? 55 : 40;
+            const confidence = Math.min(99, Math.max(10,
+              baseScore - Math.min(30, queueLoad * 5) - Math.min(20, lastActiveAgo * 2)
+            ));
+            const confidenceColor = confidence >= 70 ? C.primary : confidence >= 45 ? '#fbbf24' : '#f87171';
             return (
               <TouchableOpacity
                 key={agent.id}
@@ -232,14 +242,35 @@ export function AgentScreen() {
                 onPress={() => setSelected(agent)}
                 activeOpacity={0.8}
               >
-                <View style={[styles.avatar, {backgroundColor: agent.accent}]}>
-                  <Text style={styles.avatarText}>{agent.name.slice(0, 1)}</Text>
+                {/* HUD Ring wrapper for avatar */}
+                <View style={styles.hudRingContainer}>
+                  {agent.status === 'working' && (
+                    <View style={[styles.hudRingOuter, {borderColor: agent.accent + '30'}]} />
+                  )}
+                  {agent.status !== 'idle' && (
+                    <View style={[styles.hudRingInner, {borderColor: statusColor + '60'}]} />
+                  )}
+                  <View style={[styles.avatar, {backgroundColor: agent.accent}]}>
+                    <Text style={styles.avatarText}>{agent.name.slice(0, 1)}</Text>
+                  </View>
+                  {/* Live status dot */}
+                  {agent.status === 'working' && (
+                    <View style={[styles.liveBadge, {backgroundColor: statusColor}]} />
+                  )}
                 </View>
+
+                {/* Agent name + role */}
                 <Text style={styles.agentName}>{agent.name}</Text>
                 <Text style={styles.agentRole}>{agent.role}</Text>
+
+                {/* Status row with confidence */}
                 <View style={styles.statusRow}>
-                  <View style={[styles.statusDot, {backgroundColor: STATUS_COLOR[agent.status]}]} />
-                  <Text style={styles.statusText}>{STATUS_LABEL[agent.status]}</Text>
+                  <View style={[styles.statusDot, {backgroundColor: statusColor}]} />
+                  <Text style={[styles.statusText, {color: statusColor}]}>{STATUS_LABEL[agent.status]}</Text>
+                  {/* Confidence score pill */}
+                  <View style={[styles.confidencePill, {borderColor: confidenceColor + '60'}]}>
+                    <Text style={[styles.confidenceText, {color: confidenceColor}]}>{confidence}%</Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             );
@@ -248,16 +279,39 @@ export function AgentScreen() {
 
         <View style={styles.detail}>
           <View style={[styles.detailTop, {borderBottomColor: selected.accent}]}>
+            {/* HUD ring for selected agent */}
+          <View style={styles.hudRingContainerLg}>
+            <View style={[styles.hudRingOuterLg, {borderColor: selected.accent + '30'}]} />
+            {selected.status !== 'idle' && (
+              <View style={[styles.hudRingInnerLg, {borderColor: STATUS_COLOR[selected.status] + '60'}]} />
+            )}
             <View style={[styles.avatarLg, {backgroundColor: selected.accent}]}>
               <Text style={styles.avatarTextLg}>{selected.name.slice(0, 1)}</Text>
             </View>
+            {selected.status === 'working' && (
+              <View style={[styles.liveBadgeLg, {backgroundColor: STATUS_COLOR[selected.status]}]} />
+            )}
+          </View>
             <View style={styles.detailInfo}>
               <Text style={styles.detailName}>{selected.name}</Text>
               <Text style={styles.detailRole}>{selected.role}</Text>
               <View style={styles.statusRow}>
                 <View style={[styles.statusDot, {backgroundColor: STATUS_COLOR[selected.status]}]} />
-                <Text style={styles.statusText}>{STATUS_LABEL[selected.status]}</Text>
+                <Text style={[styles.statusText, {color: STATUS_COLOR[selected.status]}]}>{STATUS_LABEL[selected.status]}</Text>
               </View>
+              {/* Confidence score for selected agent */}
+              {(() => {
+                const q = selected.queueDepth ?? 0;
+                const lastAgo = selected.lastActiveAt ? Math.floor((Date.now() - selected.lastActiveAt) / 60000) : 999;
+                const base = selected.status === 'working' ? 85 : selected.status === 'online' ? 70 : selected.status === 'watching' ? 55 : 40;
+                const conf = Math.min(99, Math.max(10, base - Math.min(30, q * 5) - Math.min(20, lastAgo * 2)));
+                const cColor = conf >= 70 ? C.primary : conf >= 45 ? '#fbbf24' : '#f87171';
+                return (
+                  <View style={[styles.confidencePillLg, {borderColor: cColor + '80'}]}>
+                    <Text style={[styles.confidenceTextLg, {color: cColor}]}>置信度 {conf}%</Text>
+                  </View>
+                );
+              })()}
             </View>
           </View>
 
@@ -419,6 +473,51 @@ const styles = StyleSheet.create({
   agentName:  {color: C.textTitle, fontSize: 18, fontWeight: '800'},
   agentRole:  {color: C.primary, fontSize: 11, marginTop: 4},
   statusRow:  {flexDirection: 'row', alignItems: 'center', marginTop: 10},
+  // HUD Ring effect
+  hudRingContainer: {
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    position: 'relative',
+  },
+  hudRingOuter: {
+    position: 'absolute',
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 2,
+  },
+  hudRingInner: {
+    position: 'absolute',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1.5,
+  },
+  liveBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: C.bgCard,
+  },
+  confidencePill: {
+    marginLeft: 'auto',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  confidenceText: {
+    fontSize: 10,
+    fontWeight: '900',
+  },
   statusDot: {width: 7, height: 7, borderRadius: 4, marginRight: 6},
   statusText: {color: C.textBody, fontSize: 12, fontWeight: '700'},
 
@@ -429,6 +528,51 @@ const styles = StyleSheet.create({
   detailTop: {
     flexDirection: 'row', gap: 16, paddingBottom: 14, marginBottom: 14,
     borderBottomWidth: 1,
+  },
+  // Large HUD ring for selected agent
+  hudRingContainerLg: {
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  hudRingOuterLg: {
+    position: 'absolute',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2,
+  },
+  hudRingInnerLg: {
+    position: 'absolute',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 1.5,
+  },
+  liveBadgeLg: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2.5,
+    borderColor: C.bgCard,
+  },
+  confidencePillLg: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    alignSelf: 'flex-start',
+  },
+  confidenceTextLg: {
+    fontSize: 12,
+    fontWeight: '900',
   },
   avatarLg: {
     width: 56, height: 56, borderRadius: 20,

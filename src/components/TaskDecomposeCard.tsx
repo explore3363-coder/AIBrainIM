@@ -1,5 +1,5 @@
 import React, {memo} from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {C} from '../data/constants';
 import type {SubTask} from '../types';
 
@@ -113,6 +113,14 @@ export const TaskDecomposeCard = memo(function TaskDecomposeCard({
         {subTasks.map(subTask => (
           <SubTaskRow key={subTask.id} subTask={subTask} />
         ))}
+      </View>
+
+      {/* AI Parsed Task Confirmation */}
+      <View style={styles.confirmRow}>
+        <TouchableOpacity style={styles.confirmBtn} activeOpacity={0.8}>
+          <Text style={styles.confirmBtnText}>✓ Confirm Task</Text>
+        </TouchableOpacity>
+        <Text style={styles.confirmHint}>确认后自动分派给 AI Agent</Text>
       </View>
     </View>
   );
@@ -254,5 +262,37 @@ const styles = StyleSheet.create({
   },
   subTaskStatus: {
     fontSize: 14,
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(77,255,136,0.15)',
+    gap: 12,
+  },
+  confirmBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    shadowColor: C.primary,
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  confirmBtnText: {
+    color: C.bgRoot,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  confirmHint: {
+    color: C.textMuted,
+    fontSize: 11,
+    flex: 1,
   },
 });

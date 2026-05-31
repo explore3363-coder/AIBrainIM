@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Keychain from 'react-native-keychain';
 
 export interface GatewayConfig {
   gatewayUrl: string;
@@ -18,11 +19,13 @@ export interface GatewayConfigValidation {
 }
 
 const STORAGE_KEY = '@AIBrainIM:gatewayConfig';
+const KEYCHAIN_SERVICE = 'AIBrainIM.GatewayToken';
+const KEYCHAIN_TOKEN_KEY = 'aibrainim_gateway_token';
 
 export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   gatewayUrl: 'https://node.tail67ac15.ts.net',
   gatewayToken: 'aebb240dad9c7ba10d99daf6a4388cfb56708000e5694c9c',
-  directMode: true, // 直连 OpenClaw sessions_send，不走 Feishu 回退
+  directMode: true,
   sessionKey: 'agent:zhuli:feishu:direct:ou_9782bd16e99998d38b13d05ff5cb648c',
   channel: 'feishu',
   target: '',
@@ -100,11 +103,49 @@ export function summarizeGatewayConfig(input?: Partial<GatewayConfig> | null): s
   return `${state} · ${config.directMode ? 'direct' : 'feishu-fallback'} · ${tokenState} · ${routeState}`;
 }
 
+// ─── Keychain helpers (token only) ───────────────────────────────────────────────
+
+async function saveTokenToKeychain(token: string): Promise<void> {
+  try {
+    await Keychain.setGenericPassword(KEYCHAIN_TOKEN_KEY, token, {
+      service: KEYCHAIN_SERVICE,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  } catch (err) {
+    console.warn('[gatewayConfig] Keychain save failed:', err);
+  }
+}
+
+async function loadTokenFromKeychain(): Promise<string | null> {
+  try {
+    const creds = await Keychain.getGenericPassword({service: KEYCHAIN_SERVICE});
+    if (creds && creds.password) return creds.password;
+    return null;
+  } catch (err) {
+    console.warn('[gatewayConfig] Keychain load failed:', err);
+    return null;
+  }
+}
+
+async function deleteTokenFromKeychain(): Promise<void> {
+  try {
+    await Keychain.resetGenericPassword({service: KEYCHAIN_SERVICE});
+  } catch (err) {
+    console.warn('[gatewayConfig] Keychain delete failed:', err);
+  }
+}
+
+// ─── Full config (non-sensitive in AsyncStorage, token in Keychain) ──────────────
+
 export async function getGatewayConfig(): Promise<GatewayConfig> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_GATEWAY_CONFIG;
-    return normalizeConfig(JSON.parse(raw) as Partial<GatewayConfig>);
+    const savedToken = await loadTokenFromKeychain();
+    const base = raw ? (JSON.parse(raw) as Partial<GatewayConfig>) : {};
+    return normalizeConfig({
+      ...base,
+      gatewayToken: savedToken ?? base.gatewayToken ?? DEFAULT_GATEWAY_CONFIG.gatewayToken,
+    });
   } catch {
     return DEFAULT_GATEWAY_CONFIG;
   }
@@ -112,12 +153,15 @@ export async function getGatewayConfig(): Promise<GatewayConfig> {
 
 export async function saveGatewayConfig(config: GatewayConfig): Promise<GatewayConfig> {
   const normalized = normalizeConfig(config);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  await saveTokenToKeychain(normalized.gatewayToken);
+  const {gatewayToken: _token, ...safeConfig} = normalized;
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(safeConfig));
   return normalized;
 }
 
 export async function resetGatewayConfig(): Promise<GatewayConfig> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+  await deleteTokenFromKeychain();
   return DEFAULT_GATEWAY_CONFIG;
 }
 
