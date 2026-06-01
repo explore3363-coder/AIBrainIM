@@ -20,6 +20,7 @@ export type RootStackParamList = {
 };
 
 import {C} from './data/constants';
+import {ErrorBoundary} from './components/ErrorBoundary';
 import {AppProvider, useAppContext} from './context/AppContext';
 import {TabBarIcon} from './components/TabBarIcon';
 
@@ -168,11 +169,13 @@ export default function App() {
         <NavigationContainer>
           <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
             <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
-            {isAuthenticated ? (
+            <ErrorBoundary>
+              {isAuthenticated ? (
               <RootNavigator onLogout={handleLogout} />
             ) : (
               <LoginScreen onLogin={handleLogin} />
             )}
+            </ErrorBoundary>
           </SafeAreaView>
         </NavigationContainer>
       </AppProvider>
