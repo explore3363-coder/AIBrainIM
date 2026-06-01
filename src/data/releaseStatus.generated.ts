@@ -5,17 +5,16 @@ export const generatedReleaseStatus = {
   "applePrerequisitesReady": false,
   "firstTestFlightBuildUploaded": false,
   "appStoreAssetsReady": true,
-  "summary": "Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 仍待补齐；App Store 素材真值已通过仓库校验，且最近一次专项预检已留下时间戳；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 3 个阻塞",
+  "summary": "Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 仍待补齐；App Store 素材真值已通过仓库校验，且最近一次专项预检已留下时间戳；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 2 个阻塞",
   "triggerTagName": "v0.1.0",
   "triggerGateReady": false,
   "triggerGateFailures": [
-    "工作区仍有未提交改动，当前不会安全触发 v0.1.0：M src/data/releaseStatus.generated.ts",
     "本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号",
     "origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
   ],
-  "assetsValidatedAt": 1780357146976,
-  "updatedAt": 1780357147083,
-  "preflightReportGeneratedAt": "2026-06-01T23:39:06.976Z",
+  "assetsValidatedAt": 1780357148621,
+  "updatedAt": 1780357918096,
+  "preflightReportGeneratedAt": "2026-06-01T23:39:08.621Z",
   "preflightOverallStatus": "FAIL",
   "preflightBlockingCount": 2,
   "preflightFailedChecks": [
@@ -96,6 +95,19 @@ export const generatedReleaseStatus = {
         "App Store asset check complete (TestFlight - non-blocking)."
       ],
       "stderrTail": []
+    },
+    {
+      "label": "同步 releaseStatus.generated.ts",
+      "ok": true,
+      "status": 0,
+      "durationMs": 1643,
+      "stdoutTail": [
+        "> AIBrainIM@0.1.0 sync:release-status",
+        "> node scripts/sync-release-status.mjs",
+        "Release status generated: src/data/releaseStatus.generated.ts",
+        "Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 仍待补齐；App Store 素材真值已通过仓库校验，且最近一次专项预检已留下时间戳；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 3 个阻塞"
+      ],
+      "stderrTail": []
     }
   ],
   "preflightNextActions": [
@@ -120,6 +132,6 @@ export const generatedReleaseStatus = {
     "version": "0.1.0",
     "apple": "Missing Apple inputs: ASC_KEY_ID/APPLE_API_KEY_ID, ASC_ISSUER_ID/APPLE_API_ISSUER_ID, APPLE_TEAM_ID, APPLE_API_KEY_CONTENT",
     "assets": "ok",
-    "preflight": "仍有 2 个提测阻塞：提测关键测试、TestFlight 输入预检。 | 上传提测真值：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本 | trigger:testflight 门禁：工作区仍有未提交改动，当前不会安全触发 v0.1.0：M src/data/releaseStatus.generated.ts；本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号；origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
+    "preflight": "仍有 2 个提测阻塞：提测关键测试、TestFlight 输入预检。 | 上传提测真值：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本 | trigger:testflight 门禁：本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号；origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
   }
 } as const;

@@ -44,11 +44,13 @@ describe('releaseChannel', () => {
   });
 
   it('falls back to repo-generated release status when no runtime override or env is present', () => {
-    // With Apple CI credentials now configured in CI, applePrerequisitesReady is true.
-    // The summary reflects that Apple/TestFlight pre-checks passed but first build is pending.
+    // The generated status reflects local/CI-env reality: without GitHub Secrets, the
+    // preflight validation script reports Apple inputs as missing, so
+    // applePrerequisitesReady is false. The actual TestFlight workflow provides these
+    // secrets at runtime and re-validates via the explicit preflight step before upload.
     const result = getAppleReleaseStatus();
 
-    expect(result.applePrerequisitesReady).toBe(true);
+    expect(result.applePrerequisitesReady).toBe(false);
     expect(result.firstTestFlightBuildUploaded).toBe(false);
     expect(['generated', 'default']).toContain(result.source);
     expect(result.summary).toContain('Apple');
