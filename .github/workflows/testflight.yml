@@ -32,7 +32,7 @@ jobs:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
         run: |
           npm ci
-          npm run validate:apple-ci
+          npm run preflight:testflight
 
       - name: Cache Pods
         uses: actions/cache@v4
