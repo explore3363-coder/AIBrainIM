@@ -45,6 +45,8 @@ jobs:
         run: |
           npm ci
 
+      # Step 1: Explicitly build fresh Hermes bytecode bundle BEFORE archive.
+      # This ensures the bundle is regenerated from current code, regardless of DerivedData cache.
       - name: Remove Bundle React Native script phase for device archive
         run: |
           python3 scripts/remove_bundle_phase.py
@@ -70,6 +72,12 @@ jobs:
           pod install
         working-directory: ios
 
+      - name: Build JS bundle (Hermes bytecode) for device archive
+        run: |
+          BUNDLE_OUT="ios/build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos/main.jsbundle"
+          mkdir -p "$(dirname "$BUNDLE_OUT")"
+          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "ios/build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos" --minify true --reset-cache 2>&1 | tail -10
+          echo "Bundle built at $(date)"
       - name: Set Info.plist build version
         run: |
           BUILD_NUMBER=$(date +%Y%m%d%H%M)
