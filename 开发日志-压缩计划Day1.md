@@ -56,3 +56,46 @@ xcodebuild -workspace AIBrainIM.xcworkspace -scheme AIBrainIM \
 - GatewaySettingsScreen 已有完整 UI，无需额外开发
 - `@ts-ignore` / `@ts-expect-error` 仅存在于 `node_modules/`，src/ 下为 0
 - TypeScript typecheck 全程 0 error/warning
+
+---
+
+# 开发日志 — Day 3（6月1日）
+
+## Phase A 状态确认 ✅
+IM通道已跑通：`sessionsSendMessage` 实现于 `src/data/api.ts`，ChatScreen 直接调用 OpenClaw sessions API，含指数退避重试。
+
+## UI收口进度
+
+### ✅ 已完成
+- **TaskScreen** → 真实Kanban（`sessionsToTasks()` 来自 OpenClaw 实时会话）
+- **ProfileScreen** → 完整Gateway设置页（含连接状态检测、会话数显示）
+- **Dashboard 3D气泡** → CSS多层glow效果（View叠加，非Three.js）
+- **#4DFF88 霓虹绿** → ChatScreen、DashboardScreen、MetricPill 已对齐
+
+### ❌ 仍需处理
+- **DatabaseScreen** → `MOCK_DATABASES` 硬编码，需替换为 AI协作平台 真实数据或移除
+- **FileLibraryScreen** → 需验证是否为占位符
+- **MemoryStoreScreen** → 占位符搜索文本
+- **KnowledgeBaseScreen** → 搜索框/表单占位符
+
+## Apple物料进度
+
+### ✅ 已就绪
+- `scripts/build-and-upload-tf.sh` — 完整 TestFlight 构建+上传脚本
+  - 签名身份：`iPhone Distribution: Hong Yang (7S96N8A32U)`
+  - API Key：`~/private_keys/AuthKey_HWP45ALL8Y.p8`
+  - Team ID：7S96N8A32U
+  - Provisioning Profile：`3d8fdd81-ba2a-4074-bb1a-3770fe705ee6`
+
+### ❌ 待完成
+- [ ] GitHub Tag `v0.1.0-beta` 未打
+- [ ] 最新UI截图未更新
+- [ ] 隐私页 `PRIVACY.md` HTTPS 可访问性未验证
+- [ ] TestFlight 内部链接未验证
+
+## 下一个任务（Day 4）
+1. 填充 DatabaseScreen、FileLibraryScreen、MemoryStoreScreen 真实数据
+2. 执行 `git tag v0.1.0-beta && git push origin v0.1.0-beta`
+3. 运行 `bash scripts/build-and-upload-tf.sh` 构建+上传 TestFlight
+4. 截图更新 + 隐私页HTTPS验证
+5. 验证 TestFlight 链接可下载
