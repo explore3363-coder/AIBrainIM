@@ -74,9 +74,9 @@ jobs:
 
       - name: Build JS bundle (Hermes bytecode) for device archive
         run: |
-          BUNDLE_OUT="ios/build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos/main.jsbundle"
+          BUNDLE_OUT="build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos/main.jsbundle"
           mkdir -p "$(dirname "$BUNDLE_OUT")"
-          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "ios/build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos" --minify true --reset-cache 2>&1 | tail -10
+          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos" --minify true --reset-cache 2>&1 | tail -10
           echo "Bundle built at $(date)"
       - name: Set Info.plist build version
         run: |
