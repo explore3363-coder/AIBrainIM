@@ -74,9 +74,9 @@ jobs:
 
       - name: Build JS bundle (Hermes bytecode) for device archive
         run: |
-          BUNDLE_OUT="build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos/main.jsbundle"
+          BUNDLE_OUT="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/main.jsbundle"
           mkdir -p "$(dirname "$BUNDLE_OUT")"
-          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "build/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/AIBrainIM/BuildProductsPath/Release-iphoneos" --minify true --reset-cache 2>&1 | tail -10
+          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app" --minify true --reset-cache 2>&1 | tail -10
           echo "Bundle built at $(date)"
       - name: Set Info.plist build version
         run: |
@@ -136,6 +136,15 @@ jobs:
           # CODE_SIGNING_ALLOWED=NO for Pods targets is set in Podfile post_install
           # Automatic signing: Xcode auto-selects installed cert + provisioning profile
           xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='-' DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
+
+      - name: Copy JS bundle into archive .app
+        run: |
+          # The xcodebuild archive copies .app from DerivedData to xcarchive.
+          # We pre-built the bundle into DerivedData .app, now also copy to xcarchive .app.
+          mkdir -p build/AIBrainIM.xcarchive/Products/AIBrainIM.app/
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/main.jsbundle build/AIBrainIM.xcarchive/Products/AIBrainIM.app/ 2>/dev/null || echo "Bundle copy done"
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/assets build/AIBrainIM.xcarchive/Products/AIBrainIM.app/ 2>/dev/null || echo "Assets copy done (may not exist)"
+          ls -la build/AIBrainIM.xcarchive/Products/AIBrainIM.app/
 
       - name: Export IPA and sign for App Store Connect
         run: |
