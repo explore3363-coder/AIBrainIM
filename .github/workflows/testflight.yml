@@ -47,9 +47,7 @@ jobs:
 
       # Step 1: Explicitly build fresh Hermes bytecode bundle BEFORE archive.
       # This ensures the bundle is regenerated from current code, regardless of DerivedData cache.
-      - name: Remove Bundle React Native script phase for device archive
-        run: |
-          python3 scripts/remove_bundle_phase.py
+      # Bundle phase NOT removed - xcodebuild handles bundling naturally
     
       - name: Install Ruby 3.3
         run: |
