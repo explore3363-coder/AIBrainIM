@@ -143,12 +143,13 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          # Force Xcode 26 + iOS 26.4 SDK to satisfy App Store Connect minimum requirement
           export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-          # CODE_SIGNING_ALLOWED=NO for Pods targets is set in Podfile post_install
-          # Automatic signing: Xcode auto-selects installed cert + provisioning profile
-          # Disable Hermes to avoid hermesc path issues; will use JSC instead
+          # Skip bundle phase: the bundle is pre-built by "Build JS bundle" step.
+          # xcodebuild Bundle phase runs Metro which fails to resolve react module on CI.
           export USE_HERMES=false
+          export RCT_NO_LAUNCH_PACKAGER=1
+          # Remove the bundle phase from the project before archiving
+          python3 scripts/remove_bundle_phase.py || true
           xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='-' DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
 
       - name: Copy JS bundle into archive .app
