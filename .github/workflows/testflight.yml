@@ -58,6 +58,20 @@ jobs:
           ruby --version
           gem --version
 
+      - name: Re-install npm dependencies (clean)
+        run: |
+          # npm ci can fail on runners due to cache issues; use npm install + force
+          rm -rf node_modules
+          npm cache clean --force
+          npm install --prefer-offline=false
+          # Diagnostic
+          echo "=== react package main field ==="
+          node -p "require('./node_modules/react/package.json').main"
+          echo "=== react version ==="
+          node -p "require('./node_modules/react/package.json').version"
+          echo "=== react index.js exists? ==="
+          ls node_modules/react/index.js 2>/dev/null && echo "YES" || echo "NO"
+
       - name: Install CocoaPods
         run: |
           export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
@@ -133,6 +147,8 @@ jobs:
           export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
           # CODE_SIGNING_ALLOWED=NO for Pods targets is set in Podfile post_install
           # Automatic signing: Xcode auto-selects installed cert + provisioning profile
+          # Disable Hermes to avoid hermesc path issues; will use JSC instead
+          export USE_HERMES=false
           xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='-' DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
 
       - name: Copy JS bundle into archive .app
