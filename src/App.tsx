@@ -164,21 +164,21 @@ export default function App() {
   };
 
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <NavigationContainer>
-          <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
-            <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
-            <ErrorBoundary>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AppProvider>
+          <NavigationContainer>
+            <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
+              <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
               {isAuthenticated ? (
               <RootNavigator onLogout={handleLogout} />
             ) : (
               <LoginScreen onLogin={handleLogin} />
             )}
-            </ErrorBoundary>
-          </SafeAreaView>
-        </NavigationContainer>
-      </AppProvider>
-    </SafeAreaProvider>
+            </SafeAreaView>
+          </NavigationContainer>
+        </AppProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
