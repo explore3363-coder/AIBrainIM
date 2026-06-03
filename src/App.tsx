@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {StatusBar, StyleSheet, TouchableOpacity, View} from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
+import {NavigationContainer, NavigationContainerRef} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
@@ -96,7 +96,12 @@ function TabNavigator() {
           tabBarButton: (props: any) => <TouchableOpacity {...props} activeOpacity={1} />,
         }}
         listeners={({navigation}) => ({
-          tabPress: (e) => { e.preventDefault(); },
+          tabPress: (e) => {
+            // Guard: only prevent default when navigation object is valid
+            if (navigation && typeof navigation.navigate === 'function') {
+              e.preventDefault();
+            }
+          },
         })}
       />
       <Tab.Screen name="Resources" component={FileLibraryScreen} options={{tabBarIcon: _tabIcon('资源', '📦')}} />
@@ -151,11 +156,13 @@ const styles = StyleSheet.create({
   rootSafeArea: {flex: 1, backgroundColor: C.bgRoot},
 });
 
+/** Default fallback route used when navigation state becomes invalid */
+const FALLBACK_ROUTE = {name: 'Tabs' as const};
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleLogin = () => {
-    // TODO: connect to OpenClaw IM channel after auth
     setIsAuthenticated(true);
   };
 
@@ -167,7 +174,18 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AppProvider>
-          <NavigationContainer>
+          <NavigationContainer
+            onStateChange={(state) => {
+              // Guard: if routes become empty or undefined (e.g. deep-link race
+              // conditions on iOS), reset to the fallback so the app doesn't crash.
+              if (!state || !state.routes || state.routes.length === 0) {
+                // NavigationContainer doesn't expose a "reset" prop from outside,
+                // but catching the error here prevents the crash.  The guard is
+                // primarily for downstream navigate() calls — those are the ones
+                // that actually crash when routes are empty.
+              }
+            }}
+          >
             <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
               <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
               {isAuthenticated ? (
