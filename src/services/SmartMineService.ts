@@ -3,34 +3,11 @@
 // API 不可用时自动降级到模拟数据
 
 import type {ProductionData, Equipment, Alert, Camera, SafetyKPI, OreBodySensorsData} from '../types/smartmine';
-import {Platform} from 'react-native';
 
-// ─── Platform Server URL Configuration ───────────────────────────────────────
-// REAL URL: Replace the fallback below with your actual platform server URL,
-// or wire this to a remote config endpoint (e.g. /api/config).
-//
-// localhost:3000 is ONLY a safe fallback for iOS/Android simulator builds
-// (React Native __DEV__ mode).  For release builds on a real device you must
-// use the actual deployment URL; if that URL is unreachable the existing
-// try-catch in each service method returns mock data and the app does NOT crash.
+// AI协作平台(platform-server :3000) 作为智慧矿山统一数据源
+// 融合后: AIBrainIM移动端 → AI协作平台( :3000/api/smartmine/* ) → 智慧矿山后端
+const PLATFORM_SERVER_URL = 'http://localhost:3000';
 
-function getPlatformServerUrl(): string {
-  try {
-    // In development (simulator) we can reach the Metro host machine via localhost.
-    // In production/release, replace this with your real server URL.
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      return 'http://localhost:3000';
-    }
-    // Release / device: return empty string so all fetch() calls fall through
-    // to the existing catch → mock-data fallback (no crash).
-    // TODO: replace '' with your production URL, e.g. 'https://your-platform-server.com'
-    return '';
-  } catch {
-    return '';
-  }
-}
-
-const PLATFORM_SERVER_URL = getPlatformServerUrl();
 const SM_BASE = () => `${PLATFORM_SERVER_URL}/api/smartmine`;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────

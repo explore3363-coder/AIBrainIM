@@ -29,38 +29,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       launchOptions: launchOptions
     )
 
-    window?.makeKeyAndVisible()
     return true
   }
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
   override func sourceURL(for bridge: RCTBridge) -> URL? {
-    return self.bundleURL()
+    self.bundleURL()
   }
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    // In debug, always try Metro first
-    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
-    if metroURL != nil {
-      return metroURL
-    }
+    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+#else
+    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
-    // Try main.jsbundle first (standard location)
-    if let bundleURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle") {
-      return bundleURL
-    }
-    // Fallback: try main.hbc (Hermes bytecode)
-    if let hbcURL = Bundle.main.url(forResource: "main", withExtension: "hbc") {
-      return hbcURL
-    }
-    // Last resort: try jsbundle in a different path
-    if let altURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle", subdirectory: "Assets") {
-      return altURL
-    }
-    // Return a dummy URL to prevent crash - app will show error gracefully
-    print("[AIBrainIM] WARNING: No JS bundle found! Using empty bundle path.")
-    return nil
   }
 }
