@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
 
   const handleLogin = () => { setIsAuthenticated(true); };
   const handleLogout = () => { setIsAuthenticated(false); };
