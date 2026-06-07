@@ -1,397 +1,222 @@
 import React from 'react';
+import {Text} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
-import {Text, TouchableOpacity} from 'react-native';
+
 import {DashboardScreen} from '../src/screens/DashboardScreen';
+import * as SmartMineService from '../src/services/SmartMineService';
 
-const mockNavigate = jest.fn();
-const mockRefresh = jest.fn();
-let mockUploads: any[] = [
-  {id: 'upload-1', name: 'roadmap.pdf', type: 'document', status: 'processing', progress: 60, timestamp: '17:28', agent: 'heijin', executionMode: 'simulated'},
-  {id: 'upload-dispatched-live', name: 'live-dispatched.jpg', type: 'image', status: 'dispatched', progress: 100, timestamp: '17:31', agent: 'heijin', executionMode: 'live'},
+// ─── Mock SmartMineService ────────────────────────────────────────────────────
+
+const MOCK_PRODUCTION = {
+  today: {output: 1247, unit: '吨', recovery: 86.3, oee: 94.7, safetyDays: 2847},
+  monthly: {output: 38240, target: 40000, completion: 95.6},
+};
+
+const MOCK_EQUIPMENT = [
+  {id: 'eq-01', name: '1# 球磨机', status: 'running', temp: 68, vibration: 0.4},
+  {id: 'eq-02', name: '2# 球磨机', status: 'standby', temp: 42, vibration: 0.1},
+  {id: 'eq-03', name: '浮选机组', status: 'running', temp: 55, vibration: 0.3},
+  {id: 'eq-04', name: '3# 浓密机', status: 'fault', temp: 89, vibration: 1.2},
+  {id: 'eq-05', name: '皮带廊', status: 'running', temp: 48, vibration: 0.2},
 ];
-let mockReleaseActiveUploads = 0;
 
-function buildContextOverrides(): any {
-  return {
-    agents: [
-      {id: 'heijin', name: '黑金', role: 'AI 项目工程师', status: 'working', focus: 'AIBrainIM', accent: '#f97316', current: '处理中'},
-      {id: 'zhuli', name: '助理', role: '协调者', status: 'online', focus: '调度', accent: '#22d3ee', current: '待命'},
-    ],
-    tasks: [
-      {id: 'task-1', title: '推进移动端闭环', owner: '黑金', state: 'running', eta: '10m', next: '继续补首页驾驶舱', priority: 'P0', sourceType: 'chat'},
-      {id: 'task-2', title: '等待人工确认', owner: '助理', state: 'blocked', eta: '待确认', next: '等待拍板', priority: 'P1', sourceType: 'confirmation'},
-    ],
-    confirmations: [
-      {id: 'confirm-1', title: '确认 TestFlight 路径', description: '还差 Apple 侧配置与物料', agent: '助理', urgency: 'high', timestamp: '17:30', status: 'pending'},
-    ],
-    dispatches: [
-      {
-        id: 'dispatch-1',
-        userText: '继续推进 AIBrainIM P1',
-        reply: '首页现在会优先展示 AI 产出流、调度状态和待确认项。',
-        status: 'processing',
-        taskId: 'task-runtime-1',
-        dispatchId: 'dispatch-runtime-1',
-        sessionKey: 'feishu:heijin:runtime',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        agentId: 'heijin',
-        source: 'chat',
-      },
-      {
-        id: 'dispatch-upload-dispatched-only',
-        userText: '附件已分派但未完成',
-        reply: '附件只进入了调度链，还没有最终处理结果。',
-        status: 'dispatched',
-        taskId: 'task-upload-dispatched-only',
-        dispatchId: 'dispatch-upload-dispatched-only',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        agentId: 'heijin',
-        source: 'upload',
-      },
-    ],
-    uploads: mockUploads,
-    pendingConfirmations: 1,
-    refreshing: false,
-    refresh: mockRefresh,
-    runtimeMode: 'live',
-    recentCaptures: [],
-    agentRuntimes: {},
-    dataBusConnected: false,
-    setDataBusConnected: jest.fn(),
-    lastSyncedAt: Date.now(),
-    sessionCount: 3,
-    gatewaySummary: 'OpenClaw Gateway 已连接',
-    gatewayConfigValid: true,
-    gatewayWarningCount: 0,
-    applePrerequisitesReady: false,
-    firstTestFlightBuildUploaded: false,
-    appStoreAssetsReady: false,
-    appleReleaseSummary: 'Apple Developer / App Store Connect / GitHub CI 变量仍待补齐',
-    appleReleaseSource: 'default',
-    appleReleaseValidatedAt: undefined,
-    appStoreAssetsValidatedAt: undefined,
-    preflightReportGeneratedAt: undefined,
-    preflightOverallStatus: undefined,
-    preflightBlockingCount: undefined,
-    preflightFailedChecks: ['TestFlight 输入预检'],
-    preflightNextActions: ['先补齐 Apple API Key / Issuer ID / Team ID，再重跑 npm run preflight:testflight'],
-    appleMissingInputs: [],
-    triggerTagName: 'v0.1.0',
-    triggerGateReady: false,
-    triggerGateFailures: [
-      '工作区仍有未提交改动，当前不会安全触发 v0.1.0',
-      'origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build',
-    ],
-    releaseActiveUploads: mockReleaseActiveUploads,
-    releaseCompletedUploads: 0,
-    releaseLiveCompletedUploads: 0,
-    releaseSimulatedCompletedUploads: 0,
-    releaseLiveDispatchedOnlyUploads: 0,
-    releaseLatestLiveUploadCompletedAt: undefined,
-    releaseLatestLiveUpload: undefined,
-    releaseUploadEvidenceSummary: undefined,
-    appleValidationDetail: 'Missing Apple inputs: APPLE_API_KEY_ID, APPLE_API_ISSUER_ID',
-    assetsValidationDetail: 'App Store 素材预检尚未产生详细日志',
-    preflightValidationDetail: 'TestFlight 总预检尚未产生详细报告',
-    refreshGatewayStatus: jest.fn(),
-    confirmItem: jest.fn(),
-    deferItem: jest.fn(),
-    reopenItem: jest.fn(),
-    registerDispatch: jest.fn(),
-    markLatestDispatchActive: jest.fn(),
-    finalizeLatestDispatch: jest.fn(),
-    registerKnowledgeCapture: jest.fn(),
-    registerMemoryCapture: jest.fn(),
-  };
-}
+const MOCK_ALERTS = [
+  {id: 'al-01', level: 'critical', title: '3# 球磨机轴承温度超限', time: '14:23', zone: '选矿厂'},
+  {id: 'al-02', level: 'warning', title: '2# 浮选机液位偏低', time: '13:51', zone: '浮选车间'},
+  {id: 'al-03', level: 'info', title: '尾矿库水位监测正常', time: '12:00', zone: '尾矿库'},
+];
 
-let mockContext: any = buildContextOverrides();
-
-jest.mock('../src/context/AppContext', () => ({
-  useAppContext: () => mockContext,
-}));
-
-jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({navigate: mockNavigate}),
-}));
-
-jest.mock('../src/services/uploadService', () => ({
-  uploadService: {
-    getFiles: () => [],
-    subscribe: () => () => {},
+jest.mock('../src/services/SmartMineService', () => ({
+  SmartMineService: {
+    getProduction: jest.fn(),
+    getEquipment: jest.fn(),
+    getAlerts: jest.fn(),
+    getSafetyKPI: jest.fn(),
+    getCameras: jest.fn(),
+    getOreBodySensors: jest.fn(),
   },
 }));
 
-describe('DashboardScreen', () => {
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function allTextNodes(root: ReactTestRenderer.ReactTestRenderer['root']): string[] {
+  return root.findAllByType(Text).map(node => {
+    const child = node.props.children;
+    return Array.isArray(child) ? child.join('') : String(child ?? '');
+  });
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+describe('DashboardScreen — Smart Mine Dashboard', () => {
   beforeEach(() => {
-    mockNavigate.mockClear();
-    mockRefresh.mockClear();
-    mockUploads = [
-      {id: 'upload-1', name: 'roadmap.pdf', type: 'document', status: 'processing', progress: 60, timestamp: '17:28', agent: 'heijin', executionMode: 'simulated'},
-      {id: 'upload-dispatched-live', name: 'live-dispatched.jpg', type: 'image', status: 'dispatched', progress: 100, timestamp: '17:31', agent: 'heijin', executionMode: 'live'},
-    ];
-    mockReleaseActiveUploads = 0;
-    mockContext = buildContextOverrides();
+    (SmartMineService.SmartMineService.getProduction as jest.Mock).mockResolvedValue(MOCK_PRODUCTION);
+    (SmartMineService.SmartMineService.getEquipment as jest.Mock).mockResolvedValue(MOCK_EQUIPMENT);
+    (SmartMineService.SmartMineService.getAlerts as jest.Mock).mockResolvedValue(MOCK_ALERTS);
+    jest.clearAllMocks();
   });
 
-  function findPressableByLabel(root: ReactTestRenderer.ReactTestInstance, label: string) {
-    const pressables = root.findAllByType(TouchableOpacity);
-    return pressables.find(node => {
-      const texts = node.findAllByType(Text).map(textNode => {
-        const child = textNode.props.children;
-        return Array.isArray(child) ? child.join('') : child;
-      });
-      return texts.includes(label);
-    });
-  }
-
-  it('renders the new dashboard spotlight content', async () => {
+  it('renders the smart mine page title and live indicator', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
     const root = tree!.root;
-    expect(root.findAllByType(Text).some(node => node.props.children === '首页重点')).toBe(true);
-    expect(root.findAllByType(Text).some(node => node.props.children === '首屏只保留用户真会关心的三件事')).toBe(true);
-    expect(root.findAllByType(Text).some(node => node.props.children === 'P1 正在从样板走向可用驾驶舱')).toBe(true);
-    expect(root.findAllByType(Text).some(node => node.props.children === 'TestFlight / App Store 还有 1 项待拍板')).toBe(true);
-    expect(root.findAllByType(Text).some(node => node.props.children === '首个 Build 动作状态')).toBe(true);
-    expect(root.findAllByType(Text).some(node => node.props.children === '未就绪')).toBe(true);
-    const renderedTexts = root.findAllByType(Text).map(node => {
-      const child = node.props.children;
-      return Array.isArray(child) ? child.join('') : String(child);
-    });
-    expect(renderedTexts.some(text => text.includes('距离首个 TestFlight Build 还差最后几步'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('主按钮动作：去补 Apple 上线配置'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('下一步：去补 Apple 上线配置'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('还差什么才能触发 Build'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传回流真值：LIVE dispatched-only 不能作为提测真值'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('TestFlight 总预检：总预检尚未形成真值'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('Apple 账号与提测前置：Apple 前置未补齐'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('App Store 素材：App Store 素材真值未通过'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('Apple 当前状态：Apple 前置未补齐'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('Apple 预检详情：Missing Apple inputs: APPLE_API_KEY_ID, APPLE_API_ISSUER_ID'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('总预检状态：总预检尚未形成真值'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('总预检新鲜度：未记录最近一次总预检时间'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('总预检详情：TestFlight 总预检尚未产生详细报告'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('总预检失败项：TestFlight 输入预检'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('总预检建议动作：先补齐 Apple API Key / Issuer ID / Team ID，再重跑 npm run preflight:testflight'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('素材当前状态：App Store 素材真值未通过'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('素材预检详情：App Store 素材预检尚未产生详细日志'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('TestFlight 当前状态：首个 TestFlight Build 仍不可触发'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库触发摘要：仓库触发门禁未过（v0.1.0） · 阻塞 2 项'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库当前卡点：仓库触发门禁未过（v0.1.0）：工作区仍有未提交改动，当前不会安全触发 v0.1.0'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库卡点原因：工作区门禁未通过：工作区仍有未提交改动，当前不会安全触发 v0.1.0'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库态说明：工作区仍有未提交改动，当前不会安全触发 v0.1.0；origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库剩余门禁数：2 / 4'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库触发责任：封版 / 改版本 1 项；仓库封版清理 1 项'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('当前触发 tag：v0.1.0'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库态阻塞：工作区仍有未提交改动，当前不会安全触发 v0.1.0'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('仓库态阻塞：origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('待封版 / 改版本：origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('待仓库封版清理：工作区仍有未提交改动，当前不会安全触发 v0.1.0'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传闭环状态：上传链路执行中，仍待首个真实回流样本'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传回流真值：LIVE dispatched-only 不能作为提测真值'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传真值说明：已有 1 条 LIVE 上传只到 dispatched，还缺最终 done 回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('首个 Build 三件套：Gateway LIVE 已就绪 · LIVE 仅分派，缺 done · 总预检未生成'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('当前主卡点：上传门禁：LIVE 仅分派，缺 done'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('主卡点原因：已有 1 条 LIVE 上传只到 dispatched，还缺最终 done 回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('剩余门禁数：2 / 3'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('Gateway 门禁：Gateway LIVE 已就绪'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传门禁：LIVE 仅分派，缺 done'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('预检门禁：总预检未生成'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传样本计数：LIVE完成 0 · LIVE仅分派 1 · 模拟完成 0 · 处理中 1 · 提测真值 缺最终 done 回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传样本口径：LIVE完成 0 · LIVE仅分派 1 · 模拟完成 0 · 处理中 1 · LIVE dispatched-only 不能作为提测真值'))).toBe(true);
+    const texts = allTextNodes(root);
+    // Page title (inside ScrollView header)
+    expect(texts.some(t => t.includes('智慧矿山管控平台'))).toBe(true);
+    // LiveDot pill
+    expect(texts.some(t => t === '实时')).toBe(true);
   });
 
-  it('prefers runtime release upload evidence summary when present', async () => {
-    mockContext = {
-      ...buildContextOverrides(),
-      releaseUploadEvidenceSummary: 'LIVE完成 9 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 以 runtime 发布产物为准',
-    };
-
+  it('renders the digital twin card with key metadata', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const renderedTexts = tree!.root.findAllByType(Text).map(node => {
-      const child = node.props.children;
-      return Array.isArray(child) ? child.join('') : String(child);
-    });
-
-    expect(renderedTexts.some(text => text.includes('上传样本口径：LIVE完成 9 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 以 runtime 发布产物为准'))).toBe(true);
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    // Twin card title and sub
+    expect(texts.some(t => t.includes('智慧矿山三维管控平台'))).toBe(true);
+    expect(texts.some(t => t.includes('聚源钨矿数字孪生'))).toBe(true);
+    // Hint text on the card
+    expect(texts.some(t => t.includes('点击查看三维模型'))).toBe(true);
   });
 
-  it('does not count dispatched-only upload records as completed release evidence', async () => {
-    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
-    await ReactTestRenderer.act(async () => {
-      tree = ReactTestRenderer.create(<DashboardScreen />);
-    });
-
-    const renderedTexts = tree!.root.findAllByType(Text).map(node => {
-      const child = node.props.children;
-      return Array.isArray(child) ? child.join('') : String(child);
-    });
-
-    expect(renderedTexts.some(text => text.includes('上传闭环状态：上传链路执行中，仍待首个真实回流样本'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传回流真值：LIVE dispatched-only 不能作为提测真值'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('首个 Build 三件套：Gateway LIVE 已就绪 · LIVE 仅分派，缺 done · 总预检未生成'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('当前主卡点：上传门禁：LIVE 仅分派，缺 done'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('主卡点原因：已有 1 条 LIVE 上传只到 dispatched，还缺最终 done 回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('剩余门禁数：2 / 3'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('Gateway 门禁：Gateway LIVE 已就绪'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传门禁：LIVE 仅分派，缺 done'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('预检门禁：总预检未生成'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传样本计数：LIVE完成 0 · LIVE仅分派 1 · 模拟完成 0 · 处理中 1 · 提测真值 缺最终 done 回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传样本口径：LIVE完成 0 · LIVE仅分派 1 · 模拟完成 0 · 处理中 1 · LIVE dispatched-only 不能作为提测真值'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传闭环状态：上传闭环已验证'))).toBe(false);
-  });
-
-  it('keeps fallback active uploads visible when runtime uploads are empty', async () => {
-    mockUploads = [];
-    mockReleaseActiveUploads = 2;
-    mockContext = buildContextOverrides();
-
+  it('renders the production hero stats with correct values', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const renderedTexts = tree!.root.findAllByType(Text).map(node => {
-      const child = node.props.children;
-      return Array.isArray(child) ? child.join('') : String(child);
-    });
-
-    expect(renderedTexts.some(text => text.includes('上传样本计数：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 2 · 提测真值 等待回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传样本口径：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 2 · 提测真值 等待回流'))).toBe(true);
-    expect(renderedTexts.some(text => text.includes('上传闭环状态：上传链路执行中，仍待首个真实回流样本'))).toBe(true);
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    // Stat labels
+    expect(texts.some(t => t.includes('今日产量'))).toBe(true);
+    expect(texts.some(t => t.includes('吨'))).toBe(true);
+    expect(texts.some(t => t.includes('回收率'))).toBe(true);
+    expect(texts.some(t => t.includes('OEE'))).toBe(true);
+    expect(texts.some(t => t.includes('安全天'))).toBe(true);
+    // Values from MOCK_PRODUCTION
+    expect(texts.some(t => t.includes('86.3'))).toBe(true); // recovery
+    expect(texts.some(t => t.includes('94.7'))).toBe(true); // oee
+    expect(texts.some(t => t.includes('2847'))).toBe(true); // safetyDays
   });
 
-  it('does not render placeholder latest LIVE trace copy when fallback only has timestamp', async () => {
-    mockUploads = [];
-    mockReleaseActiveUploads = 0;
-    mockContext = {
-      ...buildContextOverrides(),
-      uploads: [],
-      releaseCompletedUploads: 1,
-      releaseLiveCompletedUploads: 1,
-      releaseLatestLiveUploadCompletedAt: Date.now() - 30_000,
-      releaseLatestLiveUpload: {
-        completedAt: Date.now() - 30_000,
-        source: 'release-status',
-      },
-    };
-
+  it('renders the equipment status section with equipment cards', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const renderedTexts = tree!.root.findAllByType(Text).map(node => {
-      const child = node.props.children;
-      return Array.isArray(child) ? child.join('') : String(child);
-    });
-
-    expect(renderedTexts.some(text => text.includes('最近一条 LIVE 真回流证据：样本名未记录'))).toBe(false);
-    expect(renderedTexts.some(text => text.includes('最近一条 LIVE 真回流：'))).toBe(true);
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    // Section title is rendered via SectionTitle
+    expect(texts.some(t => t.includes('设备状态'))).toBe(true);
+    // Equipment names from mock
+    expect(texts.some(t => t.includes('1# 球磨机'))).toBe(true);
+    expect(texts.some(t => t.includes('浮选机组'))).toBe(true);
+    // Status labels
+    expect(texts.some(t => t.includes('运行'))).toBe(true);
+    expect(texts.some(t => t.includes('待机'))).toBe(true);
+    expect(texts.some(t => t.includes('故障'))).toBe(true);
   });
 
-  it('navigates to confirmations from launch spotlight when launch path is blocked', async () => {
+  it('renders the real-time alerts section', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const cta = findPressableByLabel(tree!.root, 'TestFlight / App Store 还有 1 项待拍板');
-    expect(cta).toBeTruthy();
-
-    await ReactTestRenderer.act(async () => {
-      cta!.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith('Confirmations', {
-      focusConfirmationId: 'confirm-1',
-      focusTaskId: undefined,
-      focusDispatchId: undefined,
-    });
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    expect(texts.some(t => t.includes('实时告警'))).toBe(true);
+    // Alert titles from mock
+    expect(texts.some(t => t.includes('3# 球磨机轴承温度超限'))).toBe(true);
+    expect(texts.some(t => t.includes('2# 浮选机液位偏低'))).toBe(true);
+    // Zone info
+    expect(texts.some(t => t.includes('选矿厂'))).toBe(true);
+    expect(texts.some(t => t.includes('浮选车间'))).toBe(true);
   });
 
-  it('navigates to project library from spotlight card', async () => {
+  it('renders the worker positioning section', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const cta = findPressableByLabel(tree!.root, 'P1 正在从样板走向可用驾驶舱');
-    expect(cta).toBeTruthy();
-
-    await ReactTestRenderer.act(async () => {
-      cta!.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith('ProjectLibrary');
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    expect(texts.some(t => t.includes('人员定位'))).toBe(true);
+    // Worker names are hard-coded in WorkerPositioning
+    expect(texts.some(t => t.includes('张志刚'))).toBe(true);
+    expect(texts.some(t => t.includes('李晓峰'))).toBe(true);
+    expect(texts.some(t => t.includes('王建国'))).toBe(true);
+    expect(texts.some(t => t.includes('陈永强'))).toBe(true);
   });
 
-  it('routes release readiness CTA to profile when Apple setup is the top blocker', async () => {
+  it('renders the top bar navigation items', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const cta = findPressableByLabel(tree!.root, '去补 Apple 上线配置');
-    expect(cta).toBeTruthy();
-
-    await ReactTestRenderer.act(async () => {
-      cta!.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith('Tabs', {screen: 'Profile'});
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    expect(texts.some(t => t === '记忆')).toBe(true);
+    expect(texts.some(t => t === '知识')).toBe(true);
+    expect(texts.some(t => t === '附件')).toBe(true);
+    expect(texts.some(t => t === '调度记录')).toBe(true);
   });
 
-  it('surfaces release next step card in action queue', async () => {
+  it('renders all four explicitly-titled sections', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
-
-    const cta = findPressableByLabel(tree!.root, '下一步：去补 Apple 上线配置');
-    expect(cta).toBeTruthy();
-
-    await ReactTestRenderer.act(async () => {
-      cta!.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith('Tabs', {screen: 'Profile'});
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    // These are the four sections with explicit SectionTitle:
+    expect(texts.some(t => t.includes('智慧矿山管控平台'))).toBe(true);
+    expect(texts.some(t => t.includes('设备状态'))).toBe(true);
+    expect(texts.some(t => t.includes('实时告警'))).toBe(true);
+    expect(texts.some(t => t.includes('人员定位'))).toBe(true);
   });
 
-  it('keeps dispatch chain quick action available', async () => {
+  it('uses mock data (does not call real API)', async () => {
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
-
     await ReactTestRenderer.act(async () => {
       tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
+    expect(SmartMineService.SmartMineService.getProduction).toHaveBeenCalled();
+    expect(SmartMineService.SmartMineService.getEquipment).toHaveBeenCalled();
+    expect(SmartMineService.SmartMineService.getAlerts).toHaveBeenCalled();
+  });
 
-    const cta = findPressableByLabel(tree!.root, '看调度链');
-    expect(cta).toBeTruthy();
-
+  it('displays correct production tonnage from mock', async () => {
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
-      cta!.props.onPress();
+      tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
+    const root = tree!.root;
+    const texts = allTextNodes(root);
+    // MOCK_PRODUCTION.today.output = 1247
+    expect(texts.some(t => t.includes('1,247'))).toBe(true);
+  });
 
-    expect(mockNavigate).toHaveBeenCalledWith('DispatchChain', {
-      focusDispatchId: 'dispatch-runtime-1',
-      focusTaskId: 'task-runtime-1',
-      focusSessionKey: 'feishu:heijin:runtime',
+  it('does not crash when alerts are empty', async () => {
+    (SmartMineService.SmartMineService.getAlerts as jest.Mock).mockResolvedValue([]);
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<DashboardScreen />);
+      await Promise.resolve();
     });
+    const root = tree!.root;
+    expect(allTextNodes(root).some(t => t.includes('实时告警'))).toBe(true);
   });
 });
