@@ -36,13 +36,11 @@ import {TabBarIcon} from './components/TabBarIcon';
 // Screens
 import {DashboardScreen}       from './screens/DashboardScreen';
 import {ChatScreen}            from './screens/ChatScreen';
-import {MessageScreen}         from './screens/MessageScreen'; // P1: 新增消息列表
 import {AgentScreen}           from './screens/AgentScreen';
 import {TaskScreen}            from './screens/TaskScreen';
 import {ProfileScreen}         from './screens/ProfileScreen';
 import {MemoryStoreScreen}     from './screens/MemoryStoreScreen';
 import {KnowledgeBaseScreen}    from './screens/KnowledgeBaseScreen';
-import {FileLibraryScreen}     from './screens/FileLibraryScreen';
 import {ProjectLibraryScreen}  from './screens/ProjectLibraryScreen';
 import {DispatchChainScreen}        from './screens/DispatchChainScreen';
 import {DispatchChainDetailScreen}  from './screens/DispatchChainDetailScreen';
@@ -64,8 +62,6 @@ const _tabIcon = (label: string, emoji: string) => ({focused}: {focused: boolean
 const _tabIconWithBadge = (label: string, emoji: string, count: number | undefined) => ({focused}: {focused: boolean}) => (
   <TabBarIcon label={label} emoji={emoji} focused={focused} badge={count} />
 );
-
-function DummyScreen() { return null; }
 
 function TabNavigator() {
   const {pendingConfirmations, uploads, tasks} = useAppContext();
@@ -92,25 +88,9 @@ function TabNavigator() {
       }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('首页', '🛡')}} />
-      {/* P1: 新增消息 Tab */}
-      <Tab.Screen name="Messages" component={MessageScreen} options={{tabBarIcon: _tabIcon('消息', '💬')}} />
       <Tab.Screen name="Chat" component={ChatScreen} options={{tabBarIcon: _tabIcon('协作', '👥')}} />
-      <Tab.Screen
-        name="Plus"
-        component={DummyScreen}
-        options={{
-          tabBarIcon: ({focused}) => <TabBarIcon label="" emoji="+" focused={false} isCenterFAB />,
-          tabBarButton: (props: any) => <TouchableOpacity {...props} activeOpacity={1} />,
-        }}
-        listeners={({navigation}) => ({
-          tabPress: (e) => {
-            if (navigation && typeof navigation.navigate === 'function') {
-              e.preventDefault();
-            }
-          },
-        })}
-      />
-      <Tab.Screen name="Resources" component={FileLibraryScreen} options={{tabBarIcon: _tabIcon('资源', '📦')}} />
+      <Tab.Screen name="Agent" component={AgentScreen} options={{tabBarIcon: _tabIcon('Agent', '🤖')}} />
+      <Tab.Screen name="Tasks" component={TaskScreen} options={{tabBarIcon: _tabIcon('任务', '📋')}} />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
@@ -141,7 +121,6 @@ function RootNavigator({onLogout}: {onLogout: () => void}) {
       </Stack.Screen>
       <Stack.Screen name="MemoryStore"    component={MemoryStoreScreen}    options={{title: '记忆库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="KnowledgeBase"  component={KnowledgeBaseScreen}  options={{title: '知识库',       headerBackTitle: '返回'}} />
-      <Stack.Screen name="FileLibrary"     component={FileLibraryScreen}    options={{title: '附件库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="ProjectLibrary" component={ProjectLibraryScreen} options={{title: '项目库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="DispatchChain"       component={DispatchChainScreen}        options={{title: '调度链',         headerBackTitle: '返回'}} />
       <Stack.Screen name="DispatchChainDetail"  component={DispatchChainDetailScreen} options={{title: '调度详情',     headerBackTitle: '返回'}} />
