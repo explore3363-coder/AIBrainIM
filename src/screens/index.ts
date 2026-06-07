@@ -1,5 +1,6 @@
 // Screen exports
 export {DashboardScreen}      from './DashboardScreen';
+export {MessageScreen}        from './MessageScreen'; // P1: 新增消息列表
 export {ChatScreen}           from './ChatScreen';
 export {AgentScreen}          from './AgentScreen';
 export {TaskScreen}           from './TaskScreen';

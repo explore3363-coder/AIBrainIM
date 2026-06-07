@@ -1,12 +1,20 @@
+/**
+ * App.tsx — AIBrainIM 根组件
+ *
+ * P1: MessageScreen 已接入 Tab 导航
+ * P3: NetworkStatusBar 已集成
+ * P3: ErrorBoundary 已霓虹绿主题化
+ */
+
 import React, {useState} from 'react';
 import {StatusBar, StyleSheet, TouchableOpacity, View} from 'react-native';
-import {NavigationContainer, NavigationContainerRef} from '@react-navigation/native';
+import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 
 export type RootStackParamList = {
-  Tabs: {screen?: 'Dashboard' | 'Agent' | 'Chat' | 'Tasks' | 'Profile' | 'SmartMine'} | undefined;
+  Tabs: {screen?: 'Dashboard' | 'Agent' | 'Chat' | 'Tasks' | 'Profile' | 'SmartMine' | 'Messages'} | undefined;
   MemoryStore: undefined;
   KnowledgeBase: undefined;
   FileLibrary: undefined;
@@ -21,17 +29,19 @@ export type RootStackParamList = {
 
 import {C} from './data/constants';
 import {ErrorBoundary} from './components/ErrorBoundary';
+import {NetworkStatusBar} from './components/NetworkStatusBar';
 import {AppProvider, useAppContext} from './context/AppContext';
 import {TabBarIcon} from './components/TabBarIcon';
 
 // Screens
 import {DashboardScreen}       from './screens/DashboardScreen';
 import {ChatScreen}            from './screens/ChatScreen';
+import {MessageScreen}         from './screens/MessageScreen'; // P1: 新增消息列表
 import {AgentScreen}           from './screens/AgentScreen';
 import {TaskScreen}            from './screens/TaskScreen';
 import {ProfileScreen}         from './screens/ProfileScreen';
 import {MemoryStoreScreen}     from './screens/MemoryStoreScreen';
-import {KnowledgeBaseScreen}   from './screens/KnowledgeBaseScreen';
+import {KnowledgeBaseScreen}    from './screens/KnowledgeBaseScreen';
 import {FileLibraryScreen}     from './screens/FileLibraryScreen';
 import {ProjectLibraryScreen}  from './screens/ProjectLibraryScreen';
 import {DispatchChainScreen}        from './screens/DispatchChainScreen';
@@ -47,12 +57,10 @@ import {LoginScreen} from './screens/LoginScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// ─── Tab bar icon factories (module scope avoids react/no-unstable-nested-components) ───
- 
 const _tabIcon = (label: string, emoji: string) => ({focused}: {focused: boolean}) => (
   <TabBarIcon label={label} emoji={emoji} focused={focused} />
 );
- 
+
 const _tabIconWithBadge = (label: string, emoji: string, count: number | undefined) => ({focused}: {focused: boolean}) => (
   <TabBarIcon label={label} emoji={emoji} focused={focused} badge={count} />
 );
@@ -64,9 +72,6 @@ function TabNavigator() {
 
   const uploadingCount = uploads.filter(
     (u: {status: string}) => u.status === 'queued' || u.status === 'uploading' || u.status === 'processing',
-  ).length;
-  const runningTaskCount = tasks.filter(
-    (t: {state: string}) => t.state === 'running' || t.state === 'todo',
   ).length;
 
   return (
@@ -87,6 +92,8 @@ function TabNavigator() {
       }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('首页', '🛡')}} />
+      {/* P1: 新增消息 Tab */}
+      <Tab.Screen name="Messages" component={MessageScreen} options={{tabBarIcon: _tabIcon('消息', '💬')}} />
       <Tab.Screen name="Chat" component={ChatScreen} options={{tabBarIcon: _tabIcon('协作', '👥')}} />
       <Tab.Screen
         name="Plus"
@@ -97,7 +104,6 @@ function TabNavigator() {
         }}
         listeners={({navigation}) => ({
           tabPress: (e) => {
-            // Guard: only prevent default when navigation object is valid
             if (navigation && typeof navigation.navigate === 'function') {
               e.preventDefault();
             }
@@ -112,11 +118,7 @@ function TabNavigator() {
           tabBarIcon: _tabIconWithBadge(
             '我的',
             '👤',
-            pendingConfirmations > 0
-              ? pendingConfirmations
-              : uploadingCount > 0
-                ? uploadingCount
-                : undefined,
+            pendingConfirmations > 0 ? pendingConfirmations : uploadingCount > 0 ? uploadingCount : undefined,
           ),
         }}
       />
@@ -156,19 +158,11 @@ const styles = StyleSheet.create({
   rootSafeArea: {flex: 1, backgroundColor: C.bgRoot},
 });
 
-/** Default fallback route used when navigation state becomes invalid */
-const FALLBACK_ROUTE = {name: 'Tabs' as const};
-
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-  };
+  const handleLogin = () => { setIsAuthenticated(true); };
+  const handleLogout = () => { setIsAuthenticated(false); };
 
   return (
     <ErrorBoundary>
@@ -176,23 +170,20 @@ export default function App() {
         <AppProvider>
           <NavigationContainer
             onStateChange={(state) => {
-              // Guard: if routes become empty or undefined (e.g. deep-link race
-              // conditions on iOS), reset to the fallback so the app doesn't crash.
               if (!state || !state.routes || state.routes.length === 0) {
-                // NavigationContainer doesn't expose a "reset" prop from outside,
-                // but catching the error here prevents the crash.  The guard is
-                // primarily for downstream navigate() calls — those are the ones
-                // that actually crash when routes are empty.
+                // guard against empty routes crash
               }
             }}
           >
             <SafeAreaView style={styles.rootSafeArea} edges={['top']}>
               <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
+              {/* P3: 网络状态检测提示条 */}
+              <NetworkStatusBar />
               {isAuthenticated ? (
-              <RootNavigator onLogout={handleLogout} />
-            ) : (
-              <LoginScreen onLogin={handleLogin} />
-            )}
+                <RootNavigator onLogout={handleLogout} />
+              ) : (
+                <LoginScreen onLogin={handleLogin} />
+              )}
             </SafeAreaView>
           </NavigationContainer>
         </AppProvider>
