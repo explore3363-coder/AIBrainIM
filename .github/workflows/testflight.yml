@@ -146,7 +146,7 @@ jobs:
           export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
           # Skip bundle phase: the bundle is pre-built by "Build JS bundle" step.
           # xcodebuild Bundle phase runs Metro which fails to resolve react module on CI.
-          export USE_HERMES=false
+          export USE_HERMES=true  # Must be true so native links Hermes engine; bundle is pre-built as Hermes bytecode
           export RCT_NO_LAUNCH_PACKAGER=1
           # Remove the bundle phase from the project before archiving
           python3 scripts/remove_bundle_phase.py || true
