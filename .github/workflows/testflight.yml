@@ -146,7 +146,7 @@ jobs:
           export USE_HERMES=true  # Must be true so native links Hermes engine; bundle is pre-built as Hermes bytecode
           export RCT_NO_LAUNCH_PACKAGER=1
           # Bundle phase is kept - xcodebuild handles bundling during archive
-          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
+          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" HERMES_CLI_PATH="/Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/node_modules/hermes-compiler/hermesc/osx-bin/hermesc" archive 2>&1 | tee build/archive.log
 
 
       - name: Export IPA for App Store Connect
