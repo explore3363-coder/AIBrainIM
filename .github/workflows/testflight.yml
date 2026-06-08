@@ -156,15 +156,15 @@ jobs:
           export RCT_NO_LAUNCH_PACKAGER=1
           # Remove bundle phase so archive succeeds without hermes path issues
           python3 scripts/remove_bundle_phase.py || true
-          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='-' DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
+          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
 
       - name: Inject pre-built JS bundle into xcarchive
         run: |
           # Bundle phase is disabled; manually inject the pre-built bundle into the xcarchive.
           # xcodebuild -exportArchive reads from xcarchive contents, so this injection works.
           BUNDLE_SRC="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/main.jsbundle"
-          BUNDLE_DST="build/AIBrainIM.xcarchive/Products/AIBrainIM.app/main.jsbundle"
-          mkdir -p "build/AIBrainIM.xcarchive/Products/AIBrainIM.app/"
+          BUNDLE_DST="build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app/main.jsbundle"
+          mkdir -p "build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app/"
           if [ -f "$BUNDLE_SRC" ]; then
             cp "$BUNDLE_SRC" "$BUNDLE_DST"
             echo "Bundle injected: $(wc -c < "$BUNDLE_DST") bytes"
@@ -174,12 +174,32 @@ jobs:
             exit 1
           fi
           ls -la "$BUNDLE_DST"
-      - name: Export IPA and sign for App Store Connect
+      - name: Export IPA (manual repack + re-sign after bundle injection)
         run: |
           set -o pipefail
-          # Re-export using the archive's embedded signature (signingCertificate="-" preserves it)
-          # ASC authentication is handled by altool in the upload step
-          xcodebuild -exportArchive -archivePath build/AIBrainIM.xcarchive -exportPath build/export -exportOptionsPlist /tmp/ExportOptions.plist 2>&1 | tee build/export.log
+          WORK_DIR=$(mktemp -d)
+          cd "$WORK_DIR"
+          # Extract xcarchive's signed .app (has injected bundle)
+          cp -R /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app .
+          # Verify bundle is present
+          if [ -f AIBrainIM.app/main.jsbundle ]; then
+            echo "Bundle verified: $(wc -c < AIBrainIM.app/main.jsbundle) bytes"
+          else
+            echo "ERROR: Bundle missing from .app"
+            exit 1
+          fi
+          # Re-sign the .app (injection invalidates signature, must re-sign)
+          /usr/bin/codesign --force --sign "iPhone Distribution: Hong Yang (7S96N8A32U)" --deep AIBrainIM.app 2>&1
+          echo "Re-signed .app"
+          # Create properly-structured IPA
+          mkdir -p Payload Symbols
+          cp -R AIBrainIM.app Payload/
+          cp -R /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/AIBrainIM.xcarchive/dSYMs AIBrainIM.app.dSYM Symbols/ 2>/dev/null || true
+          # Re-pack with Payload structure
+          rm -f /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa
+          zip -q -r /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa Payload Symbols
+          echo "IPA created: $(wc -c < /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa) bytes"
+          rm -rf "$WORK_DIR"
 
       - name: Verify IPA
         run: |
