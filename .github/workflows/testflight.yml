@@ -84,18 +84,9 @@ jobs:
           pod install
         working-directory: ios
 
-      - name: Build JS bundle (Hermes bytecode) for device archive
+      - name: Build JS bundle (bundle phase handles this during archive - this step is for verification only)
         run: |
-          BUNDLE_OUT="build/DerivedData/Build/Products/Release-iphoneos/main.jsbundle"
-          APP_DIR="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app"
-          mkdir -p "$(dirname "$BUNDLE_OUT")" "$APP_DIR"
-          # Step 1: Create plain JS bundle
-          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "$APP_DIR" --minify true --reset-cache 2>&1 | tail -5
-          echo "Plain bundle created at $(date)"
-          # Step 2: Compile to Hermes bytecode (.hbc)
-          HERMES_CLI_PATH="node_modules/hermes-compiler/hermesc/osx-bin/hermesc"
-          "$HERMES_CLI_PATH" -emit-binary -O -out "$APP_DIR/main.jsbundle" "$BUNDLE_OUT" && echo "Hermes bytecode compiled: $(wc -c < "$APP_DIR/main.jsbundle") bytes" || { echo "Hermes compile failed"; exit 1; }
-          echo "Bundle built at $(date)"
+          echo "Bundle will be built by xcodebuild bundle phase during archive"
       - name: Set Info.plist build version
         run: |
           BUILD_NUMBER=$(date +%Y%m%d%H%M)
@@ -154,53 +145,18 @@ jobs:
           # xcodebuild Bundle phase runs Metro which fails to resolve react module on CI.
           export USE_HERMES=true  # Must be true so native links Hermes engine; bundle is pre-built as Hermes bytecode
           export RCT_NO_LAUNCH_PACKAGER=1
-          # Remove bundle phase so archive succeeds without hermes path issues
-          python3 scripts/remove_bundle_phase.py || true
+          # Bundle phase is kept - xcodebuild handles bundling during archive
           xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
 
-      - name: Inject pre-built JS bundle into xcarchive
-        run: |
-          # Bundle phase is disabled; manually inject the pre-built bundle into the xcarchive.
-          # xcodebuild -exportArchive reads from xcarchive contents, so this injection works.
-          BUNDLE_SRC="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/main.jsbundle"
-          BUNDLE_DST="build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app/main.jsbundle"
-          mkdir -p "build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app/"
-          if [ -f "$BUNDLE_SRC" ]; then
-            cp "$BUNDLE_SRC" "$BUNDLE_DST"
-            echo "Bundle injected: $(wc -c < "$BUNDLE_DST") bytes"
-          else
-            echo "ERROR: Pre-built bundle not found at $BUNDLE_SRC"
-            ls -la build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/ 2>/dev/null | head -10
-            exit 1
-          fi
-          ls -la "$BUNDLE_DST"
-      - name: Export IPA (manual repack + sign)
+
+      - name: Export IPA for App Store Connect
         run: |
           set -o pipefail
-          WORK_DIR=$(mktemp -d)
-          cd "$WORK_DIR"
-          # Extract xcarchive's .app (has injected bundle, unsigned from archive)
-          cp -R /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app .
-          # Verify bundle is present
-          if [ -f AIBrainIM.app/main.jsbundle ]; then
-            echo "Bundle verified: $(wc -c < AIBrainIM.app/main.jsbundle) bytes"
-          else
-            echo "ERROR: Bundle missing from .app"
-            exit 1
-          fi
-          # Sign the .app for App Store distribution
-          /usr/bin/codesign --force --sign "iPhone Distribution: Hong Yang (7S96N8A32U)" --deep AIBrainIM.app 2>&1
-          echo "Signed .app"
-          # Create properly-structured IPA
-          mkdir -p Payload Symbols
-          cp -R AIBrainIM.app Payload/
-          cp -R /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/AIBrainIM.xcarchive/dSYMs AIBrainIM.app.dSYM Symbols/ 2>/dev/null || true
-          # Re-pack with Payload structure
-          mkdir -p /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export
-          rm -f /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa
-          zip -q -r /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa Payload Symbols
-          echo "IPA created: $(wc -c < /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa) bytes"
-          rm -rf "$WORK_DIR"
+          mkdir -p build/export
+          xcodebuild -exportArchive \
+            -archivePath build/AIBrainIM.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist /tmp/ExportOptions.plist 2>&1 | tee build/export.log
 
       - name: Verify IPA
         run: |
