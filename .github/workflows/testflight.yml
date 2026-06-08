@@ -196,6 +196,7 @@ jobs:
           cp -R AIBrainIM.app Payload/
           cp -R /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/AIBrainIM.xcarchive/dSYMs AIBrainIM.app.dSYM Symbols/ 2>/dev/null || true
           # Re-pack with Payload structure
+          mkdir -p /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export
           rm -f /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa
           zip -q -r /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa Payload Symbols
           echo "IPA created: $(wc -c < /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/export/AIBrainIM.ipa) bytes"
