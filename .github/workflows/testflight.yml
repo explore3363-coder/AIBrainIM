@@ -148,12 +148,26 @@ jobs:
           # xcodebuild Bundle phase runs Metro which fails to resolve react module on CI.
           export USE_HERMES=true  # Must be true so native links Hermes engine; bundle is pre-built as Hermes bytecode
           export RCT_NO_LAUNCH_PACKAGER=1
-          # Bundle phase is kept in project - xcodebuild handles bundling natively
+          # Remove bundle phase so archive succeeds without hermes path issues
+          python3 scripts/remove_bundle_phase.py || true
           xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='-' DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
 
-      - name: Copy JS bundle into archive .app (DISABLED - xcodebuild handles natively)
+      - name: Inject pre-built JS bundle into xcarchive
         run: |
-          echo "Bundle phase is active in project - xcodebuild handles natively"
+          # Bundle phase is disabled; manually inject the pre-built bundle into the xcarchive.
+          # xcodebuild -exportArchive reads from xcarchive contents, so this injection works.
+          BUNDLE_SRC="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/main.jsbundle"
+          BUNDLE_DST="build/AIBrainIM.xcarchive/Products/AIBrainIM.app/main.jsbundle"
+          mkdir -p "build/AIBrainIM.xcarchive/Products/AIBrainIM.app/"
+          if [ -f "$BUNDLE_SRC" ]; then
+            cp "$BUNDLE_SRC" "$BUNDLE_DST"
+            echo "Bundle injected: $(wc -c < "$BUNDLE_DST") bytes"
+          else
+            echo "ERROR: Pre-built bundle not found at $BUNDLE_SRC"
+            ls -la build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/ 2>/dev/null | head -10
+            exit 1
+          fi
+          ls -la "$BUNDLE_DST"
       - name: Export IPA and sign for App Store Connect
         run: |
           set -o pipefail
