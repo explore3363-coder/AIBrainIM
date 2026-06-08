@@ -86,9 +86,15 @@ jobs:
 
       - name: Build JS bundle (Hermes bytecode) for device archive
         run: |
-          BUNDLE_OUT="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app/main.jsbundle"
-          mkdir -p "$(dirname "$BUNDLE_OUT")"
-          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app" --minify true --reset-cache 2>&1 | tail -10
+          BUNDLE_OUT="build/DerivedData/Build/Products/Release-iphoneos/main.jsbundle"
+          APP_DIR="build/DerivedData/Build/Products/Release-iphoneos/AIBrainIM.app"
+          mkdir -p "$(dirname "$BUNDLE_OUT")" "$APP_DIR"
+          # Step 1: Create plain JS bundle
+          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "$BUNDLE_OUT" --assets-dest "$APP_DIR" --minify true --reset-cache 2>&1 | tail -5
+          echo "Plain bundle created at $(date)"
+          # Step 2: Compile to Hermes bytecode (.hbc)
+          HERMES_CLI_PATH="node_modules/hermes-compiler/hermesc/osx-bin/hermesc"
+          "$HERMES_CLI_PATH" -emit-binary -O -out "$APP_DIR/main.jsbundle" "$BUNDLE_OUT" && echo "Hermes bytecode compiled: $(wc -c < "$APP_DIR/main.jsbundle") bytes" || { echo "Hermes compile failed"; exit 1; }
           echo "Bundle built at $(date)"
       - name: Set Info.plist build version
         run: |
