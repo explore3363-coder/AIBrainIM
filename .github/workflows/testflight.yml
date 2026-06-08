@@ -156,7 +156,7 @@ jobs:
           export RCT_NO_LAUNCH_PACKAGER=1
           # Remove bundle phase so archive succeeds without hermes path issues
           python3 scripts/remove_bundle_phase.py || true
-          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
+          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive 2>&1 | tee build/archive.log
 
       - name: Inject pre-built JS bundle into xcarchive
         run: |
@@ -174,12 +174,12 @@ jobs:
             exit 1
           fi
           ls -la "$BUNDLE_DST"
-      - name: Export IPA (manual repack + re-sign after bundle injection)
+      - name: Export IPA (manual repack + sign)
         run: |
           set -o pipefail
           WORK_DIR=$(mktemp -d)
           cd "$WORK_DIR"
-          # Extract xcarchive's signed .app (has injected bundle)
+          # Extract xcarchive's .app (has injected bundle, unsigned from archive)
           cp -R /Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/build/AIBrainIM.xcarchive/Products/Applications/AIBrainIM.app .
           # Verify bundle is present
           if [ -f AIBrainIM.app/main.jsbundle ]; then
@@ -188,9 +188,9 @@ jobs:
             echo "ERROR: Bundle missing from .app"
             exit 1
           fi
-          # Re-sign the .app (injection invalidates signature, must re-sign)
+          # Sign the .app for App Store distribution
           /usr/bin/codesign --force --sign "iPhone Distribution: Hong Yang (7S96N8A32U)" --deep AIBrainIM.app 2>&1
-          echo "Re-signed .app"
+          echo "Signed .app"
           # Create properly-structured IPA
           mkdir -p Payload Symbols
           cp -R AIBrainIM.app Payload/
