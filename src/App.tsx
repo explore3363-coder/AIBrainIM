@@ -6,8 +6,8 @@
  * P3: ErrorBoundary 已霓虹绿主题化
  */
 
-import React, {useState} from 'react';
-import {StatusBar, StyleSheet, TouchableOpacity, View} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {StatusBar, StyleSheet, TouchableOpacity, View, Text} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -137,11 +137,54 @@ const styles = StyleSheet.create({
   rootSafeArea: {flex: 1, backgroundColor: C.bgRoot},
 });
 
+// ─── Auth check on startup ───────────────────────────────────────────────
+const AUTH_KEYCHAIN_SERVICE = 'AIBrainIM.AuthToken';
+
+async function checkAuthToken() {
+  try {
+    const Keychain = require('react-native-keychain').default || require('react-native-keychain');
+    const creds = await Keychain.getGenericPassword({service: AUTH_KEYCHAIN_SERVICE});
+    return !!(creds && creds.password);
+  } catch {
+    return false;
+  }
+}
+
+async function clearAuthToken() {
+  try {
+    const Keychain = require('react-native-keychain').default || require('react-native-keychain');
+    await Keychain.resetGenericPassword({service: AUTH_KEYCHAIN_SERVICE});
+  } catch { /* ignore */ }
+}
+
+async function saveAuthToken(token: string) {
+  try {
+    const Keychain = require('react-native-keychain').default || require('react-native-keychain');
+    await Keychain.setGenericPassword('auth_token', token, {
+      service: AUTH_KEYCHAIN_SERVICE,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  } catch { /* ignore */ }
+}
+
+export { saveAuthToken };
+
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    checkAuthToken().then(hasToken => {
+      setIsAuthenticated(hasToken);
+      setAuthChecked(true);
+    });
+  }, []);
 
   const handleLogin = () => { setIsAuthenticated(true); };
-  const handleLogout = () => { setIsAuthenticated(false); };
+  const handleLogout = async () => {
+    await clearAuthToken();
+    setIsAuthenticated(false);
+  };
 
   return (
     <ErrorBoundary>
@@ -158,7 +201,12 @@ export default function App() {
               <StatusBar barStyle="light-content" backgroundColor={C.bgRoot} />
               {/* P3: 网络状态检测提示条 */}
               <NetworkStatusBar />
-              {isAuthenticated ? (
+              {!authChecked ? (
+                <View style={{flex:1,backgroundColor:C.bgRoot,justifyContent:'center',alignItems:'center'}}>
+                  <Text style={{color:C.primary,fontSize:18,fontWeight:'700'}}>AIBrainIM</Text>
+                  <Text style={{color:C.textMuted,fontSize:12,marginTop:8}}>正在验证身份...</Text>
+                </View>
+              ) : isAuthenticated ? (
                 <RootNavigator onLogout={handleLogout} />
               ) : (
                 <LoginScreen onLogin={handleLogin} />

@@ -6,9 +6,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
   StyleSheet,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Alert,
   RefreshControl,
@@ -770,15 +772,16 @@ export function ChatScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.chatContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
           onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
             const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent;
@@ -1057,7 +1060,8 @@ export function ChatScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }

@@ -21,11 +21,19 @@ export function LoginScreen({onLogin}: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [secure, setSecure] = useState(true);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('请输入邮箱和密码', '', [{text: '好的'}]);
       return;
     }
+    // Save auth token to keychain on successful login
+    try {
+      const Keychain = require('react-native-keychain').default || require('react-native-keychain');
+      await Keychain.setGenericPassword('auth_token', email.trim(), {
+        service: 'AIBrainIM.AuthToken',
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+    } catch { /* ignore keychain errors */ }
     onLogin();
   };
 
