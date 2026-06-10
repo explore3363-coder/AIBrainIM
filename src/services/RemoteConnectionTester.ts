@@ -135,16 +135,16 @@ export async function runConnectionTest(): Promise<FullTestReport> {
   const t1 = await measureTime(() =>
     testEndpoint(`${gatewayUrl}/tools/invoke`, 'POST', headers, JSON.stringify({tool: 'sessions', action: 'list', args: {}})),
   );
-  results.push({...t1.result, durationMs: t1.durationMs});
+  const r1 = t1.result; r1.durationMs = t1.durationMs; results.push(r1);
 
   // Test 2: sessions_list
   const t2 = await measureTime(() =>
     testEndpoint(`${gatewayUrl}/tools/invoke`, 'POST', headers, JSON.stringify({tool: 'sessions', action: 'list', args: {}})),
   );
-  results.push({...t2.result, durationMs: t2.durationMs});
+  const r2 = t2.result; r2.durationMs = t2.durationMs; results.push(r2);
 
   // Test 3: sessions_send if directMode
-  let sessionsSendResult: ConnectionTestResult | null = null;
+  let sessionsSendResult: {result: ConnectionTestResult, durationMs: number} | null = null;
   if (directMode && sessionKey) {
     sessionsSendResult = await measureTime(() =>
       testEndpoint(
@@ -154,7 +154,7 @@ export async function runConnectionTest(): Promise<FullTestReport> {
         JSON.stringify({content: 'test', role: 'user'}),
       ),
     );
-    results.push({...sessionsSendResult.result, durationMs: sessionsSendResult.durationMs});
+    if (sessionsSendResult) { const r3 = sessionsSendResult.result; r3.durationMs = sessionsSendResult.durationMs; results.push(r3); }
   }
 
   // Hermes candidates
@@ -164,7 +164,7 @@ export async function runConnectionTest(): Promise<FullTestReport> {
     'agent:hermes',
     'hermes',
   ];
-  let hermesTest: ConnectionTestResult | null = null;
+  let hermesTest: {result: ConnectionTestResult, durationMs: number} | null = null;
   let hermesSessionKey: string | null = null;
   for (const candidate of hermesCandidates) {
     hermesTest = await measureTime(() =>
@@ -175,7 +175,7 @@ export async function runConnectionTest(): Promise<FullTestReport> {
         JSON.stringify({content: 'ping', role: 'user'}),
       ),
     );
-    if (hermesTest.result.ok || (hermesTest.result.status >= 200 && hermesTest.result.status < 500)) {
+    if (hermesTest && (hermesTest.result.ok || (hermesTest.result.status >= 200 && hermesTest.result.status < 500))) {
       hermesSessionKey = candidate;
       break;
     }
@@ -211,7 +211,7 @@ export async function runConnectionTest(): Promise<FullTestReport> {
     directMode,
     tests: results,
     hermesSessionKey,
-    hermesTest,
+    hermesTest: hermesTest ? hermesTest.result : null,
     overallStatus,
     recommendations,
   };
