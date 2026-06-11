@@ -26,6 +26,15 @@ const MOCK_ALERTS = [
   {id: 'al-03', level: 'info', title: '尾矿库水位监测正常', time: '12:00', zone: '尾矿库'},
 ];
 
+const MOCK_CAMERAS = [
+  {id: 'cam-01', name: '主井口', location: '主井', status: 'online', scene: 'shaft'},
+  {id: 'cam-02', name: '选矿厂全景', location: '选矿厂', status: 'online', scene: 'plant'},
+  {id: 'cam-03', name: '尾矿库', location: '尾矿库', status: 'online', scene: 'dam'},
+  {id: 'cam-04', name: '运输道路', location: '入场道路', status: 'offline', scene: 'road'},
+  {id: 'cam-05', name: '破碎车间', location: '破碎车间', status: 'online', scene: 'plant'},
+  {id: 'cam-06', name: '浮选车间', location: '浮选车间', status: 'online', scene: 'plant'},
+];
+
 jest.mock('../src/services/SmartMineService', () => ({
   SmartMineService: {
     getProduction: jest.fn(),
@@ -53,6 +62,7 @@ describe('DashboardScreen — Smart Mine Dashboard', () => {
     (SmartMineService.SmartMineService.getProduction as jest.Mock).mockResolvedValue(MOCK_PRODUCTION);
     (SmartMineService.SmartMineService.getEquipment as jest.Mock).mockResolvedValue(MOCK_EQUIPMENT);
     (SmartMineService.SmartMineService.getAlerts as jest.Mock).mockResolvedValue(MOCK_ALERTS);
+    (SmartMineService.SmartMineService.getCameras as jest.Mock).mockResolvedValue(MOCK_CAMERAS);
     jest.clearAllMocks();
   });
 
