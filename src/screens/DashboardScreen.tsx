@@ -12,7 +12,7 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C, LAYOUT} from '../data/constants';
 import {SmartMineService} from '../services/SmartMineService';
-import type {ProductionData, Equipment, Alert} from '../types/smartmine';
+import type {ProductionData, Equipment, Alert, Camera} from '../types/smartmine';
 import type {RootStackParamList} from '../App';
 
 // ─── Top Bar Navigation ────────────────────────────────────────────────────────
@@ -485,22 +485,129 @@ const phStyles = StyleSheet.create({
 });
 
 // ─── Dashboard Screen ──────────────────────────────────────────────────────────
+// ─── Video Surveillance Row ───────────────────────────────────────────────────
+const SCENE_EMOJI: Record<string, string> = {
+  shaft: '⛏️',
+  plant: '🏭',
+  dam:   '💧',
+  road:  '🛤️',
+  default: '📹',
+};
+
+function VideoSurveillanceRow({cameras, onPress}: {cameras: Camera[]; onPress: () => void}) {
+  const online = cameras.filter(c => c.status === 'online').length;
+  const total = cameras.length;
+  const preview = cameras.slice(0, 4);
+
+  return (
+    <View style={vsStyles.section}>
+      <View style={vsStyles.header}>
+        <View>
+          <Text style={vsStyles.title}>视频监控</Text>
+          <Text style={vsStyles.subtitle}>{online}/{total} 在线</Text>
+        </View>
+        <TouchableOpacity style={vsStyles.allBtn} onPress={onPress} activeOpacity={0.7}>
+          <Text style={vsStyles.allBtnText}>全部 →</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={vsStyles.scrollContent}
+      >
+        {preview.map(cam => (
+          <View
+            key={cam.id}
+            style={[vsStyles.card, cam.status === 'offline' && vsStyles.cardOffline]}
+          >
+            <View style={vsStyles.preview}>
+              <Text style={vsStyles.emoji}>
+                {SCENE_EMOJI[cam.scene] ?? SCENE_EMOJI.default}
+              </Text>
+              <View style={[
+                vsStyles.dot,
+                {backgroundColor: cam.status === 'online' ? '#34d399' : C.error},
+              ]} />
+            </View>
+            <Text style={vsStyles.name} numberOfLines={1}>{cam.name}</Text>
+            <Text style={vsStyles.location} numberOfLines={1}>{cam.location}</Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const vsStyles = StyleSheet.create({
+  section: {
+    marginBottom: 6,
+    paddingTop: 14,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: LAYOUT.pageMargin,
+    marginBottom: 10,
+  },
+  title: { color: C.textPrimary, fontSize: 15, fontWeight: '800' },
+  subtitle: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+  allBtn: {
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  allBtnText: { color: C.primary, fontSize: 11, fontWeight: '700' },
+  scrollContent: { paddingHorizontal: LAYOUT.pageMargin, gap: 10 },
+  card: {
+    width: 88,
+    backgroundColor: C.bgCard,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    borderRadius: LAYOUT.cardRadius,
+    padding: 10,
+    alignItems: 'center',
+  },
+  cardOffline: { opacity: 0.5 },
+  preview: { position: 'relative', marginBottom: 6 },
+  emoji: { fontSize: 28 },
+  dot: {
+    position: 'absolute',
+    bottom: -2,
+    right: -4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: C.bgCard,
+  },
+  name: { color: C.textPrimary, fontSize: 11, fontWeight: '800', textAlign: 'center' },
+  location: { color: C.textMuted, fontSize: 9, marginTop: 2, textAlign: 'center' },
+});
+
 export function DashboardScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [production, setProduction] = useState<ProductionData | null>(null);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [cameras, setCameras] = useState<Camera[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [p, e, a] = await Promise.all([
+    const [p, e, a, c] = await Promise.all([
       SmartMineService.getProduction(),
       SmartMineService.getEquipment(),
       SmartMineService.getAlerts(),
+      SmartMineService.getCameras(),
     ]);
     setProduction(p);
     setEquipment(e);
     setAlerts(a);
+    setCameras(c);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -527,6 +634,12 @@ export function DashboardScreen() {
         </View>
 
         <TwinPreviewCard onPress={() => navigation.navigate('SmartMine')} />
+        {cameras.length > 0 && (
+          <VideoSurveillanceRow cameras={cameras} onPress={() => navigation.navigate('SmartMine')} />
+        )}
+
+
+
 
         {production && <ProductionHero data={production} />}
 
