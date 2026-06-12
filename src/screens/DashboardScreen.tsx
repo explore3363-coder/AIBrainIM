@@ -15,58 +15,6 @@ import {SmartMineService} from '../services/SmartMineService';
 import type {ProductionData, Equipment, Alert, Camera} from '../types/smartmine';
 import type {RootStackParamList} from '../App';
 
-// ─── Top Bar Navigation ────────────────────────────────────────────────────────
-function TopBar() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const items = [
-    { label: '记忆', screen: 'MemoryStore' as const },
-    { label: '知识', screen: 'KnowledgeBase' as const },
-    { label: '附件', screen: 'FileLibrary' as const },
-    { label: '调度记录', screen: 'DispatchChain' as const },
-  ];
-
-  return (
-    <View style={topStyles.bar}>
-      {items.map((item, i) => (
-        <React.Fragment key={item.label}>
-          <TouchableOpacity
-            style={topStyles.item}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate(item.screen)}
-          >
-            <Text style={topStyles.label}>{item.label}</Text>
-          </TouchableOpacity>
-          {i < items.length - 1 && <Text style={topStyles.sep}>|</Text>}
-        </React.Fragment>
-      ))}
-    </View>
-  );
-}
-
-const topStyles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: LAYOUT.pageMargin,
-    backgroundColor: C.bgSurface,
-    borderBottomWidth: 1,
-    borderBottomColor: C.borderSubtle,
-  },
-  item: {
-    paddingHorizontal: 8,
-  },
-  label: {
-    color: C.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sep: {
-    color: C.borderSubtle,
-    fontSize: 13,
-  },
-});
 
 // ─── Live Dot ─────────────────────────────────────────────────────────────────
 function LiveDot() {
@@ -620,7 +568,6 @@ export function DashboardScreen() {
 
   return (
     <View style={styles.root}>
-      <TopBar />
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}

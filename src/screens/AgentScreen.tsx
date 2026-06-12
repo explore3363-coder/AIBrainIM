@@ -10,7 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {C} from '../data/constants';
+import {C, LAYOUT} from '../data/constants';
 import {useAppContext} from '../context/AppContext';
 import type {Agent, AgentStatus} from '../types';
 import {AgentPlatformService} from '../services/AgentPlatformService';
@@ -43,7 +43,10 @@ const DISPATCH_STATUS_LABEL = {
 
 type RootStackParamList = {
   Tabs: undefined;
-  DispatchChain: undefined;
+  MemoryStore: undefined;
+  KnowledgeBase: undefined;
+  FileLibrary: undefined;
+  DispatchChain: {focusDispatchId?: string; focusTaskId?: string; focusSessionKey?: string} | undefined;
   Confirmations: undefined;
 };
 
@@ -178,6 +181,33 @@ export function AgentScreen() {
           />
         }
       >
+
+        {/* ── AI 能力中心 · 快捷入口 ── */}
+        <View style={qaStyles.qaSection}>
+          <Text style={qaStyles.qaEyebrow}>AI 能力中心</Text>
+          <View style={qaStyles.qaGrid}>
+            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('MemoryStore')}>
+              <Text style={qaStyles.qaEmoji}>🧠</Text>
+              <Text style={qaStyles.qaLabel}>记忆库</Text>
+              <Text style={qaStyles.qaDesc}>长期记忆 · 上下文</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('KnowledgeBase')}>
+              <Text style={qaStyles.qaEmoji}>📚</Text>
+              <Text style={qaStyles.qaLabel}>知识库</Text>
+              <Text style={qaStyles.qaDesc}>矿业知识 · 文档</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('FileLibrary')}>
+              <Text style={qaStyles.qaEmoji}>📎</Text>
+              <Text style={qaStyles.qaLabel}>附件库</Text>
+              <Text style={qaStyles.qaDesc}>文件管理 · 资料</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('DispatchChain')}>
+              <Text style={qaStyles.qaEmoji}>⚡</Text>
+              <Text style={qaStyles.qaLabel}>调度链</Text>
+              <Text style={qaStyles.qaDesc}>任务分发 · 执行链</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         <View style={styles.focusBoard}>
           <View style={styles.focusTop}>
             <View>
@@ -393,6 +423,27 @@ export function AgentScreen() {
 }
 
 const BR = 24;
+const qaStyles = StyleSheet.create({
+  qaSection: { paddingHorizontal: LAYOUT.pageMargin, paddingTop: 16, paddingBottom: 4 },
+  qaEyebrow: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 },
+  qaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  qaCard: {
+    width: '47.5%',
+    backgroundColor: C.bgCard,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.borderSubtle,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  qaEmoji: { fontSize: 22 },
+  qaLabel: { color: C.textPrimary, fontSize: 14, fontWeight: '800', marginBottom: 2 },
+  qaDesc: { color: C.textMuted, fontSize: 10 },
+});
+
 const styles = StyleSheet.create({
   root:         {flex: 1, backgroundColor: C.bgRoot},
   header:       {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
@@ -608,4 +659,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   inlineStateText: {fontSize: 10, fontWeight: '900'},
+
+
 });

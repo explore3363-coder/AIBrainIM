@@ -40,6 +40,7 @@ import {AgentScreen}           from './screens/AgentScreen';
 import {TaskScreen}            from './screens/TaskScreen';
 import {ProfileScreen}         from './screens/ProfileScreen';
 import {MemoryStoreScreen}     from './screens/MemoryStoreScreen';
+import {FileLibraryScreen}       from './screens/FileLibraryScreen';
 import {KnowledgeBaseScreen}    from './screens/KnowledgeBaseScreen';
 import {ProjectLibraryScreen}  from './screens/ProjectLibraryScreen';
 import {DispatchChainScreen}        from './screens/DispatchChainScreen';
@@ -120,6 +121,7 @@ function RootNavigator({onLogout}: {onLogout: () => void}) {
         {() => <TabNavigator />}
       </Stack.Screen>
       <Stack.Screen name="MemoryStore"    component={MemoryStoreScreen}    options={{title: '记忆库',       headerBackTitle: '返回'}} />
+      <Stack.Screen name="FileLibrary"    component={FileLibraryScreen}    options={{title: '附件库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="KnowledgeBase"  component={KnowledgeBaseScreen}  options={{title: '知识库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="ProjectLibrary" component={ProjectLibraryScreen} options={{title: '项目库',       headerBackTitle: '返回'}} />
       <Stack.Screen name="DispatchChain"       component={DispatchChainScreen}        options={{title: '调度链',         headerBackTitle: '返回'}} />
