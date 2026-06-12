@@ -676,7 +676,9 @@ export function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <View style={styles.header}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.flex}>
+          <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View>
             <Text style={styles.title}>AI 对话</Text>
@@ -781,7 +783,7 @@ export function ChatScreen() {
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.chatContent}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
             const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent;
@@ -1061,6 +1063,8 @@ export function ChatScreen() {
           </TouchableOpacity>
         </View>
         </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+        </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
   );
