@@ -87,6 +87,14 @@ jobs:
       - name: Build JS bundle (bundle phase handles this during archive - this step is for verification only)
         run: |
           echo "Bundle will be built by xcodebuild bundle phase during archive"
+      - name: Set MARKETING_VERSION from git tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "Setting MARKETING_VERSION to $VERSION from tag $TAG"
+          sed -i '' "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $VERSION;/" ios/AIBrainIM.xcodeproj/project.pbxproj
+          grep "MARKETING_VERSION" ios/AIBrainIM.xcodeproj/project.pbxproj | head -1
+
       - name: Set Info.plist build version
         run: |
           BUILD_NUMBER=$(date +%Y%m%d%H%M)
