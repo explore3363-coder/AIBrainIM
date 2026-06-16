@@ -175,10 +175,10 @@ describe('DashboardScreen — Smart Mine Dashboard', () => {
     });
     const root = tree!.root;
     const texts = allTextNodes(root);
-    expect(texts.some(t => t === '记忆')).toBe(true);
-    expect(texts.some(t => t === '知识')).toBe(true);
-    expect(texts.some(t => t === '附件')).toBe(true);
-    expect(texts.some(t => t === '调度记录')).toBe(true);
+    expect(texts.some(t => t.includes('智慧矿山管控平台'))).toBe(true);
+    expect(texts.some(t => t.includes('设备状态'))).toBe(true);
+    expect(texts.some(t => t.includes('实时告警'))).toBe(true);
+    expect(texts.some(t => t.includes('人员定位'))).toBe(true);
   });
 
   it('renders all four explicitly-titled sections', async () => {
