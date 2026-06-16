@@ -187,27 +187,36 @@ export function AgentScreen() {
           <Text style={qaStyles.qaEyebrow}>AI 能力中心</Text>
           <View style={qaStyles.qaGrid}>
             <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('MemoryStore')}>
-              <Text style={qaStyles.qaEmoji}>🧠</Text>
-              <Text style={qaStyles.qaLabel}>记忆库</Text>
-              <Text style={qaStyles.qaDesc}>长期记忆 · 上下文</Text>
+              <View style={qaStyles.qaCardContent}>
+                <Text style={qaStyles.qaEmoji}>🧠</Text>
+                <Text style={qaStyles.qaLabel}>记忆库</Text>
+                <Text style={qaStyles.qaDesc}>长期记忆 · 上下文</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('KnowledgeBase')}>
-              <Text style={qaStyles.qaEmoji}>📚</Text>
-              <Text style={qaStyles.qaLabel}>知识库</Text>
-              <Text style={qaStyles.qaDesc}>矿业知识 · 文档</Text>
+              <View style={qaStyles.qaCardContent}>
+                <Text style={qaStyles.qaEmoji}>📚</Text>
+                <Text style={qaStyles.qaLabel}>知识库</Text>
+                <Text style={qaStyles.qaDesc}>矿业知识 · 文档</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('FileLibrary')}>
-              <Text style={qaStyles.qaEmoji}>📎</Text>
-              <Text style={qaStyles.qaLabel}>附件库</Text>
-              <Text style={qaStyles.qaDesc}>文件管理 · 资料</Text>
+              <View style={qaStyles.qaCardContent}>
+                <Text style={qaStyles.qaEmoji}>📎</Text>
+                <Text style={qaStyles.qaLabel}>附件库</Text>
+                <Text style={qaStyles.qaDesc}>文件管理 · 资料</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('DispatchChain')}>
-              <Text style={qaStyles.qaEmoji}>⚡</Text>
-              <Text style={qaStyles.qaLabel}>调度链</Text>
-              <Text style={qaStyles.qaDesc}>任务分发 · 执行链</Text>
+              <View style={qaStyles.qaCardContent}>
+                <Text style={qaStyles.qaEmoji}>⚡</Text>
+                <Text style={qaStyles.qaLabel}>调度链</Text>
+                <Text style={qaStyles.qaDesc}>任务分发 · 执行链</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
+
         <View style={styles.focusBoard}>
           <View style={styles.focusTop}>
             <View>
@@ -253,7 +262,6 @@ export function AgentScreen() {
           {agents.map(agent => {
             const sel = selected.id === agent.id;
             const statusColor = STATUS_COLOR[agent.status];
-            // Confidence: derived from status + queue depth + recency
             const queueLoad = agent.queueDepth ?? 0;
             const lastActiveAgo = agent.lastActiveAt ? Math.floor((Date.now() - agent.lastActiveAt) / 60000) : 999;
             const baseScore = agent.status === 'working' ? 85 : agent.status === 'online' ? 70 : agent.status === 'watching' ? 55 : 40;
@@ -272,7 +280,6 @@ export function AgentScreen() {
                 onPress={() => setSelected(agent)}
                 activeOpacity={0.8}
               >
-                {/* HUD Ring wrapper for avatar */}
                 <View style={styles.hudRingContainer}>
                   {agent.status === 'working' && (
                     <View style={[styles.hudRingOuter, {borderColor: agent.accent + '30'}]} />
@@ -283,21 +290,15 @@ export function AgentScreen() {
                   <View style={[styles.avatar, {backgroundColor: agent.accent}]}>
                     <Text style={styles.avatarText}>{agent.name.slice(0, 1)}</Text>
                   </View>
-                  {/* Live status dot */}
                   {agent.status === 'working' && (
                     <View style={[styles.liveBadge, {backgroundColor: statusColor}]} />
                   )}
                 </View>
-
-                {/* Agent name + role */}
                 <Text style={styles.agentName}>{agent.name}</Text>
                 <Text style={styles.agentRole}>{agent.role}</Text>
-
-                {/* Status row with confidence */}
                 <View style={styles.statusRow}>
                   <View style={[styles.statusDot, {backgroundColor: statusColor}]} />
                   <Text style={[styles.statusText, {color: statusColor}]}>{STATUS_LABEL[agent.status]}</Text>
-                  {/* Confidence score pill */}
                   <View style={[styles.confidencePill, {borderColor: confidenceColor + '60'}]}>
                     <Text style={[styles.confidenceText, {color: confidenceColor}]}>{confidence}%</Text>
                   </View>
@@ -309,7 +310,6 @@ export function AgentScreen() {
 
         <View style={styles.detail}>
           <View style={[styles.detailTop, {borderBottomColor: selected.accent}]}>
-            {/* HUD ring for selected agent */}
           <View style={styles.hudRingContainerLg}>
             <View style={[styles.hudRingOuterLg, {borderColor: selected.accent + '30'}]} />
             {selected.status !== 'idle' && (
@@ -329,7 +329,6 @@ export function AgentScreen() {
                 <View style={[styles.statusDot, {backgroundColor: STATUS_COLOR[selected.status]}]} />
                 <Text style={[styles.statusText, {color: STATUS_COLOR[selected.status]}]}>{STATUS_LABEL[selected.status]}</Text>
               </View>
-              {/* Confidence score for selected agent */}
               {(() => {
                 const q = selected.queueDepth ?? 0;
                 const lastAgo = selected.lastActiveAt ? Math.floor((Date.now() - selected.lastActiveAt) / 60000) : 999;
@@ -422,28 +421,30 @@ export function AgentScreen() {
   );
 }
 
-const BR = 24;
 const qaStyles = StyleSheet.create({
   qaSection: { paddingHorizontal: LAYOUT.pageMargin, paddingTop: 16, paddingBottom: 4 },
-  qaEyebrow: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 },
-  qaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  qaEyebrow: { color: C.primary, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 },
+  qaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   qaCard: {
     width: '47.5%',
     backgroundColor: C.bgCard,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: C.borderSubtle,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
+    padding: 16,
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
   },
-  qaEmoji: { fontSize: 22 },
-  qaLabel: { color: C.textPrimary, fontSize: 14, fontWeight: '800', marginBottom: 2 },
-  qaDesc: { color: C.textMuted, fontSize: 10 },
+  qaCardContent: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  qaEmoji: { fontSize: 28, marginBottom: 4 },
+  qaLabel: { color: C.textTitle, fontSize: 15, fontWeight: '800' },
+  qaDesc: { color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 2 },
 });
 
+const BR = 16;
 const styles = StyleSheet.create({
   root:         {flex: 1, backgroundColor: C.bgRoot},
   header:       {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
@@ -453,8 +454,8 @@ const styles = StyleSheet.create({
   grid:         {padding: 16, paddingBottom: 100},
   focusBoard: {
     padding: 16,
-    borderRadius: 22,
-    backgroundColor: 'rgba(10,22,42,0.88)',
+    borderRadius: BR,
+    backgroundColor: C.bgCard,
     borderWidth: 1,
     borderColor: C.borderSubtle,
     marginBottom: 14,
@@ -465,13 +466,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  focusEyebrow: {color: C.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1},
+  focusEyebrow: {color: C.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1},
   focusTitle: {color: C.textTitle, fontSize: 20, fontWeight: '900', marginTop: 4},
   focusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.12)',
+    backgroundColor: C.primaryGlow,
     borderWidth: 1,
     borderColor: C.borderActive,
   },
@@ -481,8 +482,8 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     padding: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(8,18,36,0.6)',
+    borderRadius: BR,
+    backgroundColor: C.bgSurface,
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
@@ -492,8 +493,8 @@ const styles = StyleSheet.create({
   summaryHint: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5},
   actionRow: {gap: 10, marginBottom: 14},
   actionCard: {
-    padding: 14,
-    borderRadius: 18,
+    padding: 16,
+    borderRadius: BR,
     backgroundColor: C.bgCard,
     borderWidth: 1,
     borderColor: C.borderSubtle,
@@ -524,7 +525,6 @@ const styles = StyleSheet.create({
   agentName:  {color: C.textTitle, fontSize: 18, fontWeight: '800'},
   agentRole:  {color: C.primary, fontSize: 11, marginTop: 4},
   statusRow:  {flexDirection: 'row', alignItems: 'center', marginTop: 10},
-  // HUD Ring effect
   hudRingContainer: {
     width: 64,
     height: 64,
@@ -578,9 +578,8 @@ const styles = StyleSheet.create({
   },
   detailTop: {
     flexDirection: 'row', gap: 16, paddingBottom: 14, marginBottom: 14,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1, borderBottomColor: C.borderSubtle,
   },
-  // Large HUD ring for selected agent
   hudRingContainerLg: {
     width: 80,
     height: 80,
@@ -638,8 +637,8 @@ const styles = StyleSheet.create({
   inlineCard: {
     marginTop: 8,
     padding: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(8,18,36,0.6)',
+    borderRadius: 12,
+    backgroundColor: C.bgSurface,
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
@@ -659,6 +658,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   inlineStateText: {fontSize: 10, fontWeight: '900'},
-
-
 });

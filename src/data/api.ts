@@ -7,7 +7,7 @@
  *   POST /tools/invoke  — sessions_list, sessions_send, message (send fallback)
  *
  * Message flow:
- *   1. directMode=true  → sessions_send → OpenClaw session → reply
+ *   1. directMode=true  → WebSocket → OpenClaw Gateway (wss://node.tail67ac15.ts.net/) → reply
  *   2. directMode=false → message.send → Feishu fallback
  *   3. App 继续用 sessions_list 观察运行态与子链路活动
  */
@@ -27,6 +27,7 @@ import {
   validateGatewayConfig,
   type GatewayConfig,
 } from '../services/gatewayConfig';
+import {gatewayWS} from '../services/GatewayWSService';
 import {getAppleReleaseStatus} from '../services/releaseChannel';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -621,28 +622,28 @@ export async function sendMessage(text: string): Promise<SendMessageResult> {
 
     if (config.directMode) {
       try {
-        // Task 3: Direct HTTP POST with exponential backoff retry (max 3 attempts)
-        const result = await sessionsSendMessage(
-          text,
-          config.sessionKey,
-          config.gatewayUrl,
-          config.gatewayToken,
-        );
-        if (!result.ok) {
-          throw new Error(result.error || '直连会话调用失败');
+        // WebSocket 直连 OpenClaw Gateway（任何网络下均可）
+        if (!gatewayWS.isConnected()) {
+          const connectResult = await gatewayWS.connect();
+          if (!connectResult.ok) {
+            throw new Error('Gateway WebSocket 连接失败: ' + (connectResult.error ?? 'unknown'));
+          }
+        }
+        const wsResult = await gatewayWS.sendMessage(config.sessionKey, text);
+        if (!wsResult.ok) {
+          throw new Error(wsResult.error ?? 'WebSocket 发送失败');
         }
         return {
           sent: true,
           taskId,
-          dispatchId: result.runId ?? dispatchId,
-          sessionKey: result.sessionKey ?? config.sessionKey,
-          reply: result.reply ?? '已收到回复。',
+          dispatchId,
+          sessionKey: config.sessionKey,
+          reply: wsResult.reply ?? '已收到回复。',
         };
       } catch (directErr) {
-        // sessions_send not available — degrade gracefully to Feishu fallback
         const errMsg = directErr instanceof Error ? directErr.message : String(directErr);
-        if (errMsg.includes('not_found') || errMsg.includes('Tool not available') || errMsg.includes('not available')) {
-          // fall through to Feishu fallback
+        if (errMsg.includes('not_found') || errMsg.includes('Tool not available') || errMsg.includes('not available') || errMsg.includes('connect') || errMsg.includes('WebSocket')) {
+          // WebSocket 不可用，降级到 Feishu 回退
         } else {
           throw directErr;
         }
