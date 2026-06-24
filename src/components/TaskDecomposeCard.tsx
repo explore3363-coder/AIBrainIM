@@ -158,14 +158,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  decomposeIcon: {fontSize: 18},
+  decomposeIcon: {fontSize: 22},
   cardTitle: {
     color: C.textTitle,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
   },
   agentTag: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     marginTop: 1,
   },
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   mainTaskLabel: {
     color: C.textMuted,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -195,8 +195,8 @@ const styles = StyleSheet.create({
   },
   mainTaskTitle: {
     color: C.textTitle,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     lineHeight: 19,
   },
 
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   arrowText: {
     color: C.primary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
   },
 

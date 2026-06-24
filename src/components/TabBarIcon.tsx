@@ -1,3 +1,7 @@
+/**
+ * TabBarIcon — 精修版 v4
+ * 针对 iPhone 17 Pro Max 优化：更大触控目标、更精致图标设计
+ */
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {C} from '../data/constants';
@@ -24,51 +28,87 @@ export function TabBarIcon({label, emoji, focused, badge, isCenterFAB, onPress}:
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-        {focused && <View style={styles.glow} />}
-        <Text style={[styles.emoji, focused && styles.emojiActive]}>{emoji}</Text>
+      <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
+        {focused && <View style={styles.focusRing} />}
+        <Text style={[styles.emoji, focused && styles.emojiFocused]}>{emoji}</Text>
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
+      <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap:        {alignItems: 'center', justifyContent: 'center', marginBottom: 4},
-  iconWrap:    {position: 'relative', padding: 4},
-  iconWrapActive: {},
-  glow: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: 16,
-    backgroundColor: C.primaryGlow,
+  wrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 6,
+    paddingBottom: 4,
   },
-  emoji:       {fontSize: 20},
-  emojiActive: {},
-  label:       {color: C.tabInactive, fontSize: 10, fontWeight: '700', marginTop: 2},
-  labelActive: {color: C.tabActive},
+  iconWrap: {
+    position: 'relative',
+    width: 48,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapFocused: {},
+  focusRing: {
+    position: 'absolute',
+    top: 0,
+    left: 4,
+    right: 4,
+    bottom: 0,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+  },
+  emoji: {
+    fontSize: 22,
+    opacity: 0.7,
+  },
+  emojiFocused: {
+    opacity: 1,
+  },
+  label: {
+    color: C.tabInactive,
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 3,
+    letterSpacing: 0.3,
+  },
+  labelFocused: {
+    color: C.tabActive,
+    fontWeight: '700',
+  },
   badge: {
     position: 'absolute',
-    top: -4,
-    right: -8,
-    backgroundColor: '#ef4444',
+    top: -2,
+    right: -6,
+    backgroundColor: '#FF4D6A',
     borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#07090E',
   },
-  badgeText: {color: '#fff', fontSize: 10, fontWeight: '900'},
-  fabContainer: {alignItems: 'center', justifyContent: 'center', marginBottom: 20},
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  fabContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    marginTop: -10,
+  },
   fab: {
     width: 52,
     height: 52,
@@ -77,10 +117,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: C.primary,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 10,
   },
   fabIcon: {
     fontSize: 28,

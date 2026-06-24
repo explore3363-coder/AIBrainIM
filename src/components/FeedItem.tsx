@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  agent: {fontSize: 12, fontWeight: '900'},
-  time:  {color: C.textMuted, fontSize: 11},
-  text:  {color: C.textBody, fontSize: 14, lineHeight: 20, marginTop: 4},
+  agent: {fontSize: 13, fontWeight: '800'},
+  time:  {color: C.textMuted, fontSize: 12},
+  text:  {color: C.textBody, fontSize: 15, lineHeight: 22, marginTop: 4},
 });

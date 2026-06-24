@@ -446,10 +446,10 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  title: {color: C.textTitle, fontSize: 24, fontWeight: '900'},
-  sub: {color: C.textBody, fontSize: 13, lineHeight: 20, marginTop: 8},
-  status: {color: C.primary, fontSize: 12, marginTop: 10, fontWeight: '700'},
-  summary: {color: C.textMuted, fontSize: 11, marginTop: 6, lineHeight: 17},
+  title: {color: C.textTitle, fontSize: 26, fontWeight: '900'},
+  sub: {color: C.textBody, fontSize: 14, lineHeight: 22, marginTop: 8},
+  status: {color: C.primary, fontSize: 13, marginTop: 10, fontWeight: '700'},
+  summary: {color: C.textMuted, fontSize: 12, marginTop: 6, lineHeight: 18},
   connectivityBanner: {
     padding: 16,
     borderRadius: 20,
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   connectivityOption: {gap: 4},
   connectivityOptionTitle: {
     color: C.textTitle,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
   connectivityOptionDesc: {
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  label: {color: C.textTitle, fontSize: 13, fontWeight: '800', marginTop: 10, marginBottom: 6},
+  label: {color: C.textTitle, fontSize: 14, fontWeight: '800', marginTop: 10, marginBottom: 6},
   input: {
     borderRadius: 14,
     paddingHorizontal: 12,

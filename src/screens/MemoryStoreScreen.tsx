@@ -562,9 +562,9 @@ const styles = StyleSheet.create({
   root:       {flex: 1, backgroundColor: C.bgRoot},
   flex:       {flex: 1},
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
-  title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
-  sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
-  helper:     {color: C.primary, fontSize: 11, marginTop: 8, lineHeight: 16},
+  title:      {color: C.textTitle, fontSize: 28, fontWeight: '900'},
+  sub:        {color: C.textMuted, fontSize: 13, marginTop: 4},
+  helper:     {color: C.primary, fontSize: 12, marginTop: 8, lineHeight: 18},
   composerCard: {
     marginTop: 14,
     padding: 14,
@@ -573,8 +573,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  composerTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900'},
-  composerHint: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6},
+  composerTitle: {color: C.textTitle, fontSize: 16, fontWeight: '900'},
+  composerHint: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 6},
   composerChipRow: {gap: 8, flexDirection: 'row', marginTop: 12},
   composerChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  composerFooterHint: {flex: 1, color: C.textMuted, fontSize: 11, lineHeight: 16},
+  composerFooterHint: {flex: 1, color: C.textMuted, fontSize: 12, lineHeight: 18},
   composerFooterActions: {flexDirection: 'row', alignItems: 'center', gap: 8},
   saveBtn: {
     paddingHorizontal: 14,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
   },
   saveBtnDisabled: {opacity: 0.45},
-  saveBtnText: {color: C.bgRoot, fontSize: 13, fontWeight: '900'},
+  saveBtnText: {color: C.bgRoot, fontSize: 14, fontWeight: '900'},
   cancelBtn: {
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -621,8 +621,8 @@ const styles = StyleSheet.create({
     borderColor: C.borderSubtle,
     backgroundColor: 'rgba(56,100,200,0.08)',
   },
-  cancelBtnText: {color: C.textBody, fontSize: 12, fontWeight: '800'},
-  saveNotice: {color: C.primary, fontSize: 11, lineHeight: 16, marginTop: 10},
+  cancelBtnText: {color: C.textBody, fontSize: 13, fontWeight: '800'},
+  saveNotice: {color: C.primary, fontSize: 12, lineHeight: 18, marginTop: 10},
   searchRow:  {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12},
   searchInput: {
     flex: 1,
@@ -636,8 +636,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   searchSpinner: {marginLeft: -4},
-  clearBtn:     {color: C.textMuted, fontSize: 16, fontWeight: '700', paddingHorizontal: 8},
-  searchHint:   {color: C.textMuted, fontSize: 11, marginTop: 6},
+  clearBtn:     {color: C.textMuted, fontSize: 16, fontWeight: '700', paddingHorizontal: 10},
+  searchHint:   {color: C.textMuted, fontSize: 12, marginTop: 6},
   filterRow:  {paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row'},
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,

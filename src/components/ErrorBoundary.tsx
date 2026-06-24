@@ -188,10 +188,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  brandEmoji: {fontSize: 24},
+  brandEmoji: {fontSize: 28},
   brandText: {flex: 1},
   brandTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
     color: C.primary,
   },
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   btnSecondaryText: {
     color: C.textSecondary,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
   footer: {

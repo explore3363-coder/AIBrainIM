@@ -193,10 +193,10 @@ const styles = StyleSheet.create({
   },
   toggleIcon: {
     color: C.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
   },
-  nodeIcon: {fontSize: 13},
+  nodeIcon: {fontSize: 15},
   nodeContent: {
     flex: 1,
     flexDirection: 'row',
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
   },
   nodeTitle: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   nodeTime: {
     color: C.textMuted,

@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Status icons ─────────────────────────────────────────────────────────
-  statusPending: {color: C.textMuted, fontSize: 14},
-  statusSuccess: {color: C.success, fontSize: 12, fontWeight: '900'},
-  statusError:   {color: C.error,   fontSize: 12, fontWeight: '900'},
+  statusPending: {color: C.textMuted, fontSize: 15},
+  statusSuccess: {color: C.success, fontSize: 13, fontWeight: '900'},
+  statusError:   {color: C.error,   fontSize: 13, fontWeight: '900'},
 });

@@ -185,7 +185,7 @@ const topStyles = StyleSheet.create({
   },
   title: {
     color: C.textTitle,
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '900',
     marginBottom: 12,
   },
@@ -347,7 +347,7 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 2,
   },
   approvalBadgeText: { fontSize: 10, fontWeight: '800' },
-  time: { color: C.textMuted, fontSize: 11, flexShrink: 0 },
+  time: { color: C.textMuted, fontSize: 12, flexShrink: 0 },
   title: {
     color: C.textBody,
     fontSize: 14,
@@ -367,7 +367,7 @@ const cardStyles = StyleSheet.create({
     marginTop: 2,
   },
   senderRow: { flexDirection: 'row', alignItems: 'center' },
-  senderDept: { color: C.primary, fontSize: 11, fontWeight: '700' },
+  senderDept: { color: C.primary, fontSize: 12, fontWeight: '700' },
   senderSep: { color: C.textMuted, fontSize: 11 },
   senderName: { color: C.textMuted, fontSize: 11 },
   unreadDot: {
@@ -416,7 +416,7 @@ const secStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderActive,
   },
-  countText: { color: C.primary, fontSize: 10, fontWeight: '800' },
+  countText: { color: C.primary, fontSize: 11, fontWeight: '800' },
 });
 
 // ─── Dept Filter Chips ─────────────────────────────────────────────────────────
@@ -568,9 +568,9 @@ const styles = StyleSheet.create({
     borderColor: '#FF6B6B40',
     gap: 12,
   },
-  urgentBannerIcon: { fontSize: 22 },
+  urgentBannerIcon: { fontSize: 26 },
   urgentBannerText: { flex: 1 },
-  urgentBannerTitle: { color: C.textTitle, fontSize: 14, fontWeight: '800' },
+  urgentBannerTitle: { color: C.textTitle, fontSize: 15, fontWeight: '800' },
   urgentBannerSub: { color: C.textMuted, fontSize: 11, marginTop: 2 },
   urgentBannerBadge: {
     backgroundColor: '#FF6B6B',
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  urgentBannerBadgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  urgentBannerBadgeText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   empty: {
     alignItems: 'center',
     paddingVertical: 40,

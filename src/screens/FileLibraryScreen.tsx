@@ -479,13 +479,13 @@ const styles = StyleSheet.create({
   root:       {flex: 1, backgroundColor: C.bgRoot},
   header:     {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
   headerRow:  {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  title:      {color: C.textTitle, fontSize: 26, fontWeight: '900'},
-  sub:        {color: C.textMuted, fontSize: 12, marginTop: 4},
+  title:      {color: C.textTitle, fontSize: 28, fontWeight: '900'},
+  sub:        {color: C.textMuted, fontSize: 13, marginTop: 4},
   uploadBtn: {
     paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999,
     backgroundColor: C.primary,
   },
-  uploadBtnText:{color: C.bgRoot, fontWeight: '900', fontSize: 14},
+  uploadBtnText:{color: C.bgRoot, fontWeight: '900', fontSize: 15},
   uploadingBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginTop: 10, paddingHorizontal: 12, paddingVertical: 8,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   uploadingDot: {
     width: 7, height: 7, borderRadius: 4, backgroundColor: C.primary,
   },
-  uploadingText: {color: C.primary, fontSize: 12, fontWeight: '700'},
+  uploadingText: {color: C.primary, fontSize: 13, fontWeight: '700'},
   filterRow:  {paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row'},
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(56,100,200,0.25)',
     borderColor: C.borderActive,
   },
-  filterText:      {color: C.textMuted, fontSize: 13, fontWeight: '700'},
+  filterText:      {color: C.textMuted, fontSize: 14, fontWeight: '700'},
   filterTextActive:{color: C.primary},
   content:    {padding: 16, paddingBottom: 100, gap: 10},
   errorBanner: {
@@ -525,8 +525,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorBannerTextWrap: {flex: 1},
-  errorBannerTitle: {color: '#fda4af', fontSize: 13, fontWeight: '900'},
-  errorBannerSub: {color: C.textBody, fontSize: 11, marginTop: 3},
+  errorBannerTitle: {color: '#fda4af', fontSize: 14, fontWeight: '900'},
+  errorBannerSub: {color: C.textBody, fontSize: 12, marginTop: 3},
   errorBannerBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(248,113,113,0.28)',
   },
-  errorBannerBtnText: {color: '#fda4af', fontSize: 12, fontWeight: '900'},
+  errorBannerBtnText: {color: '#fda4af', fontSize: 13, fontWeight: '900'},
   contextBanner: {
     padding: 14,
     borderRadius: 16,
@@ -551,8 +551,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   contextBannerTextWrap: {flex: 1},
-  contextBannerTitle: {color: '#34d399', fontSize: 13, fontWeight: '900'},
-  contextBannerSub: {color: C.textBody, fontSize: 11, marginTop: 3},
+  contextBannerTitle: {color: '#34d399', fontSize: 14, fontWeight: '900'},
+  contextBannerSub: {color: C.textBody, fontSize: 12, marginTop: 3},
   contextBannerActions: {
     flexDirection: 'row',
     alignItems: 'center',

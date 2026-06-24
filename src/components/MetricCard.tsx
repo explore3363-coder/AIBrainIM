@@ -27,6 +27,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  value: {fontSize: 22, fontWeight: '900'},
-  label: {color: C.textMuted, fontSize: 11, marginTop: 4},
+  value: {fontSize: 26, fontWeight: '900'},
+  label: {color: C.textMuted, fontSize: 12, marginTop: 4},
 });

@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  icon: {fontSize: 16},
+  icon: {fontSize: 18},
   title: {
     color: C.textTitle,
     fontSize: 13,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  refreshIcon: {fontSize: 14},
+  refreshIcon: {fontSize: 16},
   dataGrid: {
     gap: 10,
   },
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   dataValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
   },
   dataLabel: {

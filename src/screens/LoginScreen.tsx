@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     color: C.textPrimary,
   },
   subtitle: {
-    ...TYPO.bodySmall,
+    ...TYPO.bodySm,
     color: C.textSecondary,
   },
   subtitleEn: {
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   missionEn: {
-    ...TYPO.bodySmall,
+    ...TYPO.bodySm,
     color: C.textMuted,
     marginBottom: 32,
   },
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.bgSurface,
-    borderRadius: LAYOUT.cardRadiusSmall,
+    borderRadius: LAYOUT.cardRadiusSm,
     borderWidth: 1,
     borderColor: C.borderDefault,
     paddingHorizontal: 14,
@@ -307,16 +307,16 @@ const styles = StyleSheet.create({
     borderColor: C.borderDefault,
   },
   checkLabel: {
-    ...TYPO.bodySmall,
+    ...TYPO.bodySm,
     color: C.textSecondary,
   },
   forgotLink: {
-    ...TYPO.bodySmall,
+    ...TYPO.bodySm,
     color: C.primary,
   },
   primaryBtn: {
     backgroundColor: C.primary,
-    borderRadius: LAYOUT.cardRadiusSmall,
+    borderRadius: LAYOUT.cardRadiusSm,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: C.bgSurface,
-    borderRadius: LAYOUT.cardRadiusSmall,
+    borderRadius: LAYOUT.cardRadiusSm,
     borderWidth: 1,
     borderColor: C.borderDefault,
     height: 46,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   featureLabel: {
-    ...TYPO.bodySmall,
+    ...TYPO.bodySm,
     color: C.textPrimary,
   },
   featureLabelEn: {

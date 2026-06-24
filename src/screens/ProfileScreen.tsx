@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: {color: C.bgRoot, fontSize: 26, fontWeight: '900'},
+  avatarText: {color: C.bgRoot, fontSize: 30, fontWeight: '900'},
   onlineDot: {
     position: 'absolute', bottom: 2, right: 2,
     width: 14, height: 14, borderRadius: 7,
@@ -961,8 +961,8 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: C.bgRoot,
   },
   profileInfo: {flex: 1},
-  profileName: {color: C.textTitle, fontSize: 22, fontWeight: '900'},
-  profileRole: {color: C.textMuted, fontSize: 12, marginTop: 3},
+  profileName: {color: C.textTitle, fontSize: 26, fontWeight: '900'},
+  profileRole: {color: C.textMuted, fontSize: 14, marginTop: 4},
   statusPill: {
     flexDirection: 'row', alignItems: 'center',
     marginTop: 8,
@@ -973,7 +973,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   statusDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent, marginRight: 5},
-  statusText: {color: C.accent, fontSize: 11, fontWeight: '800'},
+  statusText: {color: C.accent, fontSize: 12, fontWeight: '800'},
 
   // Quick Access Strip
   quickAccessRow: {
@@ -991,8 +991,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  quickAccessEmoji: {fontSize: 22},
-  quickAccessLabel: {color: C.textBody, fontSize: 11, fontWeight: '700', marginTop: 5},
+  quickAccessEmoji: {fontSize: 26},
+  quickAccessLabel: {color: C.textBody, fontSize: 12, fontWeight: '700', marginTop: 6},
 
   // Stats
   statsGrid: {flexDirection: 'row', gap: 10, marginBottom: 8},
@@ -1010,8 +1010,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  runtimeBoardTitle: {color: C.textTitle, fontSize: 15, fontWeight: '900'},
-  runtimeBoardSub: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 5},
+  runtimeBoardTitle: {color: C.textTitle, fontSize: 16, fontWeight: '900'},
+  runtimeBoardSub: {color: C.textMuted, fontSize: 13, lineHeight: 20, marginTop: 6},
   runtimeBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(249,115,22,0.12)',
     borderColor: '#f97316',
   },
-  runtimeBadgeText: {fontSize: 11, fontWeight: '900'},
+  runtimeBadgeText: {fontSize: 12, fontWeight: '900'},
   runtimeBadgeTextLive: {color: '#34d399'},
   runtimeBadgeTextFallback: {color: '#f97316'},
   runtimeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
@@ -1038,9 +1038,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  runtimeCellLabel: {color: C.textMuted, fontSize: 11, fontWeight: '700'},
-  runtimeCellValue: {color: C.textTitle, fontSize: 20, fontWeight: '900', marginTop: 6},
-  runtimeCellHint: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4},
+  runtimeCellLabel: {color: C.textMuted, fontSize: 12, fontWeight: '700'},
+  runtimeCellValue: {color: C.textTitle, fontSize: 24, fontWeight: '900', marginTop: 6},
+  runtimeCellHint: {color: C.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4},
 
   // Sections
   sectionTitle: {
@@ -1063,17 +1063,17 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1,
   },
-  menuEmoji: {fontSize: 18},
+  menuEmoji: {fontSize: 20},
   menuText:  {flex: 1},
   menuTitleRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
-  menuTitle:    {color: C.textTitle, fontSize: 15, fontWeight: '800'},
+  menuTitle:    {color: C.textTitle, fontSize: 16, fontWeight: '800'},
   menuBadge: {
     paddingHorizontal: 6, paddingVertical: 2,
     borderRadius: 999, marginLeft: 4,
   },
   menuBadgeText: {color: C.bgRoot, fontSize: 10, fontWeight: '900'},
-  menuSubtitle: {color: C.textMuted, fontSize: 12, marginTop: 3},
-  menuArrow: {color: C.textMuted, fontSize: 22, fontWeight: '300'},
+  menuSubtitle: {color: C.textMuted, fontSize: 13, marginTop: 3},
+  menuArrow: {color: C.textMuted, fontSize: 24, fontWeight: '300'},
 
   // Release / TestFlight card
   releaseCard: {
@@ -1100,10 +1100,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  releaseIcon: {fontSize: 24},
+  releaseIcon: {fontSize: 28},
   releaseHeaderText: {flex: 1},
-  releaseTitle: {color: C.textTitle, fontSize: 17, fontWeight: '900'},
-  releaseVersion: {color: C.textMuted, fontSize: 11, marginTop: 3},
+  releaseTitle: {color: C.textTitle, fontSize: 18, fontWeight: '900'},
+  releaseVersion: {color: C.textMuted, fontSize: 12, marginTop: 4},
   releaseBadge: {
     paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: 999,
@@ -1111,7 +1111,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(56,100,200,0.35)',
   },
-  releaseBadgeText: {color: C.primary, fontSize: 11, fontWeight: '900'},
+  releaseBadgeText: {color: C.primary, fontSize: 12, fontWeight: '900'},
   releaseDesc: {
     color: C.textBody, fontSize: 12, lineHeight: 18,
     padding: 14, paddingBottom: 0,
@@ -1131,15 +1131,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  releaseSnapshotValue: {color: C.textTitle, fontSize: 18, fontWeight: '900'},
-  releaseSnapshotLabel: {color: C.textMuted, fontSize: 11, marginTop: 4},
+  releaseSnapshotValue: {color: C.textTitle, fontSize: 22, fontWeight: '900'},
+  releaseSnapshotLabel: {color: C.textMuted, fontSize: 12, marginTop: 4},
   releaseChecklist: {
     padding: 14,
     gap: 7,
   },
   checkItem: {flexDirection: 'row', alignItems: 'center', gap: 8},
-  checkIcon: {fontSize: 13, width: 18},
-  checkText: {color: C.textBody, fontSize: 12, flex: 1},
+  checkIcon: {fontSize: 14, width: 20},
+  checkText: {color: C.textBody, fontSize: 13, flex: 1},
   checkTextPending: {color: C.textMuted},
   releaseFocusBox: {
     marginHorizontal: 14,
@@ -1151,8 +1151,8 @@ const styles = StyleSheet.create({
     borderColor: C.borderSubtle,
     gap: 6,
   },
-  releaseFocusTitle: {color: C.textTitle, fontSize: 13, fontWeight: '900'},
-  releaseFocusText: {color: C.textBody, fontSize: 12, lineHeight: 18},
+  releaseFocusTitle: {color: C.textTitle, fontSize: 14, fontWeight: '900'},
+  releaseFocusText: {color: C.textBody, fontSize: 13, lineHeight: 20},
   releaseActions: {
     flexDirection: 'row',
     gap: 10,
@@ -1166,9 +1166,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
     alignItems: 'center',
   },
-  releaseBtnPrimaryText: {color: C.bgRoot, fontWeight: '900', fontSize: 13},
-  releaseBuildGateOk: {color: '#34d399', fontSize: 12, lineHeight: 18, fontWeight: '800'},
-  releaseBuildGateWarn: {color: '#fbbf24', fontSize: 12, lineHeight: 18, fontWeight: '800'},
+  releaseBtnPrimaryText: {color: C.bgRoot, fontWeight: '900', fontSize: 14},
+  releaseBuildGateOk: {color: '#34d399', fontSize: 13, lineHeight: 20, fontWeight: '800'},
+  releaseBuildGateWarn: {color: '#fbbf24', fontSize: 13, lineHeight: 20, fontWeight: '800'},
   releaseBtnSecondary: {
     flex: 1,
     paddingVertical: 11,
@@ -1178,7 +1178,7 @@ const styles = StyleSheet.create({
     borderColor: C.borderActive,
     alignItems: 'center',
   },
-  releaseBtnSecondaryText: {color: C.primary, fontWeight: '700', fontSize: 13},
+  releaseBtnSecondaryText: {color: C.primary, fontWeight: '700', fontSize: 14},
   releaseBtnGhost: {
     flex: 1,
     paddingVertical: 11,
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
     borderColor: C.borderSubtle,
     alignItems: 'center',
   },
-  releaseBtnGhostText: {color: C.textBody, fontWeight: '700', fontSize: 13},
+  releaseBtnGhostText: {color: C.textBody, fontWeight: '700', fontSize: 14},
   versionTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1196,11 +1196,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   versionSep: {width: 1, height: 10, backgroundColor: C.borderSubtle},
-  buildText: {color: C.textMuted, fontSize: 11},
-  releaseProgressText: {color: C.textMuted, fontSize: 11, marginTop: 6},
+  buildText: {color: C.textMuted, fontSize: 12},
+  releaseProgressText: {color: C.textMuted, fontSize: 12, marginTop: 6},
   materialItem: {flexDirection: 'row', alignItems: 'center', gap: 8},
-  materialDot: {fontSize: 12, width: 14},
-  materialText: {color: C.textBody, fontSize: 12, flex: 1},
+  materialDot: {fontSize: 13, width: 16},
+  materialText: {color: C.textBody, fontSize: 13, flex: 1},
   materialTextPending: {color: C.textMuted},
 
   // Logout
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#f87171',
     alignItems: 'center',
   },
-  logoutText: {color: '#f87171', fontSize: 15, fontWeight: '800'},
+  logoutText: {color: '#f87171', fontSize: 16, fontWeight: '800'},
 
   footer: {height: 32},
 });
