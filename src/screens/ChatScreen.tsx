@@ -675,156 +675,153 @@ export function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.flex}>
+      <View style={styles.flex}>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.headerTitle}>AI 对话</Text>
-              <View style={styles.headerStatusRow}>
-                <View style={[
-                  styles.statusDot,
-                  runtimeMode === 'fallback' ? styles.statusDotOffline : styles.statusDotOnline,
-                ]} />
-                <Text style={styles.statusLabel}>
-                  {runtimeMode === 'fallback' ? '离线模式' : '在线'}
-                </Text>
-              </View>
-            </View>
-            {messages.length > 2 && (
-              <TouchableOpacity
-                style={styles.clearBtn}
-                activeOpacity={0.75}
-                onPress={() => {
-                  Alert.alert(
-                    '清空对话历史',
-                    '确定清空所有对话记录？此操作不可撤销。',
-                    [
-                      {text: '取消', style: 'cancel'},
-                      {
-                        text: '清空',
-                        style: 'destructive',
-                        onPress: () => {
-                          const welcome: LegacyMessage = {
-                            role: 'in', name: '助理',
-                            text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。',
-                          };
-                          setMessages([welcome]);
-                          setAllMessages([{
-                            id: makeMessageId(),
-                            type: 'text',
-                            role: 'agent',
-                            agentName: '助理',
-                            content: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。',
-                            timestamp: Date.now(),
-                          }]);
-                          AsyncStorage.removeItem(CHAT_HISTORY_KEY).catch(() => {});
-                        },
-                      },
-                    ],
-                  );
-                }}
-              >
-                <Text style={styles.clearBtnText}>清空</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Runtime error banner */}
-          {runtimeMode === 'fallback' && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>
-                ⚠️ Gateway 不可用 · 消息暂存本地 · {runtimeError ? `原因:${runtimeError}` : '检查网络后自动重连'}
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>AI 对话</Text>
+            <View style={styles.headerStatusRow}>
+              <View style={[
+                styles.statusDot,
+                runtimeMode === 'fallback' ? styles.statusDotOffline : styles.statusDotOnline,
+              ]} />
+              <Text style={styles.statusLabel}>
+                {runtimeMode === 'fallback' ? '离线模式' : '在线'}
               </Text>
             </View>
-          )}
-
-          {/* Message area */}
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={0}
-          >
-            <ScrollView
-              ref={scrollRef}
-              contentContainerStyle={styles.chatContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
-                const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent;
-                const atBottom = contentOffset.y >= contentSize.height - layoutMeasurement.height - 60;
-                setShowScrollBtn(!atBottom);
-              }}
-              scrollEventThrottle={16}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={refresh}
-                  tintColor={C.primary}
-                />
-              }
-            >
-              {/* History restored toast */}
-              {historyRestored && (
-                <View style={styles.historyBanner}>
-                  <Text style={styles.historyBannerText}>📜 本地会话历史已恢复</Text>
-                </View>
-              )}
-
-              {/* allMessages — collaboration cards + AI text bubbles */}
-              {allMessages.map((item, i) => {
-                const collaboration = detectCollaboration(allMessages, i);
-                const isTextBubble = item.type === 'text' || !item.type;
-                if (isTextBubble) {
-                  return renderNewMessageBubble(item, item.id);
-                }
-                return (
-                  <View key={item.id} style={styles.collabCardWrap}>
-                    {renderMessageContent(item, collaboration)}
-                  </View>
+          </View>
+          {messages.length > 2 && (
+            <TouchableOpacity
+              style={styles.clearBtn}
+              activeOpacity={0.75}
+              onPress={() => {
+                Alert.alert(
+                  '清空对话历史',
+                  '确定清空所有对话记录？此操作不可撤销。',
+                  [
+                    {text: '取消', style: 'cancel'},
+                    {
+                      text: '清空',
+                      style: 'destructive',
+                      onPress: () => {
+                        const welcome: LegacyMessage = {
+                          role: 'in', name: '助理',
+                          text: '我已上线,随时接收指令。回复将显示在下方,可前往「智能体」查看调度详情。',
+                        };
+                        setMessages([welcome]);
+                        setAllMessages([{
+                          id: makeMessageId(),
+                          type: 'text',
+                          role: 'agent',
+                          agentName: '助理',
+                          content: '我已上线，随时接收指令。回复将显示在下方，可前往「智能体」查看调度详情。',
+                          timestamp: Date.now(),
+                        }]);
+                        AsyncStorage.removeItem(CHAT_HISTORY_KEY).catch(() => {});
+                      },
+                    },
+                  ],
                 );
-              })}
+              }}
+            >
+              <Text style={styles.clearBtnText}>清空</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-              {/* legacy messages — basic text chat */}
-              {messages.map((msg, i) => renderLegacyBubble(msg, `legacy-${i}`))}
+        {/* Runtime error banner */}
+        {runtimeMode === 'fallback' && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>
+              ⚠️ Gateway 不可用 · 消息暂存本地 · {runtimeError ? `原因:${runtimeError}` : '检查网络后自动重连'}
+            </Text>
+          </View>
+        )}
 
-              {/* Typing indicator */}
-              {typing && (
-                <View style={styles.bubbleIncoming}>
-                  <Text style={styles.bubbleName}>助理</Text>
-                  <View style={styles.typingDotsRow}>
-                    {[dot1, dot2, dot3].map((dot, i) => (
-                      <Animated.Text
-                        key={i}
-                        style={[
-                          styles.typingDot,
-                          {opacity: dot.interpolate({inputRange: [0, 1], outputRange: [0.25, 1]})},
-                        ]}
-                      >●</Animated.Text>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Scroll-to-bottom FAB */}
-            {showScrollBtn && (
-              <TouchableOpacity
-                style={styles.scrollFab}
-                activeOpacity={0.8}
-                onPress={() => scrollRef.current?.scrollToEnd({animated: true})}
-              >
-                <Text style={styles.scrollFabIcon}>↓</Text>
-              </TouchableOpacity>
-            )}
-          </KeyboardAvoidingView>
-
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={0}
+        {/* Message area — single KeyboardAvoidingView */}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.chatContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+            onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+              const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent;
+              const atBottom = contentOffset.y >= contentSize.height - layoutMeasurement.height - 60;
+              setShowScrollBtn(!atBottom);
+            }}
+            scrollEventThrottle={16}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={refresh}
+                tintColor={C.primary}
+              />
+            }
           >
+            {/* History restored toast */}
+            {historyRestored && (
+              <View style={styles.historyBanner}>
+                <Text style={styles.historyBannerText}>📜 本地会话历史已恢复</Text>
+              </View>
+            )}
 
+            {/* allMessages — collaboration cards + AI text bubbles */}
+            {allMessages.map((item, i) => {
+              const collaboration = detectCollaboration(allMessages, i);
+              const isTextBubble = item.type === 'text' || !item.type;
+              if (isTextBubble) {
+                return renderNewMessageBubble(item, item.id);
+              }
+              return (
+                <View key={item.id} style={styles.collabCardWrap}>
+                  {renderMessageContent(item, collaboration)}
+                </View>
+              );
+            })}
+
+            {/* legacy messages — basic text chat */}
+            {messages.map((msg, i) => renderLegacyBubble(msg, `legacy-${i}`))}
+
+            {/* Typing indicator */}
+            {typing && (
+              <View style={styles.bubbleIncoming}>
+                <Text style={styles.bubbleName}>助理</Text>
+                <View style={styles.typingDotsRow}>
+                  {[dot1, dot2, dot3].map((dot, i) => (
+                    <Animated.Text
+                      key={i}
+                      style={[
+                        styles.typingDot,
+                        {opacity: dot.interpolate({inputRange: [0, 1], outputRange: [0.25, 1]})},
+                      ]}
+                    >●</Animated.Text>
+                  ))}
+                </View>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Scroll-to-bottom FAB */}
+          {showScrollBtn && (
+            <TouchableOpacity
+              style={styles.scrollFab}
+              activeOpacity={0.8}
+              onPress={() => scrollRef.current?.scrollToEnd({animated: true})}
+            >
+              <Text style={styles.scrollFabIcon}>↓</Text>
+            </TouchableOpacity>
+          )}
+        </KeyboardAvoidingView>
+
+        {/* Input area wrapper */}
+        <View style={styles.inputAreaWrapper}>
           {/* Queued attachment chips — above input bar */}
           {queuedAttachmentSummaries.length > 0 && (
             <View style={styles.attachmentChipsRow}>
@@ -870,7 +867,10 @@ export function ChatScreen() {
                 ]}
                 multiline
                 editable={!sending}
+                blurOnSubmit={false}
+                onSubmitEditing={() => { Keyboard.dismiss(); }}
                 onContentSizeChange={e => { setInputHeight(e.nativeEvent.contentSize.height); }}
+                returnKeyType="default"
               />
               <Text style={styles.inputHint}>
                 {sending
@@ -895,7 +895,7 @@ export function ChatScreen() {
                 activeOpacity={0.75}
                 onPress={handlePickImage}
               >
-                <Text style={styles.actionBtnText}>🖼</Text>
+                <Text style={styles.actionBtnText}>🖼️</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionBtn}
@@ -916,11 +916,9 @@ export function ChatScreen() {
               </TouchableOpacity>
             </View>
           </View>
-
-          </KeyboardAvoidingView>
-
         </View>
-      </TouchableWithoutFeedback>
+
+      </View>
     </SafeAreaView>
   );
 }
@@ -1161,6 +1159,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   attachmentClearAllText: {color: '#f87171', fontSize: 10, fontWeight: '800'},
+
+  // ── Input area wrapper ─────────────────────────────────────────────────
+  inputAreaWrapper: {
+    backgroundColor: C.bgRoot,
+    borderTopWidth: 1,
+    borderTopColor: C.borderSubtle,
+  },
 
   // ── Input row ──────────────────────────────────────────────────────────
   inputRow: {

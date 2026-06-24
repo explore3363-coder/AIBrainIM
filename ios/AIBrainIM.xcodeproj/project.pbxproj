@@ -258,7 +258,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "7S96N8A32U";
+				DEVELOPMENT_TEAM = 7S96N8A32U;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = AIBrainIM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AI协作平台";
@@ -267,7 +267,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8.2;
+				MARKETING_VERSION = 0.9.2;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -291,7 +291,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "7S96N8A32U";
+				DEVELOPMENT_TEAM = 7S96N8A32U;
 				INFOPLIST_FILE = AIBrainIM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AI协作平台";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -299,7 +299,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8.2;
+				MARKETING_VERSION = 0.9.2;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

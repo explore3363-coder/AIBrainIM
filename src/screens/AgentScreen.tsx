@@ -72,11 +72,12 @@ export function AgentScreen() {
     AgentPlatformService.healthCheck().then(ok => setPlatformHealthy(ok));
   }, []);
 
+  // Sync selected agent when agents list loads — guard against undefined selected
   useEffect(() => {
     if (!safeAgents.length) return;
-    const synced = safeAgents.find(agent => agent.id === selected.id);
-    setSelected(synced ?? safeAgents[0]);
-  }, [safeAgents, selected.id]);
+    if (selected && safeAgents.some(a => a.id === selected.id)) return;
+    setSelected(safeAgents[0]);
+  }, [safeAgents]);
 
   const workingAgents = useMemo(() => safeAgents.filter(agent => agent.status === 'working'), [safeAgents]);
   const onlineAgents = useMemo(() => safeAgents.filter(agent => agent.status === 'online' || agent.status === 'working'), [safeAgents]);

@@ -2,67 +2,45 @@
 // Do not edit by hand; rerun npm run sync:release-status after release prechecks.
 
 export const generatedReleaseStatus = {
-  "applePrerequisitesReady": false,
+  "applePrerequisitesReady": true,
   "firstTestFlightBuildUploaded": false,
   "appStoreAssetsReady": true,
-  "summary": "Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 仍待补齐；App Store 素材真值已通过仓库校验，且最近一次专项预检已留下时间戳；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 2 个阻塞",
-  "triggerTagName": "v0.1.0",
+  "summary": "Apple / TestFlight 前置项已通过本地结构校验并完成最近一次总预检；App Store 素材真值已通过仓库校验并完成最近一次总预检；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 3 个阻塞",
+  "triggerTagName": "v0.8.2",
   "triggerGateReady": false,
   "triggerGateFailures": [
-    "本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号",
-    "origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
+    "工作区仍有未提交改动，当前不会安全触发 v0.8.2：M node_modules/react-native/scripts/react-native-xcode.sh",
+    "本地已存在 v0.8.2 tag，需先人工核对是否沿用、删除重建或改版本号",
+    "origin 远端已存在 v0.8.2 tag，当前不会重复触发首个 Build"
   ],
-  "assetsValidatedAt": 1780357148621,
-  "updatedAt": 1780357918096,
-  "preflightReportGeneratedAt": "2026-06-01T23:39:08.621Z",
-  "preflightOverallStatus": "FAIL",
-  "preflightBlockingCount": 2,
-  "preflightFailedChecks": [
-    "提测关键测试",
-    "TestFlight 输入预检"
-  ],
+  "validatedAt": 1782141539038,
+  "assetsValidatedAt": 1782141539038,
+  "updatedAt": 1782141539196,
+  "preflightReportGeneratedAt": "2026-06-22T15:18:59.038Z",
+  "preflightOverallStatus": "PASS",
+  "preflightBlockingCount": 0,
+  "preflightFailedChecks": [],
   "preflightSteps": [
     {
       "label": "TypeScript 校验",
       "ok": true,
       "status": 0,
-      "durationMs": 1461,
+      "durationMs": 2120,
       "stdoutTail": [
-        "> AIBrainIM@0.1.0 typecheck",
+        "> AIBrainIM@0.8.2 typecheck",
         "> tsc --noEmit"
       ],
       "stderrTail": []
     },
     {
-      "label": "提测关键测试",
-      "ok": false,
-      "status": 1,
-      "durationMs": 2855,
-      "stdoutTail": [
-        "> AIBrainIM@0.1.0 test:release",
-        "> jest --runInBand --detectOpenHandles __tests__/releaseReadiness.test.ts __tests__/releaseChannel.test.ts __tests__/uploadReleaseEvidence.test.ts __tests__/DashboardScreen.test.tsx __tests__/ProfileScreen.test.tsx __tests__/ProjectLibraryScreen.test.tsx __tests__/UploadScreen.test.tsx"
-      ],
-      "stderrTail": [
-        "PASS __tests__/uploadReleaseEvidence.test.ts",
-        "Test Suites: 1 failed, 6 passed, 7 total",
-        "Tests:       1 failed, 143 passed, 144 total",
-        "Snapshots:   0 total",
-        "Time:        2.411 s, estimated 3 s",
-        "Ran all test suites matching /__tests__\\/releaseReadiness.test.ts|__tests__\\/releaseChannel.test.ts|__tests__\\/uploadReleaseEvidence.test.ts|__tests__\\/DashboardScreen.test.tsx|__tests__\\/ProfileScreen.test.tsx|__tests__\\/ProjectLibraryScreen.test.tsx|__tests__\\/UploadScreen.test.tsx/i."
-      ]
-    },
-    {
       "label": "TestFlight 输入预检",
-      "ok": false,
-      "status": 1,
-      "durationMs": 82,
+      "ok": true,
+      "status": 0,
+      "durationMs": 109,
       "stdoutTail": [
+        "> AIBrainIM@0.8.2 validate:testflight",
         "> bash scripts/validate-testflight-inputs.sh",
-        "ERROR: both ASC_KEY_ID and APPLE_API_KEY_ID are empty",
-        "ERROR: both ASC_ISSUER_ID and APPLE_API_ISSUER_ID are empty",
-        "ERROR: APPLE_TEAM_ID is empty",
-        "ERROR: APPLE_API_KEY_CONTENT is empty",
-        "Required Apple CI configuration is incomplete."
+        "Apple CI inputs look present and structurally valid."
       ],
       "stderrTail": []
     },
@@ -70,7 +48,7 @@ export const generatedReleaseStatus = {
       "label": "发布配置校验",
       "ok": true,
       "status": 0,
-      "durationMs": 91,
+      "durationMs": 99,
       "stdoutTail": [
         "OK: validate:trigger-readiness: blocks duplicate local v0.1.0 tag before push",
         "OK: validate:trigger-readiness: blocks duplicate or unverified remote v0.1.0 tag before push",
@@ -85,7 +63,7 @@ export const generatedReleaseStatus = {
       "label": "App Store 素材校验",
       "ok": true,
       "status": 0,
-      "durationMs": 89,
+      "durationMs": 102,
       "stdoutTail": [
         "MISSING: fastlane/metadata/App Store Connect/iPhone 6.5 - 3.png (will be flagged by App Store Connect)",
         "MISSING: fastlane/metadata/App Store Connect/AppIcon.png",
@@ -95,24 +73,12 @@ export const generatedReleaseStatus = {
         "App Store asset check complete (TestFlight - non-blocking)."
       ],
       "stderrTail": []
-    },
-    {
-      "label": "同步 releaseStatus.generated.ts",
-      "ok": true,
-      "status": 0,
-      "durationMs": 1643,
-      "stdoutTail": [
-        "> AIBrainIM@0.1.0 sync:release-status",
-        "> node scripts/sync-release-status.mjs",
-        "Release status generated: src/data/releaseStatus.generated.ts",
-        "Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets 仍待补齐；App Store 素材真值已通过仓库校验，且最近一次专项预检已留下时间戳；首个 TestFlight Build 仍待真实触发；最终触发仓库态仍有 3 个阻塞"
-      ],
-      "stderrTail": []
     }
   ],
   "preflightNextActions": [
-    "先修复提测关键测试失败项，再重新跑 npm run test:release。",
-    "先补 Apple Developer / App Store Connect / API Key / GitHub Variables & Secrets，再重新跑 npm run preflight:testflight。",
+    "可以继续执行 npm run trigger:testflight；脚本会先复跑总预检、再校验触发门禁，最后才打 v0.1.0 tag 并 push。",
+    "确认 GitHub Actions TestFlight workflow 正常归档并上传。",
+    "到 App Store Connect 的 TestFlight 页面添加测试人员并做真机安装验证。",
     "上传提测真值仍未闭合：当前没有可复用的 LIVE done 样本，先补一条真实附件回流后再触发首个 Build。",
     "先清理 trigger:testflight 的仓库态阻塞（脏工作区 / 重复 tag / 远端 tag 状态不明），再触发首个 Build。"
   ],
@@ -122,16 +88,10 @@ export const generatedReleaseStatus = {
   "simulatedCompletedUploads": 0,
   "liveDispatchedOnlyUploads": 0,
   "uploadEvidenceSummary": "LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本",
-  "missingAppleInputs": [
-    "ASC_KEY_ID/APPLE_API_KEY_ID",
-    "ASC_ISSUER_ID/APPLE_API_ISSUER_ID",
-    "APPLE_TEAM_ID",
-    "APPLE_API_KEY_CONTENT"
-  ],
   "validationDetails": {
-    "version": "0.1.0",
-    "apple": "Missing Apple inputs: ASC_KEY_ID/APPLE_API_KEY_ID, ASC_ISSUER_ID/APPLE_API_ISSUER_ID, APPLE_TEAM_ID, APPLE_API_KEY_CONTENT",
+    "version": "0.8.2",
+    "apple": "ok",
     "assets": "ok",
-    "preflight": "仍有 2 个提测阻塞：提测关键测试、TestFlight 输入预检。 | 上传提测真值：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本 | trigger:testflight 门禁：本地已存在 v0.1.0 tag，需先人工核对是否沿用、删除重建或改版本号；origin 远端已存在 v0.1.0 tag，当前不会重复触发首个 Build"
+    "preflight": "代码、测试、Apple 前置项、发布配置与 App Store 素材校验均已通过。 | 上传提测真值：LIVE完成 0 · LIVE仅分派 0 · 模拟完成 0 · 处理中 0 · 提测真值 尚无样本 | trigger:testflight 门禁：工作区仍有未提交改动，当前不会安全触发 v0.8.2：M node_modules/react-native/scripts/react-native-xcode.sh；本地已存在 v0.8.2 tag，需先人工核对是否沿用、删除重建或改版本号；origin 远端已存在 v0.8.2 tag，当前不会重复触发首个 Build"
   }
 } as const;
