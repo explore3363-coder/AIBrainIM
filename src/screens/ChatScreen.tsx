@@ -522,47 +522,46 @@ export function ChatScreen() {
             </View>
           )}
 
-          {/* Input row — Feishu style */}
-          <View style={styles.inputRow}>
-            {/* Attachment buttons */}
-            <View style={styles.attachBtns}>
-              <TouchableOpacity style={styles.attachBtn} activeOpacity={0.7} onPress={_handleTakePhoto}>
-                <Text style={styles.attachBtnText}>📷</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.attachBtn} activeOpacity={0.7} onPress={_handlePickImage}>
-                <Text style={styles.attachBtnText}>🖼</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.attachBtn} activeOpacity={0.7} onPress={_handlePickDocument}>
-                <Text style={styles.attachBtnText}>📄</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Feishu-style input row */}
+          <View style={styles.feishuInputRow}>
+            {/* Left: emoji / @ / attach */}
+            <TouchableOpacity style={styles.feishuBtn} activeOpacity={0.7} onPress={() => { Keyboard.dismiss(); }}>
+              <Text style={styles.feishuBtnText}>😀</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.feishuBtn} activeOpacity={0.7} onPress={() => { Alert.alert('人员提醒', '@功能开发中'); }}>
+              <Text style={styles.feishuBtnText}>@</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.feishuBtn} activeOpacity={0.7} onPress={() => {
+              Alert.alert('选择操作', '', [
+                {text: '📷 拍照', onPress: _handleTakePhoto},
+                {text: '🖼 相册', onPress: _handlePickImage},
+                {text: '📄 文档', onPress: _handlePickDocument},
+                {text: '取消', style: 'cancel'},
+              ]);
+            }}>
+              <Text style={styles.feishuBtnText}>+</Text>
+            </TouchableOpacity>
 
-            {/* Text input */}
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="输入 AI 调度指令..."
-                placeholderTextColor={C.textMuted}
-                style={[styles.input, {height: Math.max(38, Math.min(inputHeight, 100))}]}
-                multiline
-                editable={!sending}
-                blurOnSubmit={false}
-                onSubmitEditing={() => { Keyboard.dismiss(); }}
-                onContentSizeChange={e => { setInputHeight(e.nativeEvent.contentSize.height); }}
-                returnKeyType="default"
-              />
-            </View>
+            {/* Text input — single line, Feishu placeholder */}
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="发送消息"
+              placeholderTextColor="#8E8E93"
+              style={styles.feishuInput}
+              editable={!sending}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+            />
 
-            {/* Send button */}
+            {/* Voice / Send — switches based on draft length */}
             <TouchableOpacity
-              style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+              style={[styles.feishuVoiceBtn, draft.trim().length > 0 && styles.feishuVoiceBtnActive]}
               activeOpacity={0.8}
-              onPress={handleSend}
-              disabled={!canSend}
+              onPress={draft.trim().length > 0 ? handleSend : () => { Alert.alert('🎤 语音输入开发中'); }}
             >
-              <Text style={styles.sendBtnText}>
-                {sending ? '...' : queuedAttachmentSummaries.length > 0 && !draft.trim() ? '分析' : '发送'}
+              <Text style={[styles.feishuVoiceBtnText, draft.trim().length > 0 && styles.feishuVoiceBtnTextActive]}>
+                {draft.trim().length > 0 ? '发送' : '🎤'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -735,4 +734,41 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {backgroundColor: 'rgba(0,102,204,0.3)'},
   sendBtnText: {color: '#FFFFFF', fontSize: 14, fontWeight: '800'},
+
+  // Feishu-style Input Row
+  feishuInputRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: '#1C1C1E',
+    borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  feishuBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 4,
+  },
+  feishuBtnText: {fontSize: 20},
+  feishuInput: {
+    flex: 1,
+    height: 36, paddingHorizontal: 12,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 18,
+    color: '#FFFFFF', fontSize: 16,
+  },
+  feishuVoiceBtn: {
+    width: 44, height: 36, marginLeft: 8,
+    borderRadius: 18,
+    backgroundColor: '#2C2C2E',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  feishuVoiceBtnActive: {
+    backgroundColor: '#0066CC',
+  },
+  feishuVoiceBtnText: {
+    fontSize: 15, color: '#8E8E93', fontWeight: '600',
+  },
+  feishuVoiceBtnTextActive: {
+    color: '#FFFFFF',
+  },
+
 });
