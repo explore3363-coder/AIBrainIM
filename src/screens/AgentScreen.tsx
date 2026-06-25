@@ -50,6 +50,13 @@ type RootStackParamList = {
   Confirmations: undefined;
 };
 
+const QUICK_LINKS = [
+  {id: 'memory', label: '记忆库', emoji: '🧠', screen: 'MemoryStore' as const},
+  {id: 'knowledge', label: '知识库', emoji: '📚', screen: 'KnowledgeBase' as const},
+  {id: 'files', label: '附件库', emoji: '📎', screen: 'FileLibrary' as const},
+  {id: 'dispatch', label: '调度链', emoji: '⚡', screen: 'DispatchChain' as const},
+];
+
 export function AgentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {agents, tasks, dispatches, pendingConfirmations, refreshing, refresh, runtimeMode, runtimeError} = useAppContext();
@@ -72,7 +79,6 @@ export function AgentScreen() {
     AgentPlatformService.healthCheck().then(ok => setPlatformHealthy(ok));
   }, []);
 
-  // Sync selected agent when agents list loads — guard against undefined selected
   useEffect(() => {
     if (!safeAgents.length) return;
     if (selected && safeAgents.some(a => a.id === selected.id)) return;
@@ -86,14 +92,14 @@ export function AgentScreen() {
   const latestDispatch = safeDispatches[0];
 
   const controlSummary = workingAgents.length > 0
-    ? `当前执行中：${workingAgents.map(agent => agent.name).join('、')}，可直接查看任务详情。`
-    : '当前没有执行中的智能体，系统处于待命状态。';
+    ? `正在执行：${workingAgents.map(agent => agent.name).join('、')}`
+    : '系统待命，可接收新任务';
 
   const selectedTaskHint = selected.status === 'working'
     ? `${selected.name} 执行中：${selected.current}`
     : selected.status === 'watching'
-      ? `${selected.name} 后台观察位，当前不占执行槽`
-      : `${selected.name} 待命，可接收新分派`;
+      ? `${selected.name} 后台观察中`
+      : `${selected.name} 待命`;
 
   const selectedTaskCount = useMemo(
     () => safeTasks.filter(task => task.agentId === selected.id && task.state !== 'done').length,
@@ -108,7 +114,7 @@ export function AgentScreen() {
         const bUpdated = b.updatedAt ?? 0;
         return bUpdated - aUpdated;
       })
-      .slice(0, 3),
+      .slice(0, 2),
     [safeTasks, selected.id],
   );
 
@@ -129,26 +135,17 @@ export function AgentScreen() {
       id: 'dispatch',
       title: '看调度链',
       detail: latestDispatch
-        ? `最新一条调度当前状态：${latestDispatch.status}${latestDispatch.taskId ? ` · ${latestDispatch.taskId}` : ''}`
-        : '目前还没有新的调度单压进来。',
+        ? `${latestDispatch.status}${latestDispatch.taskId ? ` · ${latestDispatch.taskId}` : ''}`
+        : '暂无调度记录',
       accent: C.primary,
-      onPress: () => navigation.navigate('DispatchChain'),
-    },
-    {
-      id: 'running',
-      title: '盯执行位',
-      detail: runningTasks.length > 0
-        ? `现在有 ${runningTasks.length} 条任务在跑，优先关注正在工作的智能体。`
-        : '当前没有运行中任务，说明可以继续压真实接口和上线收口。',
-      accent: C.working,
       onPress: () => navigation.navigate('DispatchChain'),
     },
     {
       id: 'confirm',
       title: '处理确认项',
       detail: pendingConfirmations > 0 || blockedTasks.length > 0
-        ? `还有 ${Math.max(pendingConfirmations, blockedTasks.length)} 条人工拍板节点会影响后续推进。`
-        : '当前没有确认链阻塞，执行链是通的。',
+        ? `${Math.max(pendingConfirmations, blockedTasks.length)} 条待拍板`
+        : '执行链畅通',
       accent: '#f87171',
       onPress: () => navigation.navigate('Confirmations'),
     },
@@ -157,22 +154,20 @@ export function AgentScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>智能体</Text>
-        <Text style={styles.sub}>{agents.length} 个 Agent · 实时状态</Text>
-        <Text style={styles.syncText}>
-          {refreshing
-            ? '正在拉取智能体状态…'
-            : runtimeMode === 'live'
-              ? '已连接 · 实时同步'
-              : `回退模式 · ${runtimeError ?? '等待网关恢复'}`}
-        </Text>
-        <Text style={[styles.syncText, {color: platformHealthy ? '#34d399' : platformHealthy === false ? '#f87171' : C.textMuted}]}>
-          {platformHealthy === null ? '' : platformHealthy ? '协作平台在线 ✅' : '协作平台离线 ⚠️'}
-        </Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>智能体</Text>
+          <View style={[styles.runtimeBadge, {backgroundColor: runtimeMode === 'live' ? C.primaryGlow : 'rgba(255,100,100,0.12)', borderColor: runtimeMode === 'live' ? C.primary : '#f87171'}]}>
+            <View style={[styles.runtimeDot, {backgroundColor: runtimeMode === 'live' ? C.primary : '#f87171'}]} />
+            <Text style={[styles.runtimeText, {color: runtimeMode === 'live' ? C.primary : '#f87171'}]}>
+              {runtimeMode === 'live' ? '实时' : '离线'}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.sub}>{agents.length} 个 Agent · {workingAgents.length} 个执行中</Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.grid}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -182,83 +177,65 @@ export function AgentScreen() {
           />
         }
       >
-
-        {/* ── AI 能力中心 · 快捷入口 ── */}
-        <View style={qaStyles.qaSection}>
-          <Text style={qaStyles.qaEyebrow}>AI 能力中心</Text>
-          <View style={qaStyles.qaGrid}>
-            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('MemoryStore')}>
-              <View style={qaStyles.qaCardContent}>
-                <Text style={qaStyles.qaEmoji}>🧠</Text>
-                <Text style={qaStyles.qaLabel}>记忆库</Text>
-                <Text style={qaStyles.qaDesc}>长期记忆 · 上下文</Text>
-              </View>
+        {/* Quick Nav Strip */}
+        <View style={styles.quickStrip}>
+          {QUICK_LINKS.map(link => (
+            <TouchableOpacity
+              key={link.id}
+              style={styles.quickChip}
+              activeOpacity={0.75}
+              onPress={() => navigation.navigate(link.screen as any)}
+            >
+              <Text style={styles.quickEmoji}>{link.emoji}</Text>
+              <Text style={styles.quickLabel}>{link.label}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('KnowledgeBase')}>
-              <View style={qaStyles.qaCardContent}>
-                <Text style={qaStyles.qaEmoji}>📚</Text>
-                <Text style={qaStyles.qaLabel}>知识库</Text>
-                <Text style={qaStyles.qaDesc}>矿业知识 · 文档</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('FileLibrary')}>
-              <View style={qaStyles.qaCardContent}>
-                <Text style={qaStyles.qaEmoji}>📎</Text>
-                <Text style={qaStyles.qaLabel}>附件库</Text>
-                <Text style={qaStyles.qaDesc}>文件管理 · 资料</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={qaStyles.qaCard} activeOpacity={0.8} onPress={() => navigation.navigate('DispatchChain')}>
-              <View style={qaStyles.qaCardContent}>
-                <Text style={qaStyles.qaEmoji}>⚡</Text>
-                <Text style={qaStyles.qaLabel}>调度链</Text>
-                <Text style={qaStyles.qaDesc}>任务分发 · 执行链</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
+        {/* Focus Board */}
         <View style={styles.focusBoard}>
           <View style={styles.focusTop}>
-            <View>
-              <Text style={styles.focusEyebrow}>AGENT CONTROL</Text>
-              <Text style={styles.focusTitle}>先判断谁在工作，再决定看谁</Text>
-            </View>
-            <View style={styles.focusBadge}>
-              <Text style={styles.focusBadgeText}>{workingAgents.length > 0 ? `${workingAgents.length} 个执行中` : '当前待命'}</Text>
+            <Text style={styles.focusTitle}>执行态势</Text>
+            <View style={[styles.focusBadge, workingAgents.length > 0 && styles.focusBadgeActive]}>
+              <Text style={[styles.focusBadgeText, workingAgents.length > 0 && styles.focusBadgeTextActive]}>
+                {workingAgents.length > 0 ? `${workingAgents.length} 个执行中` : '待命'}
+              </Text>
             </View>
           </View>
           <Text style={styles.focusDesc}>{controlSummary}</Text>
 
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, {color: C.working}]}>执行中</Text>
-              <Text style={styles.summaryValue}>{workingAgents.length}</Text>
-              <Text style={styles.summaryHint}>直接代表当前前台产出压力</Text>
+          <View style={styles.statRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, {color: C.working}]}>{workingAgents.length}</Text>
+              <Text style={styles.statLabel}>执行中</Text>
             </View>
-            <View style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, {color: C.accent}]}>在线</Text>
-              <Text style={styles.summaryValue}>{onlineAgents.length}</Text>
-              <Text style={styles.summaryHint}>说明系统当前可被即时调度</Text>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, {color: C.accent}]}>{onlineAgents.length}</Text>
+              <Text style={styles.statLabel}>在线</Text>
             </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabelWarning}>待确认</Text>
-              <Text style={styles.summaryValue}>{Math.max(pendingConfirmations, blockedTasks.length)}</Text>
-              <Text style={styles.summaryHint}>人工拍板会直接影响推进</Text>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, {color: '#f87171'}]}>{Math.max(pendingConfirmations, blockedTasks.length)}</Text>
+              <Text style={styles.statLabel}>待确认</Text>
             </View>
           </View>
         </View>
 
+        {/* Action Cards */}
         <View style={styles.actionRow}>
           {actionCards.map(card => (
             <TouchableOpacity key={card.id} style={styles.actionCard} activeOpacity={0.85} onPress={card.onPress}>
-              <Text style={[styles.actionTitle, {color: card.accent}]}>{card.title}</Text>
+              <View style={styles.actionHeader}>
+                <View style={[styles.actionDot, {backgroundColor: card.accent}]} />
+                <Text style={[styles.actionTitle, {color: card.accent}]}>{card.title}</Text>
+              </View>
               <Text style={styles.actionDetail}>{card.detail}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* ── HUD Agent Grid with Ring Effects + Live Badges + Confidence ── */}
+        {/* Agent Grid */}
         <View style={styles.agentGrid}>
           {agents.map(agent => {
             const sel = selected.id === agent.id;
@@ -274,147 +251,138 @@ export function AgentScreen() {
               <TouchableOpacity
                 key={agent.id}
                 style={[
-                  styles.gridCard,
-                  sel && styles.gridCardSel,
-                  {borderTopColor: agent.accent},
+                  styles.agentCard,
+                  sel && styles.agentCardSel,
+                  {borderLeftColor: agent.accent},
                 ]}
                 onPress={() => setSelected(agent)}
                 activeOpacity={0.8}
               >
-                <View style={styles.hudRingContainer}>
-                  {agent.status === 'working' && (
-                    <View style={[styles.hudRingOuter, {borderColor: agent.accent + '30'}]} />
-                  )}
-                  {agent.status !== 'idle' && (
-                    <View style={[styles.hudRingInner, {borderColor: statusColor + '60'}]} />
-                  )}
-                  <View style={[styles.avatar, {backgroundColor: agent.accent}]}>
-                    <Text style={styles.avatarText}>{agent.name.slice(0, 1)}</Text>
+                <View style={styles.agentCardTop}>
+                  <View style={[styles.agentAvatar, {backgroundColor: agent.accent}]}>
+                    <Text style={styles.agentAvatarText}>{agent.name.slice(0, 1)}</Text>
+                    {agent.status === 'working' && (
+                      <View style={[styles.agentLiveDot, {backgroundColor: statusColor}]} />
+                    )}
                   </View>
-                  {agent.status === 'working' && (
-                    <View style={[styles.liveBadge, {backgroundColor: statusColor}]} />
-                  )}
-                </View>
-                <Text style={styles.agentName}>{agent.name}</Text>
-                <Text style={styles.agentRole}>{agent.role}</Text>
-                <View style={styles.statusRow}>
-                  <View style={[styles.statusDot, {backgroundColor: statusColor}]} />
-                  <Text style={[styles.statusText, {color: statusColor}]}>{STATUS_LABEL[agent.status]}</Text>
+                  <View style={styles.agentMeta}>
+                    <Text style={styles.agentName}>{agent.name}</Text>
+                    <View style={styles.agentStatusRow}>
+                      <View style={[styles.statusDot, {backgroundColor: statusColor}]} />
+                      <Text style={[styles.statusText, {color: statusColor}]}>{STATUS_LABEL[agent.status]}</Text>
+                    </View>
+                  </View>
                   <View style={[styles.confidencePill, {borderColor: confidenceColor + '60'}]}>
                     <Text style={[styles.confidenceText, {color: confidenceColor}]}>{confidence}%</Text>
                   </View>
                 </View>
+                <Text style={styles.agentRole} numberOfLines={1}>{agent.role}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
+        {/* Selected Agent Detail */}
         <View style={styles.detail}>
-          <View style={[styles.detailTop, {borderBottomColor: selected.accent}]}>
-          <View style={styles.hudRingContainerLg}>
-            <View style={[styles.hudRingOuterLg, {borderColor: selected.accent + '30'}]} />
-            {selected.status !== 'idle' && (
-              <View style={[styles.hudRingInnerLg, {borderColor: STATUS_COLOR[selected.status] + '60'}]} />
-            )}
-            <View style={[styles.avatarLg, {backgroundColor: selected.accent}]}>
-              <Text style={styles.avatarTextLg}>{selected.name.slice(0, 1)}</Text>
+          <View style={styles.detailHeader}>
+            <View style={[styles.detailAvatar, {backgroundColor: selected.accent}]}>
+              <Text style={styles.detailAvatarText}>{selected.name.slice(0, 1)}</Text>
+              {selected.status === 'working' && (
+                <View style={[styles.detailLiveDot, {backgroundColor: STATUS_COLOR[selected.status]}]} />
+              )}
             </View>
-            {selected.status === 'working' && (
-              <View style={[styles.liveBadgeLg, {backgroundColor: STATUS_COLOR[selected.status]}]} />
-            )}
-          </View>
-            <View style={styles.detailInfo}>
+            <View style={styles.detailMeta}>
               <Text style={styles.detailName}>{selected.name}</Text>
               <Text style={styles.detailRole}>{selected.role}</Text>
-              <View style={styles.statusRow}>
+              <View style={styles.agentStatusRow}>
                 <View style={[styles.statusDot, {backgroundColor: STATUS_COLOR[selected.status]}]} />
                 <Text style={[styles.statusText, {color: STATUS_COLOR[selected.status]}]}>{STATUS_LABEL[selected.status]}</Text>
               </View>
-              {(() => {
-                const q = selected.queueDepth ?? 0;
-                const lastAgo = selected.lastActiveAt ? Math.floor((Date.now() - selected.lastActiveAt) / 60000) : 999;
-                const base = selected.status === 'working' ? 85 : selected.status === 'online' ? 70 : selected.status === 'watching' ? 55 : 40;
-                const conf = Math.min(99, Math.max(10, base - Math.min(30, q * 5) - Math.min(20, lastAgo * 2)));
-                const cColor = conf >= 70 ? C.primary : conf >= 45 ? '#fbbf24' : '#f87171';
-                return (
-                  <View style={[styles.confidencePillLg, {borderColor: cColor + '80'}]}>
-                    <Text style={[styles.confidenceTextLg, {color: cColor}]}>置信度 {conf}%</Text>
-                  </View>
-                );
-              })()}
+            </View>
+            {(() => {
+              const q = selected.queueDepth ?? 0;
+              const lastAgo = selected.lastActiveAt ? Math.floor((Date.now() - selected.lastActiveAt) / 60000) : 999;
+              const base = selected.status === 'working' ? 85 : selected.status === 'online' ? 70 : selected.status === 'watching' ? 55 : 40;
+              const conf = Math.min(99, Math.max(10, base - Math.min(30, q * 5) - Math.min(20, lastAgo * 2)));
+              const cColor = conf >= 70 ? C.primary : conf >= 45 ? '#fbbf24' : '#f87171';
+              return (
+                <View style={[styles.detailConfBadge, {borderColor: cColor + '80'}]}>
+                  <Text style={[styles.detailConfText, {color: cColor}]}>{conf}%</Text>
+                </View>
+              );
+            })()}
+          </View>
+
+          <View style={styles.infoRows}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>专注领域</Text>
+              <Text style={styles.infoValue}>{selected.focus}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>当前任务</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>📍 {selected.current}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>实时链路</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {selected.sessionKey
+                  ? `session=${selected.sessionKey}${selected.runtimeMs ? ` · ${Math.round(selected.runtimeMs / 1000)}s` : ''}`
+                  : selected.sourceMode === 'fallback' ? '离线模式' : '暂无 session'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>最后心跳</Text>
+              <Text style={styles.infoValue}>
+                {selected.lastActiveAt
+                  ? (() => {
+                      const diff = Date.now() - selected.lastActiveAt;
+                      const mins = Math.floor(diff / 60000);
+                      const secs = Math.floor((diff % 60000) / 1000);
+                      return mins > 0 ? `${mins}m ago` : `${secs}s ago`;
+                    })()
+                  : '无记录'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>执行负载</Text>
+              <Text style={styles.infoValue}>{selectedTaskCount} 待处理 · {selectedDispatchCount} 关联调度</Text>
             </View>
           </View>
 
-          <Text style={styles.detailLabel}>专注领域</Text>
-          <Text style={styles.detailValue}>{selected.focus}</Text>
-
-          <Text style={styles.detailLabel}>当前任务</Text>
-          <Text style={styles.detailValue}>📍 {selected.current}</Text>
-
-          <Text style={styles.detailLabel}>实时链路</Text>
-          <Text style={styles.detailValue}>
-            {selected.sessionKey
-              ? `session=${selected.sessionKey}${selected.runtimeMs ? ` · runtime ${Math.round(selected.runtimeMs / 1000)}s` : ''}`
-              : selected.sourceMode === 'fallback'
-                ? '离线模式 · 显示最后已知状态'
-                : '暂无 session 数据'}
-          </Text>
-
-          <Text style={styles.detailLabel}>最后心跳</Text>
-          <Text style={styles.detailValue}>
-            {selected.lastActiveAt
-              ? (() => {
-                  const diff = Date.now() - selected.lastActiveAt;
-                  const mins = Math.floor(diff / 60000);
-                  const secs = Math.floor((diff % 60000) / 1000);
-                  return mins > 0 ? `${mins} 分钟前` : secs >= 0 ? `${secs} 秒前` : '刚刚';
-                })()
-              : '无心跳记录'}
-          </Text>
-
-          <Text style={styles.detailLabel}>队列深度</Text>
-          <Text style={styles.detailValue}>
-            {selected.queueDepth !== undefined
-              ? `${selected.queueDepth} 个待处理${selected.queueDepth > 3 ? ' ⚠️' : selected.queueDepth === 0 ? ' ✅' : ''}`
-              : '无法获取'}
-          </Text>
-
-          <Text style={styles.detailLabel}>执行负载</Text>
-          <Text style={styles.detailValue}>未完成任务 {selectedTaskCount} 条 · 已关联调度 {selectedDispatchCount} 条</Text>
-
-          <Text style={styles.detailLabel}>当前判断</Text>
-          <Text style={styles.detailValue}>{selectedTaskHint}</Text>
-
-          <Text style={styles.detailLabel}>正在处理的任务</Text>
-          {selectedAgentTasks.length > 0 ? selectedAgentTasks.map(task => (
-            <View key={task.id} style={styles.inlineCard}>
-              <View style={styles.inlineCardTop}>
-                <Text style={styles.inlineCardTitle}>{task.title}</Text>
-                <View style={[styles.inlineStateBadge, {backgroundColor: STATUS_COLOR[selected.status] + '22', borderColor: STATUS_COLOR[selected.status] + '55'}]}>
-                  <Text style={[styles.inlineStateText, {color: STATUS_COLOR[selected.status]}]}>{TASK_STATE_LABEL[task.state]}</Text>
+          {selectedAgentTasks.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>正在处理</Text>
+              {selectedAgentTasks.map(task => (
+                <View key={task.id} style={styles.inlineCard}>
+                  <View style={styles.inlineCardTop}>
+                    <Text style={styles.inlineCardTitle} numberOfLines={1}>{task.title}</Text>
+                    <View style={[styles.inlineStateBadge, {backgroundColor: STATUS_COLOR[selected.status] + '22', borderColor: STATUS_COLOR[selected.status] + '55'}]}>
+                      <Text style={[styles.inlineStateText, {color: STATUS_COLOR[selected.status]}]}>{TASK_STATE_LABEL[task.state]}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.inlineCardMeta}>{task.priority ?? 'P2'} · {task.eta}</Text>
+                  <Text style={styles.inlineCardDetail} numberOfLines={2}>{task.next}</Text>
                 </View>
-              </View>
-              <Text style={styles.inlineCardMeta}>{task.priority ?? 'P2'} · {task.eta}</Text>
-              <Text style={styles.inlineCardDetail}>{task.next}</Text>
-            </View>
-          )) : (
-            <Text style={styles.detailValue}>暂无任务记录</Text>
+              ))}
+            </>
           )}
 
-          <Text style={styles.detailLabel}>最近回流</Text>
-          {selectedAgentDispatches.length > 0 ? selectedAgentDispatches.map(dispatch => (
-            <View key={dispatch.id} style={styles.inlineCard}>
-              <View style={styles.inlineCardTop}>
-                <Text style={styles.inlineCardTitle} numberOfLines={2}>{dispatch.userText}</Text>
-                <View style={[styles.inlineStateBadge, {backgroundColor: selected.accent + '22', borderColor: selected.accent + '55'}]}>
-                  <Text style={[styles.inlineStateText, {color: selected.accent}]}>{DISPATCH_STATUS_LABEL[dispatch.status]}</Text>
+          {selectedAgentDispatches.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>最近回流</Text>
+              {selectedAgentDispatches.map(dispatch => (
+                <View key={dispatch.id} style={styles.inlineCard}>
+                  <View style={styles.inlineCardTop}>
+                    <Text style={styles.inlineCardTitle} numberOfLines={2}>{dispatch.userText}</Text>
+                    <View style={[styles.inlineStateBadge, {backgroundColor: selected.accent + '22', borderColor: selected.accent + '55'}]}>
+                      <Text style={[styles.inlineStateText, {color: selected.accent}]}>{DISPATCH_STATUS_LABEL[dispatch.status]}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.inlineCardMeta}>{dispatch.taskId ?? '无 taskId'}</Text>
+                  <Text style={styles.inlineCardDetail} numberOfLines={2}>{dispatch.reply}</Text>
                 </View>
-              </View>
-              <Text style={styles.inlineCardMeta}>{dispatch.taskId ?? '未生成 taskId'}{dispatch.sessionKey ? ` · ${dispatch.sessionKey}` : ''}</Text>
-              <Text style={styles.inlineCardDetail} numberOfLines={3}>{dispatch.reply}</Text>
-            </View>
-          )) : (
-            <Text style={styles.detailValue}>暂无回流记录</Text>
+              ))}
+            </>
           )}
         </View>
       </ScrollView>
@@ -422,241 +390,157 @@ export function AgentScreen() {
   );
 }
 
-const qaStyles = StyleSheet.create({
-  qaSection: { paddingHorizontal: LAYOUT.pageMargin, paddingTop: 16, paddingBottom: 4 },
-  qaEyebrow: { color: C.primary, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 },
-  qaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  qaCard: {
-    width: '47.5%',
-    backgroundColor: C.bgCard,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qaCardContent: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  qaEmoji: { fontSize: 28, marginBottom: 4 },
-  qaLabel: { color: C.textTitle, fontSize: 15, fontWeight: '800' },
-  qaDesc: { color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 2 },
-});
-
 const BR = 16;
 const styles = StyleSheet.create({
   root:         {flex: 1, backgroundColor: C.bgRoot},
-  header:       {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
-  title:        {color: C.textTitle, fontSize: 26, fontWeight: '900'},
-  sub:          {color: C.textMuted, fontSize: 12, marginTop: 4},
-  syncText:     {color: C.primary, fontSize: 11, marginTop: 8, fontWeight: '700'},
-  grid:         {padding: 16, paddingBottom: 100},
-  focusBoard: {
-    padding: 16,
-    borderRadius: BR,
-    backgroundColor: C.bgCard,
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
-    marginBottom: 14,
+  header:       {paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10},
+  headerTop:    {flexDirection: 'row', alignItems: 'center', gap: 10},
+  title:        {color: C.textTitle, fontSize: 24, fontWeight: '900'},
+  runtimeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1,
   },
-  focusTop: {
+  runtimeDot:   {width: 6, height: 6, borderRadius: 3},
+  runtimeText:  {fontSize: 10, fontWeight: '800'},
+  sub:          {color: C.textMuted, fontSize: 12, marginTop: 2},
+  content:      {paddingHorizontal: 16, paddingBottom: 100},
+
+  quickStrip: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  quickChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  focusEyebrow: {color: C.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1},
-  focusTitle: {color: C.textTitle, fontSize: 20, fontWeight: '900', marginTop: 4},
-  focusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: C.primaryGlow,
-    borderWidth: 1,
-    borderColor: C.borderActive,
-  },
-  focusBadgeText: {color: C.primary, fontSize: 11, fontWeight: '900'},
-  focusDesc: {color: C.textBody, fontSize: 13, lineHeight: 20, marginTop: 10},
-  summaryRow: {flexDirection: 'row', gap: 10, marginTop: 14},
-  summaryCard: {
-    flex: 1,
-    padding: 12,
-    borderRadius: BR,
-    backgroundColor: C.bgSurface,
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
-  },
-  summaryLabel: {fontSize: 11, fontWeight: '900'},
-  summaryLabelWarning: {fontSize: 11, fontWeight: '900', color: '#f87171'},
-  summaryValue: {color: C.textTitle, fontSize: 20, fontWeight: '900', marginTop: 6},
-  summaryHint: {color: C.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5},
-  actionRow: {gap: 10, marginBottom: 14},
-  actionCard: {
-    padding: 16,
-    borderRadius: BR,
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 12,
     backgroundColor: C.bgCard,
     borderWidth: 1,
     borderColor: C.borderSubtle,
   },
-  actionTitle: {fontSize: 14, fontWeight: '900'},
-  actionDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
-  agentGrid:    {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
-  gridCard: {
-    width: '47%',
+  quickEmoji: {fontSize: 14},
+  quickLabel: {color: C.textBody, fontSize: 11, fontWeight: '700'},
+
+  focusBoard: {
     padding: 14,
     borderRadius: BR,
     backgroundColor: C.bgCard,
     borderWidth: 1,
     borderColor: C.borderSubtle,
-    borderTopWidth: 3,
-    paddingBottom: 18,
-  },
-  gridCardSel: {
-    backgroundColor: 'rgba(20,38,68,0.88)',
-    borderColor: C.primary,
-  },
-  avatar: {
-    width: 44, height: 44, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
     marginBottom: 10,
   },
-  avatarText: {color: '#020617', fontSize: 18, fontWeight: '900'},
-  agentName:  {color: C.textTitle, fontSize: 18, fontWeight: '800'},
-  agentRole:  {color: C.primary, fontSize: 11, marginTop: 4},
-  statusRow:  {flexDirection: 'row', alignItems: 'center', marginTop: 10},
-  hudRingContainer: {
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    position: 'relative',
+  focusTop: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  focusTitle: {color: C.textTitle, fontSize: 15, fontWeight: '800'},
+  focusBadge: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+    backgroundColor: C.bgSurface, borderWidth: 1, borderColor: C.borderSubtle,
   },
-  hudRingOuter: {
-    position: 'absolute',
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 2,
-  },
-  hudRingInner: {
-    position: 'absolute',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 1.5,
-  },
-  liveBadge: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: C.bgCard,
-  },
-  confidencePill: {
-    marginLeft: 'auto',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  confidenceText: {
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  statusDot: {width: 7, height: 7, borderRadius: 4, marginRight: 6},
-  statusText: {color: C.textBody, fontSize: 12, fontWeight: '700'},
+  focusBadgeActive: {backgroundColor: C.primaryGlow, borderColor: C.borderActive},
+  focusBadgeText: {fontSize: 10, fontWeight: '800', color: C.textMuted},
+  focusBadgeTextActive: {color: C.primary},
+  focusDesc: {color: C.textBody, fontSize: 12, marginTop: 6, lineHeight: 18},
 
-  detail: {
-    marginTop: 16, padding: 16, borderRadius: BR,
+  statRow: {
+    flexDirection: 'row', alignItems: 'center',
+    marginTop: 12, backgroundColor: C.bgSurface,
+    borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16,
+  },
+  statItem: {flex: 1, alignItems: 'center'},
+  statDivider: {width: 1, height: 28, backgroundColor: C.borderSubtle},
+  statValue: {fontSize: 18, fontWeight: '900'},
+  statLabel: {color: C.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600'},
+
+  actionRow: {flexDirection: 'row', gap: 10, marginBottom: 10},
+  actionCard: {
+    flex: 1, padding: 12, borderRadius: BR,
     backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle,
   },
-  detailTop: {
-    flexDirection: 'row', gap: 16, paddingBottom: 14, marginBottom: 14,
+  actionHeader: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  actionDot: {width: 6, height: 6, borderRadius: 3},
+  actionTitle: {fontSize: 13, fontWeight: '800'},
+  actionDetail: {color: C.textBody, fontSize: 11, marginTop: 5, lineHeight: 16},
+
+  agentGrid:    {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12},
+  agentCard: {
+    width: '48.5%', padding: 12, borderRadius: 14,
+    backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle, borderLeftWidth: 3,
+  },
+  agentCardSel: {backgroundColor: 'rgba(20,38,68,0.88)', borderColor: C.primary, borderLeftColor: C.primary},
+  agentCardTop: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  agentAvatar: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', position: 'relative',
+  },
+  agentAvatarText: {color: '#020617', fontSize: 15, fontWeight: '900'},
+  agentLiveDot: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: C.bgCard,
+  },
+  agentMeta: {flex: 1},
+  agentName: {color: C.textTitle, fontSize: 14, fontWeight: '800'},
+  agentRole: {color: C.textMuted, fontSize: 10, marginTop: 3},
+  agentStatusRow: {flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2},
+  statusDot: {width: 6, height: 6, borderRadius: 3},
+  statusText: {fontSize: 11, fontWeight: '700'},
+  confidencePill: {
+    paddingHorizontal: 5, paddingVertical: 2, borderRadius: 999, borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  confidenceText: {fontSize: 9, fontWeight: '900'},
+
+  detail: {
+    padding: 14, borderRadius: BR,
+    backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle,
+  },
+  detailHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingBottom: 12, marginBottom: 12,
     borderBottomWidth: 1, borderBottomColor: C.borderSubtle,
   },
-  hudRingContainerLg: {
-    width: 80,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+  detailAvatar: {
+    width: 48, height: 48, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', position: 'relative',
   },
-  hudRingOuterLg: {
-    position: 'absolute',
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    borderWidth: 2,
+  detailAvatarText: {color: '#020617', fontSize: 20, fontWeight: '900'},
+  detailLiveDot: {
+    position: 'absolute', bottom: 1, right: 1,
+    width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: C.bgCard,
   },
-  hudRingInnerLg: {
-    position: 'absolute',
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 1.5,
+  detailMeta: {flex: 1},
+  detailName: {color: C.textTitle, fontSize: 17, fontWeight: '900'},
+  detailRole: {color: C.primary, fontSize: 11, marginTop: 2},
+  detailConfBadge: {
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
+    borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.2)',
   },
-  liveBadgeLg: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2.5,
-    borderColor: C.bgCard,
+  detailConfText: {fontSize: 12, fontWeight: '900'},
+
+  infoRows: {gap: 0},
+  infoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)', gap: 12,
   },
-  confidencePillLg: {
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    alignSelf: 'flex-start',
+  infoLabel: {color: C.textMuted, fontSize: 11, fontWeight: '700', flexShrink: 0},
+  infoValue: {color: C.textBody, fontSize: 12, textAlign: 'right', flex: 1},
+
+  sectionTitle: {
+    color: C.primary, fontSize: 11, fontWeight: '800',
+    marginTop: 14, marginBottom: 8, letterSpacing: 0.5,
   },
-  confidenceTextLg: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  avatarLg: {
-    width: 56, height: 56, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarTextLg: {color: '#020617', fontSize: 24, fontWeight: '900'},
-  detailInfo:  {flex: 1, justifyContent: 'center'},
-  detailName: {color: C.textTitle, fontSize: 20, fontWeight: '900'},
-  detailRole: {color: C.primary, fontSize: 12, marginTop: 4},
-  detailLabel: {color: C.textMuted, fontSize: 11, fontWeight: '700', marginTop: 14},
-  detailValue: {color: C.textBody, fontSize: 14, lineHeight: 20, marginTop: 5},
   inlineCard: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: C.bgSurface,
-    borderWidth: 1,
-    borderColor: C.borderSubtle,
+    padding: 10, borderRadius: 10,
+    backgroundColor: C.bgSurface, borderWidth: 1, borderColor: C.borderSubtle, marginBottom: 6,
   },
-  inlineCardTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  inlineCardTitle: {flex: 1, color: C.textTitle, fontSize: 13, fontWeight: '800'},
-  inlineCardMeta: {color: C.textMuted, fontSize: 11, marginTop: 5},
-  inlineCardDetail: {color: C.textBody, fontSize: 12, lineHeight: 18, marginTop: 6},
+  inlineCardTop: {flexDirection: 'row', alignItems: 'flex-start', gap: 8},
+  inlineCardTitle: {flex: 1, color: C.textTitle, fontSize: 12, fontWeight: '800'},
+  inlineCardMeta: {color: C.textMuted, fontSize: 10, marginTop: 4},
+  inlineCardDetail: {color: C.textBody, fontSize: 11, marginTop: 5, lineHeight: 16},
   inlineStateBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    borderWidth: 1,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, borderWidth: 1,
   },
-  inlineStateText: {fontSize: 10, fontWeight: '900'},
+  inlineStateText: {fontSize: 9, fontWeight: '900'},
 });

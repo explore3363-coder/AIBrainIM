@@ -90,7 +90,6 @@ function TabNavigator() {
       }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{tabBarIcon: _tabIcon('首页', '🛡')}} />
-      <Tab.Screen name="Chat" component={ChatScreen} options={{tabBarIcon: _tabIcon('协作', '👥')}} />
       <Tab.Screen name="Agent" component={AgentScreen} options={{tabBarIcon: _tabIcon('Agent', '🤖')}} />
       <Tab.Screen name="Messages" component={MessageScreen} options={{tabBarIcon: _tabIcon('消息', '📩')}} />
       <Tab.Screen name="Tasks" component={TaskScreen} options={{tabBarIcon: _tabIcon('任务', '📋')}} />
