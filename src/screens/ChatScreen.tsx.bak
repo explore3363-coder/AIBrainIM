@@ -107,8 +107,8 @@ function renderMessageContent(item: NewMessage, collaboration: ReturnType<typeof
       <View>
         {collaboration && (
           <AgentCollaborationGraph
-            nodes={[collaboration.fromNode as any, collaboration.toNode as any]}
-            links={[{from: collaboration.fromNode.agentId!, to: collaboration.toNode.agentId!, label: '分发'}]}
+            nodes={[collaboration.fromNode, collaboration.toNode]}
+            links={[{from: collaboration.fromNode.agentId, to: collaboration.toNode.agentId, label: '分发'}]}
             timestamp={collaboration.timestamp}
           />
         )}
@@ -132,8 +132,8 @@ function renderMessageContent(item: NewMessage, collaboration: ReturnType<typeof
     <View>
       {collaboration && (
         <AgentCollaborationGraph
-          nodes={[collaboration.fromNode as any, collaboration.toNode as any]}
-          links={[{from: collaboration.fromNode.agentId!, to: collaboration.toNode.agentId!, label: '协作'}]}
+          nodes={[collaboration.fromNode, collaboration.toNode]}
+          links={[{from: collaboration.fromNode.agentId, to: collaboration.toNode.agentId, label: '协作'}]}
           timestamp={collaboration.timestamp}
         />
       )}
@@ -504,7 +504,7 @@ export function ChatScreen() {
           {/* Attachment chips */}
           {queuedAttachmentSummaries.length > 0 && (
             <View style={styles.attachmentRow}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentScroll}>
                 {queuedAttachmentSummaries.map(att => (
                   <TouchableOpacity key={att.id} style={styles.attachmentChip} activeOpacity={0.75} onPress={() => clearQueuedAttachment(att.id)}>
                     <Text style={styles.attachmentChipText} numberOfLines={1}>{att.name}</Text>
@@ -625,7 +625,6 @@ const styles = StyleSheet.create({
   historyBannerText: {color: '#34d399', fontSize: 11, fontWeight: '800'},
 
   // ── Bubble Layout (Feishu-style: avatar + bubble) ──────────────────
-  bubbleRow: {flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 12},
   bubbleRowIn: {flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 12},
   bubbleRowOut: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, marginBottom: 12},
   avatarBot: {
@@ -666,73 +665,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(52,211,153,0.08)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.25)',
     alignItems: 'center',
   },
-  subtaskCompleteEmoji: {fontSize: 28, marginBottom: 6},
-  subtaskCompleteTitle: {color: '#fff', fontSize: 14, fontWeight: '800', textAlign: 'center'},
-  subtaskCompleteCounter: {color: '#4DFF88', fontSize: 12, fontWeight: '700', marginTop: 4},
-  subtaskCompleteTime: {color: '#64748B', fontSize: 10, marginTop: 4},
-
-  // Scroll FAB
-  scrollFab: {
-    position: 'absolute', right: 16, bottom: 8,
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(56,100,200,0.85)', alignItems: 'center', justifyContent: 'center',
-  },
-  scrollFabIcon: {color: '#fff', fontSize: 18, fontWeight: '900'},
-
-  // Input Area
-  inputArea: {
-    backgroundColor: '#0D1117',
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
-  },
-  attachmentRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
-  },
-  attachmentChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.1)', borderWidth: 1, borderColor: 'rgba(56,189,248,0.25)',
-    marginRight: 6,
-  },
-  attachmentChipText: {color: '#E2E8F0', fontSize: 11, fontWeight: '700', maxWidth: 120},
-  attachmentChipX: {color: '#64748B', fontSize: 13, fontWeight: '900'},
-  attachmentClearAll: {
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
-    backgroundColor: 'rgba(248,113,113,0.08)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)',
-  },
-  attachmentClearAllText: {color: '#f87171', fontSize: 11, fontWeight: '800'},
-
-  inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 16, paddingBottom: 14, paddingTop: 8,
-  },
-  attachBtns: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingBottom: 2,
-  },
-  attachBtn: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  attachBtnText: {fontSize: 16},
-
-  inputWrap: {
-    flex: 1, minHeight: 38, maxHeight: 96,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 14, paddingVertical: 8,
-  },
-  input: {
-    flex: 1, color: '#FFFFFF', fontSize: 15, lineHeight: 22,
-    paddingVertical: 0, paddingHorizontal: 0, marginVertical: 0,
-  },
-
-  sendBtn: {
-    width: 54, height: 38, borderRadius: 19,
-    backgroundColor: '#0066CC',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sendBtnDisabled: {backgroundColor: 'rgba(0,102,204,0.3)'},
-  sendBtnText: {color: '#FFFFFF', fontSize: 14, fontWeight: '800'},
-});
+  subtaskCompleteEmoji: {fontSize: 28
