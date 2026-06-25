@@ -504,8 +504,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.borderSubtle,
   },
   filterChipActive: {
-    backgroundColor: 'rgba(56,100,200,0.25)',
-    borderColor: C.borderActive,
+    backgroundColor: 'rgba(77,255,136,0.15)',
+    borderColor: C.primary,
   },
   filterText:      {color: C.textMuted, fontSize: 14, fontWeight: '700'},
   filterTextActive:{color: C.primary},
@@ -598,12 +598,12 @@ const styles = StyleSheet.create({
   contextChipMutedText: {color: C.textMuted, fontSize: 11, fontWeight: '800'},
   card: {
     flexDirection: 'row', gap: 12,
-    padding: 14, borderRadius: 18,
+    padding: 16, borderRadius: 20,
     backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.borderSubtle,
   },
   cardLeft: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(56,100,200,0.08)',
+    backgroundColor: 'rgba(77,255,136,0.06)',
     alignItems: 'center', justifyContent: 'center',
   },
   fileEmoji:  {fontSize: 22},
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   },
   emptyIcon:   {fontSize: 48},
   emptyTitle:  {color: C.textTitle, fontSize: 18, fontWeight: '900', textAlign: 'center'},
-  emptyDesc:   {color: C.textBody, fontSize: 13, lineHeight: 20, textAlign: 'center'},
+  emptyDesc:   {color: C.textMuted, fontSize: 13, lineHeight: 20, textAlign: 'center'},
   emptySub:    {color: C.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center', fontStyle: 'italic'},
   emptyPrimaryBtn: {
     marginTop: 8,
