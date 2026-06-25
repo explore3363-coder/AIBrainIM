@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   FlatList,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {SmartMineService} from '../services/SmartMineService';
 import {SmartMineCard} from '../components/SmartMineCard';
 import {SectionTitle} from '../components/SectionTitle';
@@ -82,13 +83,19 @@ export function SmartMineScreen() {
   const equipTotal = equipment.length;
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-      }
-    >
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>⛏️ 智慧矿山</Text>
+        <Text style={styles.headerSub}>实时生产监控 · 设备状态 · 安全数据</Text>
+        <Text style={styles.headerHelper}>每30秒自动刷新一次</Text>
+      </View>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        }
+      >
       {/* ── 生产总览 ── */}
       <SectionTitle title="生产总览" hint="实时数据" />
       {production && (
@@ -242,11 +249,17 @@ export function SmartMineScreen() {
       </View>
 
       <View style={styles.footer} />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {flex: 1, backgroundColor: C.bgRoot},
+  header: {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12},
+  headerTitle: {color: C.textTitle, fontSize: 26, fontWeight: '900'},
+  headerSub: {color: C.textMuted, fontSize: 12, marginTop: 4},
+  headerHelper: {color: C.primary, fontSize: 11, marginTop: 8, lineHeight: 16},
   content: {padding: 16, paddingBottom: 100},
   productionGrid: {flexDirection: 'row', gap: 10, marginBottom: 20},
   productionRight: {flex: 1},
@@ -272,7 +285,7 @@ const styles = StyleSheet.create({
     borderColor: C.borderSubtle,
   },
   filterChipActive: {
-    backgroundColor: 'rgba(77,255,136,0.12)',
+    backgroundColor: 'rgba(77,255,136,0.15)',
     borderColor: C.primary,
   },
   filterChipText: {color: C.textMuted, fontSize: 13, fontWeight: '700'},
