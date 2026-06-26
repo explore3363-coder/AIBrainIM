@@ -222,6 +222,7 @@ async function fetchConversations(): Promise<ConversationItem[]> {
 type RootStackParamList = {
   Tabs: {screen?: string} | undefined;
   Chat: {agentId?: string; agentName?: string};
+  ChatAgent: {agentId: string; agentName: string; agentRole: string; accent: string};
 };
 
 export function MessageScreen() {
@@ -249,7 +250,12 @@ export function MessageScreen() {
   }, [loadConversations]);
 
   const handleConversationPress = useCallback((item: ConversationItem) => {
-    navigation.navigate('Tabs', {screen: 'Chat'});
+    navigation.navigate('ChatAgent', {
+      agentId: item.agentId,
+      agentName: item.agentName,
+      agentRole: item.agentRole,
+      accent: item.accent,
+    });
   }, [navigation]);
 
   return (

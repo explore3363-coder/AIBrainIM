@@ -25,6 +25,7 @@ export type RootStackParamList = {
   Upload: {focusFileId?: string; focusDispatchId?: string} | undefined;
   GatewaySettings: undefined;
   SmartMine: undefined;
+  ChatAgent: {agentId: string; agentName: string; agentRole: string; accent: string};
 };
 
 import {C} from './data/constants';
@@ -51,6 +52,7 @@ import {GatewaySettingsScreen} from './screens/GatewaySettingsScreen';
 import {SmartMineScreen} from './screens/SmartMineScreen';
 import {LoginScreen} from './screens/LoginScreen';
 import {MessageScreen} from './screens/MessageScreen';
+import {ChatAgentScreen} from './screens/ChatAgentScreen';
 
 
 // ─── Navigators ────────────────────────────────────────────────────────────────
@@ -130,6 +132,7 @@ function RootNavigator({onLogout}: {onLogout: () => void}) {
       <Stack.Screen name="Confirmations"   component={ConfirmationsScreen}  options={{title: '需确认项',     headerBackTitle: '返回'}} />
       <Stack.Screen name="Upload"          component={UploadScreen}         options={{title: '📤 上传管理',  headerBackTitle: '返回'}} />
       <Stack.Screen name="GatewaySettings" component={GatewaySettingsScreen} options={{title: 'Gateway 配置', headerBackTitle: '返回'}} />
+      <Stack.Screen name="ChatAgent" component={ChatAgentScreen} options={{headerShown: false}} />
       <Stack.Screen name="SmartMine" component={SmartMineScreen} options={{title: '⛏️ 智慧矿山', headerBackTitle: '返回'}} />
     </Stack.Navigator>
   );
