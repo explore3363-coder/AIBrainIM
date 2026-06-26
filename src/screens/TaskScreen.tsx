@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C, LAYOUT} from '../data/constants';
+import {ReleaseStatusCard} from '../components/ReleaseStatusCard';
 
 // ─── OA Types ─────────────────────────────────────────────────────────────────
 type OAType = 'approval' | 'report' | 'notification' | 'finance' | 'safety';
@@ -518,6 +519,9 @@ export function TaskScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
+        {/* 🚀 上线准备 */}
+        <ReleaseStatusCard />
+
         {/* Urgent banner — only show when on 'mine' tab */}
         {activeTab === 'mine' && urgentMsgs.length > 0 && (
           <View style={styles.urgentBanner}>

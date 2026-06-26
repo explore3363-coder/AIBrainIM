@@ -10,3 +10,4 @@ export {MessageBubble}          from './MessageBubble';
 export {TaskDecomposeCard}      from './TaskDecomposeCard';
 export {AgentCollaborationGraph} from './AgentCollaborationGraph';
 export {DispatchCard}        from './DispatchCard';
+export {ReleaseStatusCard} from './ReleaseStatusCard';
