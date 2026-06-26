@@ -105,7 +105,7 @@ jobs:
             VERSION="${GITHUB_REF#refs/tags/}"
             VERSION="${VERSION#v}"
           else
-            VERSION="1.0.0.$(git rev-parse --short HEAD)"
+            VERSION="1.0.0"
           fi
           echo "Setting MARKETING_VERSION to $VERSION"
           python3 /tmp/set_version.py "$VERSION" ios/AIBrainIM.xcodeproj/project.pbxproj
