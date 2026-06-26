@@ -46,13 +46,13 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 6,
-    paddingBottom: 4,
+    paddingTop: 4,
+    paddingBottom: 2,
   },
   iconWrap: {
     position: 'relative',
     width: 48,
-    height: 32,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   emoji: {
-    fontSize: 22,
+    fontSize: 18,
     opacity: 0.7,
   },
   emojiFocused: {
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     color: C.tabInactive,
     fontSize: 10,
     fontWeight: '600',
-    marginTop: 3,
+    marginTop: 2,
     letterSpacing: 0.3,
   },
   labelFocused: {
