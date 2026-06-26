@@ -87,13 +87,24 @@ jobs:
       - name: Build JS bundle (bundle phase handles this during archive - this step is for verification only)
         run: |
           echo "Bundle will be built by xcodebuild bundle phase during archive"
-      - name: Set MARKETING_VERSION from git tag
+      - name: Set MARKETING_VERSION
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
-          echo "Setting MARKETING_VERSION to $VERSION from tag $TAG"
-          sed -i '' "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $VERSION;/" ios/AIBrainIM.xcodeproj/project.pbxproj
-          grep "MARKETING_VERSION" ios/AIBrainIM.xcodeproj/project.pbxproj | head -1
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="1.0.0.$(git rev-parse --short HEAD)"
+          fi
+          echo "Setting MARKETING_VERSION to $VERSION"
+          python3 -c "
+import re, sys
+f = sys.argv[1]
+v = sys.argv[2]
+with open(f) as fp: c = fp.read()
+c = re.sub(r'MARKETING_VERSION = [0-9.]+;', 'MARKETING_VERSION = ' + v + ';', c)
+with open(f, 'w') as fp: fp.write(c)
+print('Set to', v)
+" ios/AIBrainIM.xcodeproj/project.pbxproj "$VERSION"
 
       - name: Set Info.plist build version
         run: |
