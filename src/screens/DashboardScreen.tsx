@@ -11,6 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {C, LAYOUT} from '../data/constants';
+import {ProcessFlowCard} from '../components/ProcessFlowCard';
 import {SmartMineService} from '../services/SmartMineService';
 import type {ProductionData, Equipment, Alert, Camera} from '../types/smartmine';
 import type {RootStackParamList} from '../App';
@@ -423,7 +424,7 @@ const phStyles = StyleSheet.create({
     marginBottom: 4,
   },
   bigStat: { flex: 1.2, alignItems: 'center' },
-  bigValue: { color: C.textPrimary, fontSize: 40, fontWeight: '800', lineHeight: 46 },
+  bigValue: { color: C.textPrimary, fontSize: 28, fontWeight: '800', lineHeight: 34 },
   bigUnit: { color: C.primary, fontSize: 13, fontWeight: '700', marginTop: -2 },
   bigLabel: { color: C.textMuted, fontSize: 12, marginTop: 3 },
   divider: { width: 1, height: 40, backgroundColor: C.borderSubtle, marginHorizontal: 12 },
@@ -589,6 +590,7 @@ export function DashboardScreen() {
 
 
         {production && <ProductionHero data={production} />}
+        <ProcessFlowCard />
 
         <SectionTitle title="设备状态" />
         <EquipmentRow equipment={equipment} />
