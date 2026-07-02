@@ -406,6 +406,14 @@ export function ChatScreen() {
     const outboundText = contextPackPreview ? `${userText}\n\n[本轮上下文包]\n${contextPackPreview}` : userText;
 
     setMessages(m => [...m, {role: 'out', text: userText}]);
+    // 同步写入 MessageStore（供 MessageScreen 和其他入口读取完整上下文）
+    MessageStore.addMessage('main', {
+      id: makeMessageId(),
+      sessionKey: 'main',
+      role: 'user',
+      content: userText,
+      timestamp: Date.now(),
+    });
     setDraft('');
     setSending(true);
     setTyping(true);
@@ -440,8 +448,26 @@ export function ChatScreen() {
         syncAttachments();
       }
       setMessages(m => [...m, {role: 'in', name: '助理', text: reply}]);
+      // 同步写入 MessageStore
+      MessageStore.addMessage('main', {
+        id: makeMessageId(),
+        sessionKey: 'main',
+        role: 'assistant',
+        content: reply,
+        timestamp: Date.now(),
+        agentName: '助理',
+      });
     } catch (err) {
-      setMessages(m => [...m, {role: 'in', name: '助理', text: `⚠️ 发送失败:${err instanceof Error ? err.message : String(err)}`}]);
+      const errMsg = `⚠️ 发送失败:${err instanceof Error ? err.message : String(err)}`;
+      setMessages(m => [...m, {role: 'in', name: '助理', text: errMsg}]);
+      MessageStore.addMessage('main', {
+        id: makeMessageId(),
+        sessionKey: 'main',
+        role: 'assistant',
+        content: errMsg,
+        timestamp: Date.now(),
+        agentName: '助理',
+      });
     } finally {
       setSending(false);
       setTyping(false);
