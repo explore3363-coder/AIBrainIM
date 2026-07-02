@@ -57,8 +57,15 @@ function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
 }
 
-function renderLegacyBubble(msg: LegacyMessage, key: number | string) {
+function renderLegacyBubble(msg: LegacyMessage, key: number | string, onLongPress?: () => void) {
   const isUser = msg.role === 'out';
+  const bubble = (
+    <View style={[styles.bubble, isUser ? styles.bubbleOut : styles.bubbleIn]}>
+      {!isUser && msg.name && <Text style={styles.bubbleName}>{msg.name}</Text>}
+      <Text style={[styles.bubbleText, isUser && styles.bubbleTextOut]}>{msg.text}</Text>
+      <Text style={[styles.bubbleTime, isUser && styles.bubbleTimeOut]}>{formatTime(Date.now())}</Text>
+    </View>
+  );
   return (
     <View key={String(key)} style={[styles.bubbleRow, isUser ? styles.bubbleRowOut : styles.bubbleRowIn]}>
       {!isUser && (
@@ -66,11 +73,9 @@ function renderLegacyBubble(msg: LegacyMessage, key: number | string) {
           <Text style={styles.avatarBotText}>助</Text>
         </View>
       )}
-      <View style={[styles.bubble, isUser ? styles.bubbleOut : styles.bubbleIn]}>
-        {!isUser && msg.name && <Text style={styles.bubbleName}>{msg.name}</Text>}
-        <Text style={[styles.bubbleText, isUser && styles.bubbleTextOut]}>{msg.text}</Text>
-        <Text style={[styles.bubbleTime, isUser && styles.bubbleTimeOut]}>{formatTime(Date.now())}</Text>
-      </View>
+      {onLongPress ? (
+        <TouchableOpacity style={{flex:1}} onLongPress={onLongPress} delayLongPress={500}>{bubble}</TouchableOpacity>
+      ) : bubble}
       {isUser && (
         <View style={styles.avatarUser}>
           <Text style={styles.avatarUserText}>我</Text>
@@ -80,8 +85,15 @@ function renderLegacyBubble(msg: LegacyMessage, key: number | string) {
   );
 }
 
-function renderNewMessageBubble(item: NewMessage, key: number | string) {
+function renderNewMessageBubble(item: NewMessage, key: number | string, onLongPress?: () => void) {
   const isUser = item.role === 'user';
+  const bubble = (
+    <View style={[styles.bubble, isUser ? styles.bubbleOut : styles.bubbleIn]}>
+      {!isUser && item.agentName && <Text style={styles.bubbleName}>{item.agentName}</Text>}
+      <Text style={[styles.bubbleText, isUser && styles.bubbleTextOut]}>{item.content}</Text>
+      <Text style={[styles.bubbleTime, isUser && styles.bubbleTimeOut]}>{formatTime(item.timestamp)}</Text>
+    </View>
+  );
   return (
     <View key={String(key)} style={[styles.bubbleRow, isUser ? styles.bubbleRowOut : styles.bubbleRowIn]}>
       {!isUser && (
@@ -89,11 +101,9 @@ function renderNewMessageBubble(item: NewMessage, key: number | string) {
           <Text style={styles.avatarBotText}>助</Text>
         </View>
       )}
-      <View style={[styles.bubble, isUser ? styles.bubbleOut : styles.bubbleIn]}>
-        {!isUser && item.agentName && <Text style={styles.bubbleName}>{item.agentName}</Text>}
-        <Text style={[styles.bubbleText, isUser && styles.bubbleTextOut]}>{item.content}</Text>
-        <Text style={[styles.bubbleTime, isUser && styles.bubbleTimeOut]}>{formatTime(item.timestamp)}</Text>
-      </View>
+      {onLongPress ? (
+        <TouchableOpacity style={{flex:1}} onLongPress={onLongPress} delayLongPress={500}>{bubble}</TouchableOpacity>
+      ) : bubble}
       {isUser && (
         <View style={styles.avatarUser}>
           <Text style={styles.avatarUserText}>我</Text>
@@ -302,6 +312,42 @@ export function ChatScreen() {
       scheduleTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
     });
 
+    // 注册 gatewayWS 事件监听器：接收 session.message 推送并写入 MessageStore
+    const unsubWS = gatewayWS.onMessage((msg) => {
+      const eventName = (msg as any).event;
+      if (eventName !== 'session.message') return;
+      const pl = (msg as any).payload;
+      if (!pl) return;
+      const incomingMsg = pl.message;
+      if (!incomingMsg) return;
+
+      // 提取消息内容（content 可能是字符串或 ContentBlock[]）
+      let text: string;
+      if (typeof incomingMsg.content === 'string') {
+        text = incomingMsg.content;
+      } else if (Array.isArray(incomingMsg.content)) {
+        // 取纯文本片段拼接
+        text = (incomingMsg.content as any[])
+          .map((block: any) => (typeof block === 'string' ? block : block?.text ?? ''))
+          .filter(Boolean)
+          .join('\n');
+      } else {
+        text = JSON.stringify(incomingMsg.content);
+      }
+
+      // 写入 MessageStore（id 用于去重）
+      MessageStore.addMessage('main', {
+        id: incomingMsg.id ?? `push-${Date.now()}`,
+        sessionKey: 'main',
+        role: incomingMsg.role === 'user' ? 'user'
+          : incomingMsg.role === 'assistant' ? 'assistant'
+          : 'system',
+        content: text,
+        timestamp: incomingMsg.timestamp ?? Date.now(),
+        agentName: incomingMsg.agentName ?? (incomingMsg.role === 'assistant' ? '助理' : undefined),
+      });
+    });
+
     // 连接 Gateway WebSocket（如果尚未连接）
     if (!gatewayWS.isConnected()) {
       gatewayWS.connect().then(result => {
@@ -318,6 +364,7 @@ export function ChatScreen() {
 
     return () => {
       unsubStore();
+      unsubWS();
     };
   }, [scheduleTimeout]);
 
@@ -396,6 +443,19 @@ export function ChatScreen() {
     }
     return sections.join('\n\n');
   }, [contextSignals, queuedAttachmentSummaries]);
+
+  /** 长按消息气泡 → 显示操作菜单（删除） */
+  const handleMessageLongPress = useCallback((index: number, isUser: boolean) => {
+    if (!isUser) return; // 暂时只允许删除自己的消息
+    const msg = messages[index];
+    if (!msg) return;
+    Alert.alert('消息操作', msg.text.slice(0, 40) + (msg.text.length > 40 ? '…' : ''), [
+      {text: '删除', style: 'destructive', onPress: () => {
+        setMessages(prev => prev.filter((_, i) => i !== index));
+      }},
+      {text: '取消', style: 'cancel'},
+    ]);
+  }, [messages]);
 
   const handleSend = useCallback(async () => {
     const trimmedDraft = draft.trim();
@@ -545,10 +605,11 @@ export function ChatScreen() {
             {allMessages.map((item, i) => {
               const collaboration = detectCollaboration(allMessages, i);
               const isTextBubble = item.type === 'text' || !item.type;
-              if (isTextBubble) return renderNewMessageBubble(item, item.id);
+              const onLP = () => handleMessageLongPress(i + messages.length, item.role === 'user');
+              if (isTextBubble) return renderNewMessageBubble(item, item.id, onLP);
               return <View key={item.id} style={styles.collabCardWrap}>{renderMessageContent(item, collaboration)}</View>;
             })}
-            {messages.map((msg, i) => renderLegacyBubble(msg, `legacy-${i}`))}
+            {messages.map((msg, i) => renderLegacyBubble(msg, `legacy-${i}`, () => handleMessageLongPress(i, msg.role === 'out')))}
 
             {typing && (
               <View style={styles.bubbleRowIn}>
