@@ -27,6 +27,8 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {C} from '../data/constants';
+import {gatewayWS} from '../services/GatewayWSService';
+import {MessageStore} from '../stores/MessageStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -204,17 +206,90 @@ function EmptyState({loading}: {loading: boolean}) {
   );
 }
 
-// ─── 真实数据获取（TODO: 替换为真实 API） ────────────────────────────────────
+// ─── 真实数据获取（接入 gatewayWS.listSessions） ───────────────────────────────
 
-/**
- * TODO: replace with real Feishu message API
- * 正确路径：feishu_im_user_get_messages — 获取单聊历史
- * 按 sender open_id 聚合，提取最后一条消息
- */
+/** 从 MessageStore 获取某 session 的最后一条消息 */
+function getLastMessageText(sessionKey: string): string {
+  const msgs = MessageStore.getMessages(sessionKey);
+  if (msgs.length === 0) return '暂无消息';
+  const last = msgs[msgs.length - 1];
+  return last.content.length > 60 ? last.content.slice(0, 60) + '…' : last.content;
+}
+
 async function fetchConversations(): Promise<ConversationItem[]> {
-  // TODO: replace with real API call
-  await new Promise<void>(resolve => setTimeout(() => resolve(), 600));
-  return MOCK_CONVERSATIONS;
+  try {
+    // 确保 gatewayWS 已连接
+    if (!gatewayWS.isConnected()) {
+      const result = await gatewayWS.connect();
+      if (!result.ok) {
+        console.warn('[MessageScreen] gatewayWS connect failed, using mock');
+        return MOCK_CONVERSATIONS;
+      }
+    }
+
+    const sessions = await gatewayWS.listSessions();
+    if (!Array.isArray(sessions) || sessions.length === 0) {
+      // 无活跃 session，回退到主会话
+      return MOCK_CONVERSATIONS;
+    }
+
+    // 构建真实会话列表（优先 main/zhuli）
+    const mainSession = sessions.find(
+      (s: any) => s.key === 'main' || s.sessionKey === 'main'
+    );
+
+    const result: ConversationItem[] = [];
+
+    // 主会话（助理）
+    result.push({
+      id: 'conv_zhuli',
+      agentId: 'zhuli',
+      agentName: '助理',
+      agentRole: 'AI 总指挥',
+      accent: C.zhuli,
+      lastMessage: getLastMessageText('main'),
+      timestamp: Date.now(),
+      unread: 0,
+    });
+
+    // 其他活跃 session（如果有）
+    for (const s of sessions) {
+      const key = (s as any).key ?? (s as any).sessionKey ?? '';
+      if (!key || key === 'main') continue;
+      const agentId = (s as any).agentId ?? (s as any).id ?? key;
+      const meta = getAgentMeta(agentId);
+      result.push({
+        id: `conv_${agentId}`,
+        agentId,
+        agentName: meta.name,
+        agentRole: meta.role,
+        accent: meta.accent,
+        lastMessage: getLastMessageText(key),
+        timestamp: (s as any).lastMessageAt ?? Date.now(),
+        unread: (s as any).unreadCount ?? 0,
+      });
+    }
+
+    return result;
+  } catch (err) {
+    console.warn('[MessageScreen] fetchConversations error, using mock:', err);
+    return MOCK_CONVERSATIONS;
+  }
+}
+
+/** 从 AgentMeta 表查 agent 基本信息 */
+function getAgentMeta(agentId: string): {name: string; role: string; accent: string} {
+  const META: Record<string, {name: string; role: string; accent: string}> = {
+    xunlong: {name: '寻龙', role: '矿业研究员', accent: C.xunlong},
+    wuyin:   {name: '无垠', role: '矿山项目工程', accent: C.wuyin},
+    tansuo:  {name: '探索', role: '采选矿专家', accent: C.tansuo},
+    zhilian: {name: '智联', role: '知识库管理员', accent: C.zhilian},
+    heijin:  {name: '黑金', role: 'AI 项目工程师', accent: C.heijin},
+    renzhi:  {name: '认知中枢', role: '后台认知层', accent: C.renzhi},
+    jiancha: {name: '监察', role: '风险审计', accent: '#A78BFA'},
+    kaifa:   {name: '开发', role: 'Codex 开发 Bot', accent: C.kaifa},
+  };
+  return META[agentId] ?? {name: agentId, role: 'Agent', accent: C.primary};
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -248,6 +323,26 @@ export function MessageScreen() {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // ── 实时更新：监听 MessageStore 变化，刷新会话列表 ──
+  useEffect(() => {
+    const unsub = MessageStore.subscribe('main', (msgs) => {
+      if (msgs.length === 0) return;
+      const last = msgs[msgs.length - 1];
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === 'conv_zhuli');
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          lastMessage: last.content.length > 60 ? last.content.slice(0, 60) + '…' : last.content,
+          timestamp: last.timestamp,
+        };
+        return updated;
+      });
+    });
+    return unsub;
+  }, []);
 
   const handleConversationPress = useCallback((item: ConversationItem) => {
     navigation.navigate('ChatAgent', {

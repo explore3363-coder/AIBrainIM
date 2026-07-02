@@ -105,6 +105,8 @@ export class GatewayWSService {
           });
           this.connectResolve = null;
         }
+        // 握手完成后，自动订阅 main session 的消息事件
+        this.subscribeSession('main').catch(() => {});
         return;
       }
       if (pl.type === 'error' && this.connectResolve) {
@@ -239,6 +241,16 @@ export class GatewayWSService {
   async listSessions(): Promise<unknown[]> {
     const result = await this.request('sessions.list', {}) as {sessions?: unknown[]};
     return result.sessions ?? [];
+  }
+
+  /** 订阅指定 session 的消息事件（用于实时接收推送） */
+  async subscribeSession(key: string): Promise<boolean> {
+    try {
+      const result = await this.request('sessions.messages.subscribe', {key}) as {subscribed?: boolean};
+      return result?.subscribed === true;
+    } catch {
+      return false;
+    }
   }
 
   /** 断开连接 */

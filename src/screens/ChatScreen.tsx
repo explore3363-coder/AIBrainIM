@@ -17,6 +17,8 @@ import {TaskDecomposeCard} from '../components/TaskDecomposeCard';
 import {AgentCollaborationGraph} from '../components/AgentCollaborationGraph';
 import type {Message as NewMessage} from '../types';
 import {sendMessage} from '../data/api';
+import {gatewayWS} from '../services/GatewayWSService';
+import {MessageStore} from '../stores/MessageStore';
 import {enqueueUpload, uploadService, retryUpload as retryUploadFn} from '../services/uploadService';
 import {useAppContext} from '../context/AppContext';
 
@@ -274,6 +276,51 @@ export function ChatScreen() {
     };
   }, [clearAttachmentPoller]);
 
+
+  // ── 实时消息监听（AIBrainIM 替代飞书核心） ──────────────────────────
+  useEffect(() => {
+    // 初始化 main session 消息
+    MessageStore.initSession('main');
+
+    // 订阅 MessageStore 变化，实时更新 UI
+    const unsubStore = MessageStore.subscribe('main', (msgs) => {
+      if (msgs.length === 0) return;
+      const last = msgs[msgs.length - 1];
+      // 避免重复追加（handleSend 已经处理了本地发送的消息）
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(m => (m as any)._msgId));
+        if (existingIds.has(last.id)) return prev;
+        const bubble: LegacyMessage = {
+          role: last.role === 'user' ? 'out' : 'in',
+          name: last.agentName ?? '助理',
+          text: last.content,
+        };
+        (bubble as any)._msgId = last.id;
+        return [...prev, bubble];
+      });
+      setTyping(false);
+      scheduleTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 150);
+    });
+
+    // 连接 Gateway WebSocket（如果尚未连接）
+    if (!gatewayWS.isConnected()) {
+      gatewayWS.connect().then(result => {
+        if (result.ok) {
+          // 握手完成后 GatewayWSService 会自动订阅 main session
+          console.log('[Chat] GatewayWS connected, subscribed to main');
+        } else {
+          console.warn('[Chat] GatewayWS connect failed:', result.error);
+        }
+      }).catch(err => {
+        console.warn('[Chat] GatewayWS connect error:', err);
+      });
+    }
+
+    return () => {
+      unsubStore();
+    };
+  }, [scheduleTimeout]);
+
   // Attachment upload handlers
   const _handlePickImage = useCallback(() => {
     launchImageLibrary({mediaType: 'mixed', selectionLimit: 0}, (res: ImagePickerResponse) => {
@@ -406,7 +453,9 @@ export function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <View style={styles.flexCol}>
+      {/* 点击空白区域关闭键盘 */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.flexCol}>
 
         {/* ── Header ── */}
         <View style={styles.header}>
@@ -566,8 +615,8 @@ export function ChatScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
       </View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
