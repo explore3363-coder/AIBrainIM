@@ -3,7 +3,9 @@ import {getAppleReleaseStatus} from '../src/services/releaseChannel';
 const runtimeProcess = globalThis as typeof globalThis & {
   process?: {env?: Record<string, string | undefined>};
 };
-const testProcess = runtimeProcess.process ?? (runtimeProcess.process = {env: {}});
+const _testProcessBase = runtimeProcess.process ?? {env: {}};
+if (!runtimeProcess.process) runtimeProcess.process = _testProcessBase;
+const testProcess = _testProcessBase as typeof process & {env: Record<string, string | undefined>};
 
 describe('releaseChannel', () => {
   const originalOverride = globalThis.__AIBRAINIM_RELEASE_CHANNEL__;
