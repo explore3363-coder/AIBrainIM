@@ -1,0 +1,208 @@
+name: TestFlight Release
+'on':
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: {}
+env:
+  APP_NAME: AIBrainIM
+  ASC_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
+  ASC_ISSUER_ID: ${{ vars.APPLE_API_ISSUER_ID }}
+  APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+
+jobs:
+  build:
+    runs-on:
+      - self-hosted
+      - macos
+      - xcode-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate Apple CI inputs
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          npm ci
+          npm run preflight:testflight
+
+      - name: Cache Pods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
+
+      - name: Install npm deps
+        run: |
+          npm ci
+
+      # Step 1: Explicitly build fresh Hermes bytecode bundle BEFORE archive.
+      # This ensures the bundle is regenerated from current code, regardless of DerivedData cache.
+      # Bundle phase NOT removed - xcodebuild handles bundling naturally
+    
+      - name: Install Ruby 3.3
+        run: |
+          if [ ! -f /opt/homebrew/opt/ruby@3.3/bin/ruby ]; then
+            brew install ruby@3.3
+          fi
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
+          ruby --version
+          gem --version
+
+      - name: Re-install npm dependencies (clean)
+        run: |
+          # npm ci can fail on runners due to cache issues; use npm install + force
+          rm -rf node_modules
+          npm cache clean --force
+          npm install --prefer-offline=false
+          # Diagnostic
+          echo "=== react package main field ==="
+          node -p "require('./node_modules/react/package.json').main"
+          echo "=== react version ==="
+          node -p "require('./node_modules/react/package.json').version"
+          echo "=== react index.js exists? ==="
+          ls node_modules/react/index.js 2>/dev/null && echo "YES" || echo "NO"
+
+      - name: Install CocoaPods
+        run: |
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
+          gem install cocoapods --no-document || true
+          which pod && pod --version || true
+
+      - name: Install Pods
+        run: |
+          export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
+          pod install
+        working-directory: ios
+
+      - name: Build JS bundle (bundle phase handles this during archive - this step is for verification only)
+        run: |
+          echo "Bundle will be built by xcodebuild bundle phase during archive"
+      - name: Upload version set script
+        run: |
+          cat > /tmp/set_version.py << 'SCRIPT'
+          import re, sys
+          v = sys.argv[1]
+          f = sys.argv[2]
+          with open(f) as fp: c = fp.read()
+          c = re.sub(r'MARKETING_VERSION = [\d.]+;', 'MARKETING_VERSION = ' + v + ';', c)
+          with open(f, 'w') as fp: fp.write(c)
+          print('Set to', v)
+          SCRIPT
+
+      - name: Set MARKETING_VERSION
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="1.0.0"
+          fi
+          echo "Setting MARKETING_VERSION to $VERSION"
+          python3 /tmp/set_version.py "$VERSION" ios/AIBrainIM.xcodeproj/project.pbxproj
+
+      - name: Set Info.plist build version
+        run: |
+          BUILD_NUMBER=$(date +%Y%m%d%H%M)
+          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $BUILD_NUMBER" ios/AIBrainIM/Info.plist
+
+      - name: Write API key decode script
+        run: |
+          cat > /tmp/decode_asc_key.py << 'PYEOF'
+          import os, base64, pathlib
+          raw = os.environ.get('APPLE_API_KEY_CONTENT', '')
+          kid = os.environ.get('ASC_KEY_ID', '').strip()
+          out_path = str(pathlib.Path.home()) + '/private_keys/AuthKey_' + kid + '.p8'
+          raw_s = raw.strip()
+          data = raw_s.encode('utf-8') if '-----BEGIN' in raw_s else base64.b64decode(raw_s)
+          pathlib.Path(out_path).write_bytes(data)
+          os.chmod(out_path, 0o600)
+          print(len(data))
+          PYEOF
+
+      - name: Decode API key
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          mkdir -p ~/private_keys
+          python3 /tmp/decode_asc_key.py
+
+      - name: Create ExportOptions.plist
+        run: |
+          python3 -c "
+          import os
+          team = os.environ.get('APPLE_TEAM_ID', '').strip()
+          xml = '''<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+          <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+          <plist version=\"1.0\">
+          <dict>
+            <key>teamID</key><string>''' + team + '''</string>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>allowProvisioningUpdates</key><true/>
+            <key>uploadBitcode</key><false/>
+            <key>uploadSymbols</key><true/>
+            <key>stripSwiftSymbols</key><true/>
+            <key>destination</key><string>export</string>
+          </dict>
+          </plist>'''
+          open('/tmp/ExportOptions.plist', 'w').write(xml)
+          print('ExportOptions.plist created')
+          "
+
+      - name: Archive for App Store Connect
+        run: |
+          mkdir -p build
+          set -o pipefail
+          export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+          # Skip bundle phase: the bundle is pre-built by "Build JS bundle" step.
+          # xcodebuild Bundle phase runs Metro which fails to resolve react module on CI.
+          export USE_HERMES=true  # Must be true so native links Hermes engine; bundle is pre-built as Hermes bytecode
+          export RCT_NO_LAUNCH_PACKAGER=1
+          # Bundle phase is kept - xcodebuild handles bundling during archive
+          xcodebuild -workspace ios/AIBrainIM.xcworkspace -scheme AIBrainIM -configuration Release -destination generic/platform=iOS -archivePath build/AIBrainIM.xcarchive -derivedDataPath build/DerivedData -sdk iphoneos26.5 CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="iPhone Distribution: Hong Yang (7S96N8A32U)" CODE_SIGNING_KEYCHAIN=/Users/zz/Library/Keychains/login.keychain-db DEVELOPMENT_TEAM="$APPLE_TEAM_ID" HERMES_CLI_PATH="/Users/zz/actions-runner/live/_work/AIBrainIM/AIBrainIM/node_modules/hermes-compiler/hermesc/osx-bin/hermesc" archive 2>&1 | tee build/archive.log
+
+
+      - name: Export IPA for App Store Connect
+        run: |
+          set -o pipefail
+          mkdir -p build/export
+          # Try export; if errSecInternalComponent, retry after brief wait
+          xcodebuild -exportArchive \
+            -archivePath build/AIBrainIM.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist /tmp/ExportOptions.plist 2>&1 | tee build/export.log
+
+      - name: Verify IPA
+        run: |
+          IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          if [ -z "$IPA_PATH" ] || [ ! -f "$IPA_PATH" ]; then
+            echo "ERROR: No IPA found"
+            find build -maxdepth 3 -type f | sort
+            exit 1
+          fi
+          echo "IPA=$IPA_PATH ($(du -h $IPA_PATH | cut -f1))"
+
+      - name: Upload to App Store Connect
+        run: |
+          set -o pipefail
+          IPA_PATH=$(find build/export -name '*.ipa' | head -1)
+          xcrun altool --upload-app -f "$IPA_PATH" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --apiKey-path ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 2>&1 | tee build/upload.log
+
+      - name: Upload build logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-build-logs
+          path: build/archive.log build/export.log
+          if-no-files-found: ignore

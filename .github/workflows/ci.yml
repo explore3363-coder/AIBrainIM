@@ -1,0 +1,73 @@
+name: CI / Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ── TypeScript + Release Guard ───────────────────────────────────────────────
+  typecheck:
+    name: TypeScript + Release Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:release
+      - run: npm run validate:release-config
+      - run: npm run validate:assets
+
+  # ── iOS Simulator Build ───────────────────────────────────────────────────────
+  ios-sim:
+    name: iOS Simulator Build
+    runs-on: macos-15
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        id: pod-cache
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - run: npm ci
+
+      - name: Pod install
+        run: cd ios && pod install && cd ..
+
+      - name: Build for Simulator
+        run: |
+          xcodebuild -workspace ios/AIBrainIM.xcworkspace \
+            -scheme AIBrainIM \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build-logs
+          path: ~/Library/Logs/DiagnosticReports/
+          retention-days: 7
