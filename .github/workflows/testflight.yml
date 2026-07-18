@@ -122,6 +122,15 @@ jobs:
           mkdir -p ~/private_keys
           python3 /tmp/decode_asc_key.py
 
+      - name: Unlock keychain for CI signing
+        run: |
+          # Unlock the login keychain so xcodebuild can access private keys for signing
+          # errSecInternalComponent during export is caused by keychain requiring user session
+          security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
+          security list-keychains
+          # Also set as default to ensure codesign finds the right keychain
+          security default-keychain -s ~/Library/Keychains/login.keychain-db
+
       - name: Create ExportOptions.plist
         run: |
           python3 -c "
