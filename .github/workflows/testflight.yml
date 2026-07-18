@@ -58,20 +58,6 @@ jobs:
           ruby --version
           gem --version
 
-      - name: Re-install npm dependencies (clean)
-        run: |
-          # npm ci can fail on runners due to cache issues; use npm install + force
-          rm -rf node_modules
-          npm cache clean --force
-          npm install --prefer-offline=false
-          # Diagnostic
-          echo "=== react package main field ==="
-          node -p "require('./node_modules/react/package.json').main"
-          echo "=== react version ==="
-          node -p "require('./node_modules/react/package.json').version"
-          echo "=== react index.js exists? ==="
-          ls node_modules/react/index.js 2>/dev/null && echo "YES" || echo "NO"
-
       - name: Install CocoaPods
         run: |
           export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
