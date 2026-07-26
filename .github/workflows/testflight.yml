@@ -58,6 +58,20 @@ jobs:
           ruby --version
           gem --version
 
+      - name: Re-install npm dependencies (clean)
+        run: |
+          # npm ci can fail on runners due to cache issues; use npm install + force
+          rm -rf node_modules
+          npm cache clean --force
+          npm install --prefer-offline=false
+          # Diagnostic
+          echo "=== react package main field ==="
+          node -p "require('./node_modules/react/package.json').main"
+          echo "=== react version ==="
+          node -p "require('./node_modules/react/package.json').version"
+          echo "=== react index.js exists? ==="
+          ls node_modules/react/index.js 2>/dev/null && echo "YES" || echo "NO"
+
       - name: Install CocoaPods
         run: |
           export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/lib/ruby/gems/3.3.0/bin:$PATH"
@@ -122,15 +136,6 @@ jobs:
           mkdir -p ~/private_keys
           python3 /tmp/decode_asc_key.py
 
-      - name: Unlock keychain for CI signing
-        run: |
-          # Unlock the login keychain so xcodebuild can access private keys for signing
-          # errSecInternalComponent during export is caused by keychain requiring user session
-          security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
-          security list-keychains
-          # Also set as default to ensure codesign finds the right keychain
-          security default-keychain -s ~/Library/Keychains/login.keychain-db
-
       - name: Create ExportOptions.plist
         run: |
           python3 -c "
@@ -143,7 +148,6 @@ jobs:
             <key>teamID</key><string>''' + team + '''</string>
             <key>method</key><string>app-store-connect</string>
             <key>signingStyle</key><string>automatic</string>
-            <key>signingCertificate</key><string>Apple Distribution</string>
             <key>allowProvisioningUpdates</key><true/>
             <key>uploadBitcode</key><false/>
             <key>uploadSymbols</key><true/>
@@ -172,7 +176,6 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/export
-          # Try export; if errSecInternalComponent, retry after brief wait
           xcodebuild -exportArchive \
             -archivePath build/AIBrainIM.xcarchive \
             -exportPath build/export \
